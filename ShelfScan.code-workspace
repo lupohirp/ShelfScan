@@ -1,0 +1,33 @@
+{
+  "settings": {
+    "go.toolsManagement.checkForUpdates": "proxy",
+    "python.defaultInterpreterPath": "${workspaceFolder}/embeddings/venv/bin/python",
+    "editor.formatOnSave": true
+  },
+  "folders": [
+    {
+      "name": "Root",
+      "path": "."
+    },
+    {
+      "name": "Client (Main PWA)",
+      "path": "client"
+    },
+    {
+      "name": "Admin Client (Inventory PWA)",
+      "path": "admin-client"
+    },
+    {
+      "name": "Server (Go API)",
+      "path": "server"
+    },
+    {
+      "name": "MCP (Go Server)",
+      "path": "mcp"
+    },
+    {
+      "name": "Embeddings (Python ML)",
+      "path": "embeddings"
+    }
+  ]
+}
