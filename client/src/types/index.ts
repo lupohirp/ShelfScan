@@ -1,0 +1,52 @@
+export type UserRole = 'admin' | 'rep' | 'retailer'
+
+export interface User {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  role: UserRole
+}
+
+export interface Store {
+  id: string
+  name: string
+  city: string
+  address: string
+}
+
+export interface Product {
+  id: string
+  sku: string
+  name: string
+  category: string
+  subcategory?: string
+  imageUrl: string
+  status: 'active' | 'discontinued'
+}
+
+export interface DetectedProduct {
+  id: string
+  product: Product
+  confidence: number
+  manualOverride: boolean
+}
+
+export interface Scan {
+  id: string
+  imageUrl: string
+  detectedProducts: DetectedProduct[]
+  createdAt: string
+}
+
+export interface CheckSession {
+  id: string
+  store: Store
+  status: 'draft' | 'finalized'
+  scans: Scan[]
+  foundProducts: Product[]
+  missingProducts: Product[]
+  coverage: number
+  createdAt: string
+  finalizedAt?: string
+}
