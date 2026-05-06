@@ -125,28 +125,26 @@ export default function Camera() {
     try {
       if (stream) stream.getTracks().forEach(track => track.stop())
       
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-      if (!apiKey) throw new Error('Gemini API Key missing')
-
-      // Convert dataURL to Blob properly
       const res = await fetch(imageData)
       const blob = await res.blob()
       
       const formData = new FormData()
       formData.append('image', blob, 'shelf_scan.jpg')
       
-      // 1. Backend Search (Detect items in the shelf via Vector Search)
-      const searchResponse = await fetch('http://localhost:8080/search', {
+      const analysisResponse = await fetch('http://localhost:8080/analyze', {
         method: 'POST',
         body: formData
       })
       
-      if (!searchResponse.ok) throw new Error('Search API failed')
-      const searchResults = await searchResponse.json() as {name: string, score: number}[]
+      if (!analysisResponse.ok) {
+        const errText = await analysisResponse.text()
+        throw new Error(`Analyze API failed: ${errText}`)
+      }
       
-      // 2. Filter matches (Top results that actually exist in the shelf)
-      // We use a slightly lower threshold for full-shelf scans as objects are smaller
-      const identifiedItems = searchResults.filter(r => r.score > 0.45).map(r => r.name)
+      const analysisResults = await analysisResponse.json() as {desc: string, match: string, score: number}[]
+      console.log('AI Analysis results:', analysisResults)
+      
+      const identifiedItems = analysisResults.filter(r => r.score > 0.45).map(r => r.match)
       const uniqueIdentified = [...new Set(identifiedItems)]
 
       const foundProducts = uniqueIdentified.map(name => ({
@@ -172,9 +170,8 @@ export default function Camera() {
       navigate('/scan/results', { replace: true })
     } catch (err) {
       console.error('Shelf Analysis failed:', err)
-      alert('Errore durante l\'analisi della vetrina. Riprova.')
+      alert('Errore durante l\'analisi della vetrina. ' + err)
       setAnalyzing(false)
-      // Re-setup camera would be needed here, but for now we show an error
     }
   }
 

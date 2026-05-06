@@ -5,13 +5,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/disintegration/imaging"
+	"github.com/google/generative-ai-go/genai"
 	"github.com/qdrant/go-client/qdrant"
+	"google.golang.org/api/option"
 )
 
 type EmbeddingResponse struct {
@@ -121,13 +128,14 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(results)
 	}))
+
+	http.HandleFunc("/upload", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		// Parse multipart form
-		err := r.ParseMultipartForm(50 << 20) // 50MB for multiple images
+		err := r.ParseMultipartForm(50 << 20)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -154,7 +162,6 @@ func main() {
 			}
 			defer file.Close()
 
-			// Forward to embedding service
 			embedding, err := getEmbedding(embeddingsURL, file, fileHeader.Filename)
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error generating embedding for %s: %v", fileHeader.Filename, err), http.StatusInternalServerError)
@@ -163,7 +170,6 @@ func main() {
 			embeddings = append(embeddings, embedding)
 		}
 
-		// Save all views to Qdrant
 		err = saveMultipleToQdrant(qdrantURL, name, embeddings)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
@@ -172,6 +178,145 @@ func main() {
 
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Successfully uploaded and indexed %d views for %s", len(embeddings), name)
+	}))
+
+	http.HandleFunc("/analyze", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		err := r.ParseMultipartForm(50 << 20)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		file, _, err := r.FormFile("image")
+		if err != nil {
+			http.Error(w, "Missing image", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		imgData, err := io.ReadAll(file)
+		if err != nil {
+			http.Error(w, "Error reading image", http.StatusInternalServerError)
+			return
+		}
+
+		img, _, err := image.Decode(bytes.NewReader(imgData))
+		if err != nil {
+			http.Error(w, "Error decoding image", http.StatusInternalServerError)
+			return
+		}
+		bounds := img.Bounds()
+		width := bounds.Dx()
+		height := bounds.Dy()
+
+		ctx := context.Background()
+		apiKey := os.Getenv("GEMINI_API_KEY")
+		if apiKey == "" {
+			apiKey = r.FormValue("apiKey")
+		}
+		if apiKey == "" {
+			http.Error(w, "Missing API Key", http.StatusBadRequest)
+			return
+		}
+
+		client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("AI SDK error: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer client.Close()
+
+		// Using gemma-4-26b-it as requested
+		model := client.GenerativeModel("gemma-4-26b-it") 
+		
+		prompt := `Analyze this jewelry display. Identify each distinct jewelry item. Return ONLY a valid JSON array of objects. Each object must have:
+"desc": a short description of the item.
+"box": an array of 4 numbers [ymin, xmin, ymax, xmax] representing the normalized bounding box (0 to 1000).`
+
+		resp, err := model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("image/jpeg", imgData))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("AI Generation error: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		var responseText string
+		for _, part := range resp.Candidates[0].Content.Parts {
+			if text, ok := part.(genai.Text); ok {
+				responseText += string(text)
+			}
+		}
+
+		responseText = strings.TrimPrefix(responseText, "```json")
+		responseText = strings.TrimPrefix(responseText, "```")
+		responseText = strings.TrimSuffix(responseText, "```")
+		responseText = strings.TrimSpace(responseText)
+
+		type Detection struct {
+			Desc string `json:"desc"`
+			Box  []int  `json:"box"`
+		}
+		var detections []Detection
+		if err := json.Unmarshal([]byte(responseText), &detections); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to parse AI JSON: %v. Raw: %s", err, responseText), http.StatusInternalServerError)
+			return
+		}
+
+		type FinalResult struct {
+			Desc  string  `json:"desc"`
+			Match string  `json:"match"`
+			Score float32 `json:"score"`
+		}
+		var finalResults []FinalResult
+
+		for _, det := range detections {
+			if len(det.Box) != 4 {
+				continue
+			}
+			
+			ymin := det.Box[0] * height / 1000
+			xmin := det.Box[1] * width / 1000
+			ymax := det.Box[2] * height / 1000
+			xmax := det.Box[3] * width / 1000
+
+			if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
+				continue
+			}
+
+			cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
+			buf := new(bytes.Buffer)
+			jpeg.Encode(buf, cropped, nil)
+
+			emb, err := getEmbeddingBytes(embeddingsURL, buf.Bytes(), "crop.jpg")
+			if err != nil {
+				continue
+			}
+
+			hits, _ := performVectorSearch(qdrantURL, emb)
+			bestMatch := "Unknown"
+			var bestScore float32 = 0
+			if len(hits) > 0 {
+				bestMatch = hits[0]["name"].(string)
+				if score, ok := hits[0]["score"].(float32); ok {
+					bestScore = score
+				} else if score, ok := hits[0]["score"].(float64); ok {
+					bestScore = float32(score)
+				}
+			}
+
+			finalResults = append(finalResults, FinalResult{
+				Desc:  det.Desc,
+				Match: bestMatch,
+				Score: bestScore,
+			})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(finalResults)
 	}))
 
 	log.Printf("Server starting on port %s", port)
@@ -209,7 +354,7 @@ func listInventory(url string) ([]map[string]any, error) {
 	for _, p := range points {
 		payload := make(map[string]any)
 		for k, v := range p.Payload {
-			payload[k] = v.GetStringValue() // For now we only use name which is a string
+			payload[k] = v.GetStringValue() 
 		}
 
 		item := map[string]any{
@@ -286,6 +431,44 @@ func getEmbedding(url string, file io.Reader, filename string) ([]float32, error
 	return res.Embedding, nil
 }
 
+func getEmbeddingBytes(url string, imgData []byte, filename string) ([]float32, error) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		return nil, err
+	}
+	_, err = io.Copy(part, bytes.NewReader(imgData))
+	if err != nil {
+		return nil, err
+	}
+	writer.Close()
+
+	req, err := http.NewRequest("POST", url+"/embed", body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("embedding service returned status %d", resp.StatusCode)
+	}
+
+	var res EmbeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, err
+	}
+
+	return res.Embedding, nil
+}
+
 func saveMultipleToQdrant(url string, name string, vectors [][]float32) error {
 	client, err := qdrant.NewClient(&qdrant.Config{
 		Host: "qdrant",
@@ -304,7 +487,6 @@ func saveMultipleToQdrant(url string, name string, vectors [][]float32) error {
 
 	var points []*qdrant.PointStruct
 	for i, vector := range vectors {
-		// Use a composite ID based on name and index to allow multiple views
 		id := uint64(SystemID(fmt.Sprintf("%s_%d", name, i)))
 		points = append(points, &qdrant.PointStruct{
 			Id:      qdrant.NewIDNum(id),

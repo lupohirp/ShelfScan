@@ -31,6 +31,7 @@ services:
     environment:
       - QDRANT_URL=http://qdrant:6333
       - EMBEDDINGS_URL=http://embeddings:8001
+      - GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
     depends_on:
       - qdrant
       - embeddings
