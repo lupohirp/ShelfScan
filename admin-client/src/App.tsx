@@ -11,7 +11,7 @@ interface InventoryItem {
 function App() {
   const [items, setItems] = useState<InventoryItem[]>([])
   const [view, setView] = useState<'list' | 'add'>('list')
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<FileList | null>(null)
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -34,11 +34,13 @@ function App() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file || !name) return
+    if (!files || !name) return
 
     setLoading(true)
     const formData = new FormData()
-    formData.append('image', file)
+    for (let i = 0; i < files.length; i++) {
+      formData.append('images', files[i])
+    }
     formData.append('name', name)
 
     try {
@@ -49,7 +51,7 @@ function App() {
       if (response.ok) {
         setSuccess(true)
         setName('')
-        setFile(null)
+        setFiles(null)
         fetchInventory()
         setTimeout(() => {
           setSuccess(false)
@@ -109,7 +111,7 @@ function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Inventory Overview</h2>
               <span style={{ backgroundColor: '#e2e8f0', padding: '4px 12px', borderRadius: '20px', fontSize: '0.875rem', color: '#475569' }}>
-                {items.length} Items Indexed
+                {items.length} Views Indexed
               </span>
             </div>
 
@@ -145,11 +147,11 @@ function App() {
         ) : (
           <div style={{ maxWidth: '600px', margin: '0 auto', backgroundColor: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>Add New Jewelry</h2>
-            <p style={{ color: '#64748b', marginBottom: '32px' }}>Upload a high-quality photo to generate AI embeddings.</p>
+            <p style={{ color: '#64748b', marginBottom: '32px' }}>Upload multiple photos to generate better AI embeddings.</p>
             
             {success && (
               <div style={{ padding: '12px 16px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 500 }}>
-                <CheckCircle2 size={20} /> Item successfully indexed!
+                <CheckCircle2 size={20} /> Views successfully indexed!
               </div>
             )}
 
@@ -167,7 +169,7 @@ function App() {
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Jewelry Photo</label>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Jewelry Photos (Select Multiple)</label>
                 <div 
                   style={{ border: '2px dashed #cbd5e1', padding: '40px', textAlign: 'center', borderRadius: '12px', cursor: 'pointer', transition: 'border-color 0.2s' }} 
                   onMouseOver={(e) => (e.currentTarget.style.borderColor = '#2563eb')}
@@ -175,13 +177,14 @@ function App() {
                   onClick={() => document.getElementById('file-input')?.click()}
                 >
                   <Upload size={40} style={{ color: '#94a3b8', marginBottom: '12px' }} />
-                  <p style={{ margin: 0, fontWeight: 500 }}>{file ? file.name : 'Click or drag photo here'}</p>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>Supports JPG, PNG, WEBP</p>
+                  <p style={{ margin: 0, fontWeight: 500 }}>{files ? `${files.length} photos selected` : 'Click or drag photos here'}</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>Upload different angles for better AI recognition</p>
                   <input 
                     id="file-input"
                     type="file" 
                     accept="image/*" 
-                    onChange={(e) => setFile(e.target.files?.[0] || null)} 
+                    multiple
+                    onChange={(e) => setFiles(e.target.files)} 
                     style={{ display: 'none' }}
                   />
                 </div>
@@ -189,14 +192,14 @@ function App() {
 
               <button 
                 type="submit" 
-                disabled={loading || !file || !name}
+                disabled={loading || !files || !name}
                 style={{ 
                   padding: '14px', 
-                  backgroundColor: (loading || !file || !name) ? '#cbd5e1' : '#2563eb', 
+                  backgroundColor: (loading || !files || !name) ? '#cbd5e1' : '#2563eb', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '8px', 
-                  cursor: (loading || !file || !name) ? 'not-allowed' : 'pointer',
+                  cursor: (loading || !files || !name) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -207,7 +210,7 @@ function App() {
                 }}
               >
                 {loading ? <Loader2 className="animate-spin" size={20} /> : <PlusCircle size={20} />}
-                {loading ? 'Generating Embeddings...' : 'Index Jewelry Item'}
+                {loading ? 'Generating Embeddings...' : 'Index All Views'}
               </button>
               
               <button 

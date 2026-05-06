@@ -92,40 +92,51 @@ func main() {
 		}
 
 		// Parse multipart form
-		err := r.ParseMultipartForm(10 << 20) // 10MB
+		err := r.ParseMultipartForm(50 << 20) // 50MB for multiple images
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		file, handler, err := r.FormFile("image")
-		if err != nil {
-			http.Error(w, "Error retrieving the file", http.StatusBadRequest)
-			return
-		}
-		defer file.Close()
-
 		name := r.FormValue("name")
 		if name == "" {
-			name = handler.Filename
-		}
-
-		// Forward to embedding service
-		embedding, err := getEmbedding(embeddingsURL, file, handler.Filename)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Error generating embedding: %v", err), http.StatusInternalServerError)
+			http.Error(w, "Missing jewelry name", http.StatusBadRequest)
 			return
 		}
 
-		// Save to Qdrant
-		err = saveToQdrant(qdrantURL, name, embedding)
+		files := r.MultipartForm.File["images"]
+		if len(files) == 0 {
+			http.Error(w, "No images uploaded", http.StatusBadRequest)
+			return
+		}
+
+		var embeddings [][]float32
+		for _, fileHeader := range files {
+			file, err := fileHeader.Open()
+			if err != nil {
+				http.Error(w, "Error opening file", http.StatusInternalServerError)
+				return
+			}
+			defer file.Close()
+
+			// Forward to embedding service
+			embedding, err := getEmbedding(embeddingsURL, file, fileHeader.Filename)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Error generating embedding for %s: %v", fileHeader.Filename, err), http.StatusInternalServerError)
+				return
+			}
+			embeddings = append(embeddings, embedding)
+		}
+
+		// Save all views to Qdrant
+		err = saveMultipleToQdrant(qdrantURL, name, embeddings)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Successfully uploaded and indexed %s", name)
+		fmt.Fprintf(w, "Successfully uploaded and indexed %d views for %s", len(embeddings), name)
 	}))
 
 	log.Printf("Server starting on port %s", port)
@@ -240,13 +251,12 @@ func getEmbedding(url string, file io.Reader, filename string) ([]float32, error
 	return res.Embedding, nil
 }
 
-func saveToQdrant(url string, name string, vector []float32) error {
+func saveMultipleToQdrant(url string, name string, vectors [][]float32) error {
 	client, err := qdrant.NewClient(&qdrant.Config{
-		Host: "qdrant", // From docker-compose service name
-		Port: 6334,     // gRPC port
+		Host: "qdrant",
+		Port: 6334,
 	})
 	if err != nil {
-		// Fallback for local testing if not in docker
 		client, err = qdrant.NewClient(&qdrant.Config{
 			Host: "localhost",
 			Port: 6334,
@@ -257,17 +267,22 @@ func saveToQdrant(url string, name string, vector []float32) error {
 	}
 	defer client.Close()
 
+	var points []*qdrant.PointStruct
+	for i, vector := range vectors {
+		// Use a composite ID based on name and index to allow multiple views
+		id := uint64(SystemID(fmt.Sprintf("%s_%d", name, i)))
+		points = append(points, &qdrant.PointStruct{
+			Id:      qdrant.NewIDNum(id),
+			Vectors: qdrant.NewVectorsDense(vector),
+			Payload: qdrant.NewValueMap(map[string]any{
+				"name": name,
+			}),
+		})
+	}
+
 	upsertPoints := &qdrant.UpsertPoints{
 		CollectionName: "jewelry_inventory",
-		Points: []*qdrant.PointStruct{
-			{
-				Id: qdrant.NewIDNum(uint64(SystemID(name))),
-				Vectors: qdrant.NewVectorsDense(vector),
-				Payload: qdrant.NewValueMap(map[string]any{
-					"name": name,
-				}),
-			},
-		},
+		Points:         points,
 	}
 
 	_, err = client.Upsert(context.Background(), upsertPoints)
