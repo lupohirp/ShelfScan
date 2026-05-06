@@ -3,3 +3,4 @@ client/dist
 admin-client/node_modules/*
 mcp/main
 server/main
+server/__debug_*
