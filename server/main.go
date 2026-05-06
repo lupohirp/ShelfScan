@@ -85,7 +85,42 @@ func main() {
 		}
 	}))
 
-	http.HandleFunc("/upload", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/search", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		err := r.ParseMultipartForm(10 << 20)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		file, handler, err := r.FormFile("image")
+		if err != nil {
+			http.Error(w, "Missing image", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		// 1. Get Embedding
+		embedding, err := getEmbedding(embeddingsURL, file, handler.Filename)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Embedding error: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// 2. Search Qdrant
+		results, err := performVectorSearch(qdrantURL, embedding)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Search error: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(results)
+	}))
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -287,6 +322,46 @@ func saveMultipleToQdrant(url string, name string, vectors [][]float32) error {
 
 	_, err = client.Upsert(context.Background(), upsertPoints)
 	return err
+}
+
+func performVectorSearch(url string, vector []float32) ([]map[string]any, error) {
+	client, err := qdrant.NewClient(&qdrant.Config{
+		Host: "qdrant",
+		Port: 6334,
+	})
+	if err != nil {
+		client, err = qdrant.NewClient(&qdrant.Config{
+			Host: "localhost",
+			Port: 6334,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	defer client.Close()
+
+	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
+		CollectionName: "jewelry_inventory",
+		Query:          qdrant.NewQueryDense(vector),
+		Limit:          qdrant.PtrOf(uint64(3)),
+		WithPayload:    qdrant.NewWithPayload(true),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var results []map[string]any
+	for _, hit := range searchResult {
+		payload := make(map[string]any)
+		for k, v := range hit.Payload {
+			payload[k] = v.GetStringValue()
+		}
+		results = append(results, map[string]any{
+			"name":  payload["name"],
+			"score": hit.Score,
+		})
+	}
+	return results, nil
 }
 
 func SystemID(name string) int {
