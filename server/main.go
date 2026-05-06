@@ -147,7 +147,7 @@ func saveToQdrant(url string, name string, vector []float32) error {
 		Points: []*qdrant.PointStruct{
 			{
 				Id: qdrant.NewIDNum(uint64(SystemID(name))),
-				Vectors: qdrant.NewVectors(vector),
+				Vectors: qdrant.NewVectorsDense(vector),
 				Payload: qdrant.NewValueMap(map[string]any{
 					"name": name,
 				}),
