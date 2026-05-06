@@ -31,7 +31,7 @@ services:
     environment:
       - QDRANT_URL=http://qdrant:6333
       - EMBEDDINGS_URL=http://embeddings:8001
-      - GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
+      - GEMINI_API_KEY=AIzaSyB7cu8UTzqP-DQUKrB10cdbmVstgnGp5_U
     depends_on:
       - qdrant
       - embeddings
@@ -49,8 +49,6 @@ services:
     build: ./client
     ports:
       - "5173:5173"
-    environment:
-      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
 
   admin-client:
     build: ./admin-client

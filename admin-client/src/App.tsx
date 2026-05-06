@@ -18,7 +18,8 @@ function App() {
 
   const fetchInventory = async () => {
     try {
-      const response = await fetch('http://localhost:8080/inventory')
+      const apiHost = window.location.hostname
+      const response = await fetch(`http://${apiHost}:8080/inventory`)
       if (response.ok) {
         const data = await response.json()
         setItems(data || [])
@@ -44,7 +45,8 @@ function App() {
     formData.append('name', name)
 
     try {
-      const response = await fetch('http://localhost:8080/upload', {
+      const apiHost = window.location.hostname
+      const response = await fetch(`http://${apiHost}:8080/upload`, {
         method: 'POST',
         body: formData,
       })
@@ -68,7 +70,8 @@ function App() {
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this item?')) return
     try {
-      const response = await fetch(`http://localhost:8080/inventory?id=${id}`, {
+      const apiHost = window.location.hostname
+      const response = await fetch(`http://${apiHost}:8080/inventory?id=${id}`, {
         method: 'DELETE',
       })
       if (response.ok) {

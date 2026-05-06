@@ -131,7 +131,8 @@ export default function Camera() {
       const formData = new FormData()
       formData.append('image', blob, 'shelf_scan.jpg')
       
-      const analysisResponse = await fetch('http://localhost:8080/analyze', {
+      const apiHost = window.location.hostname
+      const analysisResponse = await fetch(`http://${apiHost}:8080/analyze`, {
         method: 'POST',
         body: formData
       })

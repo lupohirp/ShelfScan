@@ -32,7 +32,7 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		if origin == "http://localhost:5173" || origin == "http://localhost:5174" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
-		
+
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE, PUT")
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
@@ -181,6 +181,7 @@ func main() {
 	}))
 
 	http.HandleFunc("/analyze", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Received /analyze request")
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -188,12 +189,14 @@ func main() {
 
 		err := r.ParseMultipartForm(50 << 20)
 		if err != nil {
+			log.Printf("Error parsing form: %v", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		file, _, err := r.FormFile("image")
 		if err != nil {
+			log.Printf("Error getting image file: %v", err)
 			http.Error(w, "Missing image", http.StatusBadRequest)
 			return
 		}
@@ -201,18 +204,23 @@ func main() {
 
 		imgData, err := io.ReadAll(file)
 		if err != nil {
+			log.Printf("Error reading image: %v", err)
 			http.Error(w, "Error reading image", http.StatusInternalServerError)
 			return
 		}
 
+		log.Printf("Image received, size: %d bytes", len(imgData))
+
 		img, _, err := image.Decode(bytes.NewReader(imgData))
 		if err != nil {
+			log.Printf("Error decoding image: %v", err)
 			http.Error(w, "Error decoding image", http.StatusInternalServerError)
 			return
 		}
 		bounds := img.Bounds()
 		width := bounds.Dx()
 		height := bounds.Dy()
+		log.Printf("Image decoded successfully, dimensions: %dx%d", width, height)
 
 		ctx := context.Background()
 		apiKey := os.Getenv("GEMINI_API_KEY")
@@ -220,29 +228,34 @@ func main() {
 			apiKey = r.FormValue("apiKey")
 		}
 		if apiKey == "" {
+			log.Printf("Error: Missing API Key")
 			http.Error(w, "Missing API Key", http.StatusBadRequest)
 			return
 		}
 
 		client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 		if err != nil {
+			log.Printf("Error creating GenAI client: %v", err)
 			http.Error(w, fmt.Sprintf("AI SDK error: %v", err), http.StatusInternalServerError)
 			return
 		}
 		defer client.Close()
 
-		// Using gemma-4-26b-it as requested
-		model := client.GenerativeModel("gemma-4-26b-it") 
-		
+		// Using gemma-4-26b-it as requested (native multimodal support)
+		model := client.GenerativeModel("gemma-4-26b-a4b-it")
+
 		prompt := `Analyze this jewelry display. Identify each distinct jewelry item. Return ONLY a valid JSON array of objects. Each object must have:
 "desc": a short description of the item.
 "box": an array of 4 numbers [ymin, xmin, ymax, xmax] representing the normalized bounding box (0 to 1000).`
 
-		resp, err := model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("image/jpeg", imgData))
+		log.Printf("Sending request to Gemini/Gemma model...")
+		resp, err := model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
 		if err != nil {
+			log.Printf("AI Generation error: %v", err)
 			http.Error(w, fmt.Sprintf("AI Generation error: %v", err), http.StatusInternalServerError)
 			return
 		}
+		log.Printf("Received response from Gemini/Gemma")
 
 		var responseText string
 		for _, part := range resp.Candidates[0].Content.Parts {
@@ -255,6 +268,7 @@ func main() {
 		responseText = strings.TrimPrefix(responseText, "```")
 		responseText = strings.TrimSuffix(responseText, "```")
 		responseText = strings.TrimSpace(responseText)
+		log.Printf("AI JSON response: %s", responseText)
 
 		type Detection struct {
 			Desc string `json:"desc"`
@@ -262,6 +276,7 @@ func main() {
 		}
 		var detections []Detection
 		if err := json.Unmarshal([]byte(responseText), &detections); err != nil {
+			log.Printf("Failed to parse AI JSON: %v", err)
 			http.Error(w, fmt.Sprintf("Failed to parse AI JSON: %v. Raw: %s", err, responseText), http.StatusInternalServerError)
 			return
 		}
@@ -273,11 +288,11 @@ func main() {
 		}
 		var finalResults []FinalResult
 
-		for _, det := range detections {
+		for i, det := range detections {
 			if len(det.Box) != 4 {
 				continue
 			}
-			
+
 			ymin := det.Box[0] * height / 1000
 			xmin := det.Box[1] * width / 1000
 			ymax := det.Box[2] * height / 1000
@@ -287,12 +302,14 @@ func main() {
 				continue
 			}
 
+			log.Printf("Cropping image %d: [%d, %d, %d, %d]", i, xmin, ymin, xmax, ymax)
 			cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
 			buf := new(bytes.Buffer)
 			jpeg.Encode(buf, cropped, nil)
 
 			emb, err := getEmbeddingBytes(embeddingsURL, buf.Bytes(), "crop.jpg")
 			if err != nil {
+				log.Printf("Error getting embedding for crop %d: %v", i, err)
 				continue
 			}
 
@@ -308,6 +325,8 @@ func main() {
 				}
 			}
 
+			log.Printf("Crop %d matched: %s (score: %f)", i, bestMatch, bestScore)
+
 			finalResults = append(finalResults, FinalResult{
 				Desc:  det.Desc,
 				Match: bestMatch,
@@ -315,6 +334,7 @@ func main() {
 			})
 		}
 
+		log.Printf("Analysis complete, returning %d results", len(finalResults))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(finalResults)
 	}))
@@ -354,7 +374,7 @@ func listInventory(url string) ([]map[string]any, error) {
 	for _, p := range points {
 		payload := make(map[string]any)
 		for k, v := range p.Payload {
-			payload[k] = v.GetStringValue() 
+			payload[k] = v.GetStringValue()
 		}
 
 		item := map[string]any{
