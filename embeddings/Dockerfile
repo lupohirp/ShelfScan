@@ -17,4 +17,7 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 
 COPY . .
 
-CMD ["python", "main.py"]
+# Make sure entrypoint is executable
+RUN chmod +x entrypoint.sh
+
+CMD ["./entrypoint.sh"]
