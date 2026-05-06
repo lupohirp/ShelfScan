@@ -8,11 +8,6 @@ services:
       - "6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   embeddings:
     build: ./embeddings
@@ -22,10 +17,12 @@ services:
       - PORT=8001
       - QDRANT_URL=http://qdrant:6333
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
+    depends_on:
+      - qdrant
 
   api:
     build: ./server
@@ -35,10 +32,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - EMBEDDINGS_URL=http://embeddings:8001
     depends_on:
-      qdrant:
-        condition: service_healthy
-      embeddings:
-        condition: service_healthy
+      - qdrant
+      - embeddings
 
   mcp:
     build: ./mcp
@@ -47,8 +42,7 @@ services:
     environment:
       - QDRANT_URL=http://qdrant:6333
     depends_on:
-      qdrant:
-        condition: service_healthy
+      - qdrant
 
   client:
     build: ./client
