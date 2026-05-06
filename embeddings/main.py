@@ -6,8 +6,8 @@ import io
 
 app = FastAPI()
 
-# Load CLIP model
-model = SentenceTransformer('clip-ViT-B-32')
+# Load CLIP model on CPU
+model = SentenceTransformer('clip-ViT-B-32', device='cpu')
 
 @app.get("/health")
 async def health():
