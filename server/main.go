@@ -27,12 +27,7 @@ type EmbeddingResponse struct {
 
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		origin := r.Header.Get("Origin")
-		// Allow only localhost for development
-		if origin == "http://localhost:5173" || origin == "http://localhost:5174" {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-		}
-
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE, PUT")
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 
@@ -222,6 +217,15 @@ func main() {
 		height := bounds.Dy()
 		log.Printf("Image decoded successfully, dimensions: %dx%d", width, height)
 
+		// Re-encode to JPEG to ensure format consistency
+		buf := new(bytes.Buffer)
+		if err := jpeg.Encode(buf, img, &jpeg.Options{Quality: 85}); err != nil {
+			log.Printf("Error re-encoding image: %v", err)
+			http.Error(w, "Error processing image", http.StatusInternalServerError)
+			return
+		}
+		imgData = buf.Bytes()
+
 		ctx := context.Background()
 		apiKey := os.Getenv("GEMINI_API_KEY")
 		if apiKey == "" {
@@ -248,14 +252,33 @@ func main() {
 "desc": a short description of the item.
 "box": an array of 4 numbers [ymin, xmin, ymax, xmax] representing the normalized bounding box (0 to 1000).`
 
+		var resp *genai.GenerateContentResponse
 		log.Printf("Sending request to Gemini/Gemma model...")
-		resp, err := model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
+		
+		// Simple retry for transient 500 errors
+		for i := 0; i < 3; i++ {
+			resp, err = model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
+			if err == nil {
+				break
+			}
+			if !strings.Contains(err.Error(), "500") {
+				break
+			}
+			log.Printf("AI Generation transient error (attempt %d): %v", i+1, err)
+		}
+
 		if err != nil {
 			log.Printf("AI Generation error: %v", err)
 			http.Error(w, fmt.Sprintf("AI Generation error: %v", err), http.StatusInternalServerError)
 			return
 		}
 		log.Printf("Received response from Gemini/Gemma")
+
+		if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
+			log.Printf("Empty response from AI")
+			http.Error(w, "Empty response from AI", http.StatusInternalServerError)
+			return
+		}
 
 		var responseText string
 		for _, part := range resp.Candidates[0].Content.Parts {
@@ -264,15 +287,41 @@ func main() {
 			}
 		}
 
-		responseText = strings.TrimPrefix(responseText, "```json")
-		responseText = strings.TrimPrefix(responseText, "```")
-		responseText = strings.TrimSuffix(responseText, "```")
-		responseText = strings.TrimSpace(responseText)
-		log.Printf("AI JSON response: %s", responseText)
+		// Improved extraction: find the JSON array block more carefully
+		var extracted string
+		// First try: look for the last markdown block
+		if start := strings.LastIndex(responseText, "```"); start != -1 {
+			temp := responseText[:start]
+			if blockStart := strings.LastIndex(temp, "```"); blockStart != -1 {
+				inner := responseText[blockStart+3 : start]
+				inner = strings.TrimPrefix(inner, "json")
+				extracted = strings.TrimSpace(inner)
+			}
+		}
+		
+		// Second try: look for the last [ ] block that looks like a JSON array of objects
+		if extracted == "" {
+			// Find all [ ... ] candidates
+			lastOpen := strings.LastIndex(responseText, "[")
+			lastClose := strings.LastIndex(responseText, "]")
+			if lastOpen != -1 && lastClose != -1 && lastClose > lastOpen {
+				candidate := responseText[lastOpen : lastClose+1]
+				// Check if it contains "desc" and some form of box to be reasonably sure
+				if strings.Contains(candidate, "\"desc\"") && (strings.Contains(candidate, "\"box\"") || strings.Contains(candidate, "\"box_2d\"")) {
+					extracted = candidate
+				}
+			}
+		}
+
+		if extracted != "" {
+			responseText = extracted
+		}
+		log.Printf("Extracted JSON: %s", responseText)
 
 		type Detection struct {
-			Desc string `json:"desc"`
-			Box  []int  `json:"box"`
+			Desc  string `json:"desc"`
+			Box   []int  `json:"box"`
+			Box2D []int  `json:"box_2d"`
 		}
 		var detections []Detection
 		if err := json.Unmarshal([]byte(responseText), &detections); err != nil {
@@ -286,17 +335,23 @@ func main() {
 			Match string  `json:"match"`
 			Score float32 `json:"score"`
 		}
-		var finalResults []FinalResult
+		var detectedResults []FinalResult
+
+		foundNames := make(map[string]bool)
 
 		for i, det := range detections {
-			if len(det.Box) != 4 {
+			box := det.Box
+			if len(box) != 4 {
+				box = det.Box2D
+			}
+			if len(box) != 4 {
 				continue
 			}
 
-			ymin := det.Box[0] * height / 1000
-			xmin := det.Box[1] * width / 1000
-			ymax := det.Box[2] * height / 1000
-			xmax := det.Box[3] * width / 1000
+			ymin := box[0] * height / 1000
+			xmin := box[1] * width / 1000
+			ymax := box[2] * height / 1000
+			xmax := box[3] * width / 1000
 
 			if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
 				continue
@@ -304,10 +359,10 @@ func main() {
 
 			log.Printf("Cropping image %d: [%d, %d, %d, %d]", i, xmin, ymin, xmax, ymax)
 			cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
-			buf := new(bytes.Buffer)
-			jpeg.Encode(buf, cropped, nil)
+			cropBuf := new(bytes.Buffer)
+			jpeg.Encode(cropBuf, cropped, nil)
 
-			emb, err := getEmbeddingBytes(embeddingsURL, buf.Bytes(), "crop.jpg")
+			emb, err := getEmbeddingBytes(embeddingsURL, cropBuf.Bytes(), "crop.jpg")
 			if err != nil {
 				log.Printf("Error getting embedding for crop %d: %v", i, err)
 				continue
@@ -326,17 +381,39 @@ func main() {
 			}
 
 			log.Printf("Crop %d matched: %s (score: %f)", i, bestMatch, bestScore)
+			if bestScore > 0.45 {
+				foundNames[bestMatch] = true
+			}
 
-			finalResults = append(finalResults, FinalResult{
+			detectedResults = append(detectedResults, FinalResult{
 				Desc:  det.Desc,
 				Match: bestMatch,
 				Score: bestScore,
 			})
 		}
 
-		log.Printf("Analysis complete, returning %d results", len(finalResults))
+		// Get all inventory to find missing items
+		inventory, _ := listInventory(qdrantURL)
+		var missingItems []string
+		for _, item := range inventory {
+			payload := item["payload"].(map[string]any)
+			name := payload["name"].(string)
+			if !foundNames[name] {
+				missingItems = append(missingItems, name)
+			}
+		}
+
+		type AnalysisResponse struct {
+			Found   []FinalResult `json:"found"`
+			Missing []string      `json:"missing"`
+		}
+
+		log.Printf("Analysis complete, returning %d found and %d missing", len(detectedResults), len(missingItems))
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(finalResults)
+		json.NewEncoder(w).Encode(AnalysisResponse{
+			Found:   detectedResults,
+			Missing: missingItems,
+		})
 	}))
 
 	log.Printf("Server starting on port %s", port)
