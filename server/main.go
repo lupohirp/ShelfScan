@@ -25,6 +25,22 @@ type EmbeddingResponse struct {
 	Embedding []float32 `json:"embedding"`
 }
 
+type ProductResult struct {
+	Name     string  `json:"name"`
+	ImageURL string  `json:"imageUrl"`
+	Score    float32 `json:"score"`
+}
+
+type MissingItem struct {
+	Name     string `json:"name"`
+	ImageURL string `json:"imageUrl"`
+}
+
+type AnalysisResponse struct {
+	Found   []ProductResult `json:"found"`
+	Missing []MissingItem   `json:"missing"`
+}
+
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -302,7 +318,7 @@ func main() {
 
 		var resp *genai.GenerateContentResponse
 		log.Printf("Sending request to Gemini/Gemma model...")
-		
+
 		// Simple retry for transient 500 errors
 		for i := 0; i < 3; i++ {
 			resp, err = model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
@@ -346,7 +362,7 @@ func main() {
 				extracted = strings.TrimSpace(inner)
 			}
 		}
-		
+
 		// Second try: look for the last [ ] block that looks like a JSON array of objects
 		if extracted == "" {
 			// Find all [ ... ] candidates
@@ -378,13 +394,10 @@ func main() {
 			return
 		}
 
-		type ProductResult struct {
-			Name     string  `json:"name"`
-			ImageURL string  `json:"imageUrl"`
-			Score    float32 `json:"score"`
-		}
-		
-		foundMap := make(map[string]ProductResult)
+		// Map: Product Name -> Max Score achieved in any crop
+		productMaxScores := make(map[string]float32)
+		// Map: Product Name -> Image URL
+		productImageURLs := make(map[string]string)
 
 		for i, det := range detections {
 			box := det.Box
@@ -415,64 +428,66 @@ func main() {
 				continue
 			}
 
-			hits, _ := performVectorSearch(qdrantURL, emb)
-			if len(hits) > 0 {
-				name := hits[0]["name"].(string)
-				imgUrl, _ := hits[0]["imageUrl"].(string)
-				imgUrl = fixURL(imgUrl, r.Host)
-				var score float32
-				if s, ok := hits[0]["score"].(float32); ok {
-					score = s
-				} else if s, ok := hits[0]["score"].(float64); ok {
-					score = float32(s)
-				}
+			// Get top 5 hits to see if this crop matches MULTIPLE potential items
+			hits, err := performVectorSearchWithLimit(qdrantURL, emb, 5)
+			if err != nil {
+				log.Printf("Search error for crop %d: %v", i, err)
+				continue
+			}
 
-				log.Printf("Crop %d matched: %s (score: %f)", i, name, score)
-				// Use 0.35 as threshold. If multiple detections match the same product, 
-				// we keep the one with the highest score.
-				if score > 0.35 {
-					if existing, ok := foundMap[name]; !ok || score > existing.Score {
-						foundMap[name] = ProductResult{
-							Name:     name,
-							ImageURL: imgUrl,
-							Score:    score,
+			if len(hits) == 0 {
+				log.Printf("Crop %d: No matches found.", i)
+			} else {
+				for _, hit := range hits {
+					name := hit["name"].(string)
+					var score float32
+					if s, ok := hit["score"].(float32); ok {
+						score = s
+					} else if s, ok := hit["score"].(float64); ok {
+						score = float32(s)
+					}
+					log.Printf("Crop %d: Potential match '%s' (score: %f)", i, name, score)
+
+					// If score is decent, track it. If we've seen this product before, keep the best score.
+					if score > 0.74 {
+						if currentMax, ok := productMaxScores[name]; !ok || score > currentMax {
+							productMaxScores[name] = score
+							productImageURLs[name] = hit["imageUrl"].(string)
+							log.Printf("Crop %d: New best match for '%s' (score: %f)", i, name, score)
 						}
 					}
 				}
 			}
 		}
 
-		// Get all inventory to find missing items
+		// Calculate Found vs Missing
 		inventory, _ := listInventory(qdrantURL)
-		
-		var foundResults []ProductResult
-		for _, v := range foundMap {
-			foundResults = append(foundResults, v)
-		}
 
-		type MissingItem struct {
-			Name     string `json:"name"`
-			ImageURL string `json:"imageUrl"`
-		}
-		var missingItems []MissingItem
-		
+		foundResults := []ProductResult{}
+		missingItems := []MissingItem{}
+
+		log.Printf("Found products (via analysis): %v", productMaxScores)
+
+		// Final check against full inventory
 		for _, item := range inventory {
 			payload := item["payload"].(map[string]any)
 			name := payload["name"].(string)
 			imgUrl, _ := payload["imageUrl"].(string)
-			imgUrl = fixURL(imgUrl, r.Host)
-			
-			if _, found := foundMap[name]; !found {
+
+			if score, found := productMaxScores[name]; found {
+				log.Printf("Inventory Item '%s' found (best score: %f)", name, score)
+				foundResults = append(foundResults, ProductResult{
+					Name:     name,
+					ImageURL: fixURL(productImageURLs[name], r.Host),
+					Score:    score,
+				})
+			} else {
+				log.Printf("Inventory Item '%s' NOT found in scan", name)
 				missingItems = append(missingItems, MissingItem{
 					Name:     name,
-					ImageURL: imgUrl,
+					ImageURL: fixURL(imgUrl, r.Host),
 				})
 			}
-		}
-
-		type AnalysisResponse struct {
-			Found   []ProductResult `json:"found"`
-			Missing []MissingItem   `json:"missing"`
 		}
 
 		log.Printf("Analysis complete, returning %d unique found and %d missing", len(foundResults), len(missingItems))
@@ -676,6 +691,10 @@ func saveMultipleToQdrant(url string, name string, imageUrl string, vectors [][]
 }
 
 func performVectorSearch(url string, vector []float32) ([]map[string]any, error) {
+	return performVectorSearchWithLimit(url, vector, 3)
+}
+
+func performVectorSearchWithLimit(url string, vector []float32, limit uint64) ([]map[string]any, error) {
 	client, err := qdrant.NewClient(&qdrant.Config{
 		Host: "qdrant",
 		Port: 6334,
@@ -694,7 +713,7 @@ func performVectorSearch(url string, vector []float32) ([]map[string]any, error)
 	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
 		CollectionName: "jewelry_inventory",
 		Query:          qdrant.NewQueryDense(vector),
-		Limit:          qdrant.PtrOf(uint64(3)),
+		Limit:          qdrant.PtrOf(limit),
 		WithPayload:    qdrant.NewWithPayload(true),
 	})
 	if err != nil {
