@@ -101,7 +101,9 @@ export default function Camera() {
 
   // Stability Detection & Auto-capture
   useEffect(() => {
-    const isLevel = Math.abs(pitch) < 5 && Math.abs(roll) < 5
+    // For shelf scanning, "level" means the phone is vertical (beta approx 90)
+    // and not tilted sideways (gamma approx 0)
+    const isLevel = Math.abs(pitch - 90) < 7 && Math.abs(roll) < 7
     setIsStable(isLevel)
 
     if (isLevel && !analyzing) {
@@ -123,10 +125,14 @@ export default function Camera() {
     setAnalyzing(true)
     
     try {
-      if (stream) stream.getTracks().forEach(track => track.stop())
+      // Do not stop the stream here, keep it alive for better UX and retries
       
       const res = await fetch(imageData)
       const blob = await res.blob()
+      
+      if (blob.size === 0) {
+        throw new Error('Captured image is empty')
+      }
       
       const formData = new FormData()
       formData.append('image', blob, 'shelf_scan.jpg')
@@ -142,28 +148,43 @@ export default function Camera() {
         throw new Error(`Analyze API failed: ${errText}`)
       }
       
-      const analysisResults = await analysisResponse.json() as {desc: string, match: string, score: number}[]
-      console.log('AI Analysis results:', analysisResults)
+      const analysisData = await analysisResponse.json() as {
+        found: {desc: string, match: string, score: number}[],
+        missing: string[]
+      }
+      console.log('AI Analysis data:', analysisData)
       
-      const identifiedItems = analysisResults.filter(r => r.score > 0.45).map(r => r.match)
+      const identifiedItems = analysisData.found.filter(r => r.score > 0.45).map(r => r.match)
       const uniqueIdentified = [...new Set(identifiedItems)]
 
-      const foundProducts = uniqueIdentified.map(name => ({
-        id: Math.random().toString(),
+      const foundProducts: any[] = uniqueIdentified.map(name => ({
+        id: 'found-' + name,
+        sku: 'IDENTIFIED',
         name: name,
         category: 'identified',
-        price: 0,
-        image: ''
+        imageUrl: '',
+        status: 'active'
+      }))
+
+      const missingProducts: any[] = analysisData.missing.map(name => ({
+        id: 'missing-' + name,
+        sku: 'MISSING',
+        name: name,
+        category: 'missing',
+        imageUrl: '',
+        status: 'active'
       }))
 
       const session: CheckSession = {
         id: Date.now().toString(),
-        store: selectedStore || { id: '1', name: 'Vetrina Centrale', city: '', address: '' },
+        store: selectedStore || { id: '1', name: 'Vetrina Centrale', city: '', address: 'Indirizzo mock' },
         status: 'draft',
         scans: [],
         foundProducts: foundProducts,
-        missingProducts: [], // Placeholder for get_layout comparison
-        coverage: foundProducts.length > 0 ? 100 : 0,
+        missingProducts: missingProducts,
+        coverage: (foundProducts.length + missingProducts.length) > 0 
+          ? Math.round((foundProducts.length / (foundProducts.length + missingProducts.length)) * 100) 
+          : 0,
         createdAt: new Date().toISOString(),
       }
       
@@ -171,7 +192,8 @@ export default function Camera() {
       navigate('/scan/results', { replace: true })
     } catch (err) {
       console.error('Shelf Analysis failed:', err)
-      alert('Errore durante l\'analisi della vetrina. ' + err)
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      alert('Errore durante l\'analisi della vetrina: ' + errorMsg)
       setAnalyzing(false)
     }
   }
@@ -243,7 +265,7 @@ export default function Camera() {
         <div className={`w-36 h-36 border-2 rounded-full flex items-center justify-center transition-all duration-300 ${isStable ? 'border-green-500 bg-green-500/20 scale-110' : 'border-white/20'}`}>
           <div 
             className={`w-5 h-5 rounded-full transition-colors duration-300 ${isStable ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}
-            style={{ transform: `translate(${roll * 2.5}px, ${pitch * 2.5}px)` }}
+            style={{ transform: `translate(${roll * 2.5}px, ${(pitch - 90) * 2.5}px)` }}
           />
         </div>
 
