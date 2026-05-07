@@ -149,29 +149,26 @@ export default function Camera() {
       }
       
       const analysisData = await analysisResponse.json() as {
-        found: {desc: string, match: string, score: number}[],
-        missing: string[]
+        found: {name: string, imageUrl: string, score: number}[],
+        missing: {name: string, imageUrl: string}[]
       }
       console.log('AI Analysis data:', analysisData)
       
-      const identifiedItems = analysisData.found.filter(r => r.score > 0.45).map(r => r.match)
-      const uniqueIdentified = [...new Set(identifiedItems)]
-
-      const foundProducts: any[] = uniqueIdentified.map(name => ({
-        id: 'found-' + name,
+      const foundProducts: any[] = analysisData.found.map(r => ({
+        id: 'found-' + r.name,
         sku: 'IDENTIFIED',
-        name: name,
+        name: r.name,
         category: 'identified',
-        imageUrl: '',
+        imageUrl: r.imageUrl,
         status: 'active'
       }))
 
-      const missingProducts: any[] = analysisData.missing.map(name => ({
-        id: 'missing-' + name,
+      const missingProducts: any[] = analysisData.missing.map(m => ({
+        id: 'missing-' + m.name,
         sku: 'MISSING',
-        name: name,
+        name: m.name,
         category: 'missing',
-        imageUrl: '',
+        imageUrl: m.imageUrl,
         status: 'active'
       }))
 

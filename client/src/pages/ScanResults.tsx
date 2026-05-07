@@ -116,11 +116,13 @@ export default function ScanResults() {
               className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl"
             >
               <div
-                className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${
                   isFound ? 'bg-success-light' : 'bg-gray-200'
                 }`}
               >
-                {isFound ? (
+                {product.imageUrl ? (
+                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                ) : isFound ? (
                   <Check size={18} className="text-success" />
                 ) : (
                   <Package size={18} className="text-gray-400" />

@@ -30,6 +30,7 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE, PUT")
 		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -38,6 +39,23 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		next(w, r)
 	}
+}
+
+func fixURL(imgURL string, host string) string {
+	if imgURL == "" {
+		return ""
+	}
+	if strings.HasPrefix(imgURL, "http") {
+		// If it's already absolute (legacy), try to fix the host if it's localhost
+		if strings.Contains(imgURL, "localhost") && !strings.Contains(host, "localhost") {
+			return strings.Replace(imgURL, "localhost:8080", host, 1)
+		}
+		return imgURL
+	}
+	if strings.HasPrefix(imgURL, "/") {
+		return "http://" + host + imgURL
+	}
+	return "http://" + host + "/uploads/" + imgURL
 }
 
 func main() {
@@ -66,6 +84,13 @@ func main() {
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
+			}
+			// Fix URLs dynamically for the current host
+			for _, item := range items {
+				payload := item["payload"].(map[string]any)
+				if img, ok := payload["imageUrl"].(string); ok {
+					payload["imageUrl"] = fixURL(img, r.Host)
+				}
 			}
 			json.NewEncoder(w).Encode(items)
 			return
@@ -148,14 +173,31 @@ func main() {
 			return
 		}
 
+		// Create uploads directory if it doesn't exist
+		os.MkdirAll("uploads", 0755)
+		var savedURL string
+
 		var embeddings [][]float32
-		for _, fileHeader := range files {
+		for i, fileHeader := range files {
 			file, err := fileHeader.Open()
 			if err != nil {
 				http.Error(w, "Error opening file", http.StatusInternalServerError)
 				return
 			}
 			defer file.Close()
+
+			// Save the first image as the representative thumbnail
+			if i == 0 {
+				filename := fmt.Sprintf("%d_%s", SystemID(name), fileHeader.Filename)
+				dst, err := os.Create("uploads/" + filename)
+				if err == nil {
+					defer dst.Close()
+					io.Copy(dst, file)
+					file.Seek(0, 0) // Reset file pointer for embedding
+					// Store only the relative path to be flexible with hostnames
+					savedURL = "/uploads/" + filename
+				}
+			}
 
 			embedding, err := getEmbedding(embeddingsURL, file, fileHeader.Filename)
 			if err != nil {
@@ -165,7 +207,7 @@ func main() {
 			embeddings = append(embeddings, embedding)
 		}
 
-		err = saveMultipleToQdrant(qdrantURL, name, embeddings)
+		err = saveMultipleToQdrant(qdrantURL, name, savedURL, embeddings)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
 			return
@@ -173,6 +215,12 @@ func main() {
 
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Successfully uploaded and indexed %d views for %s", len(embeddings), name)
+	}))
+
+	// Serve static uploads with CORS
+	uploadsFS := http.FileServer(http.Dir("uploads"))
+	http.Handle("/uploads/", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		http.StripPrefix("/uploads/", uploadsFS).ServeHTTP(w, r)
 	}))
 
 	http.HandleFunc("/analyze", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
@@ -330,14 +378,13 @@ func main() {
 			return
 		}
 
-		type FinalResult struct {
-			Desc  string  `json:"desc"`
-			Match string  `json:"match"`
-			Score float32 `json:"score"`
+		type ProductResult struct {
+			Name     string  `json:"name"`
+			ImageURL string  `json:"imageUrl"`
+			Score    float32 `json:"score"`
 		}
-		var detectedResults []FinalResult
-
-		foundNames := make(map[string]bool)
+		
+		foundMap := make(map[string]ProductResult)
 
 		for i, det := range detections {
 			box := det.Box
@@ -369,49 +416,69 @@ func main() {
 			}
 
 			hits, _ := performVectorSearch(qdrantURL, emb)
-			bestMatch := "Unknown"
-			var bestScore float32 = 0
 			if len(hits) > 0 {
-				bestMatch = hits[0]["name"].(string)
-				if score, ok := hits[0]["score"].(float32); ok {
-					bestScore = score
-				} else if score, ok := hits[0]["score"].(float64); ok {
-					bestScore = float32(score)
+				name := hits[0]["name"].(string)
+				imgUrl, _ := hits[0]["imageUrl"].(string)
+				imgUrl = fixURL(imgUrl, r.Host)
+				var score float32
+				if s, ok := hits[0]["score"].(float32); ok {
+					score = s
+				} else if s, ok := hits[0]["score"].(float64); ok {
+					score = float32(s)
+				}
+
+				log.Printf("Crop %d matched: %s (score: %f)", i, name, score)
+				// Use 0.35 as threshold. If multiple detections match the same product, 
+				// we keep the one with the highest score.
+				if score > 0.35 {
+					if existing, ok := foundMap[name]; !ok || score > existing.Score {
+						foundMap[name] = ProductResult{
+							Name:     name,
+							ImageURL: imgUrl,
+							Score:    score,
+						}
+					}
 				}
 			}
-
-			log.Printf("Crop %d matched: %s (score: %f)", i, bestMatch, bestScore)
-			if bestScore > 0.45 {
-				foundNames[bestMatch] = true
-			}
-
-			detectedResults = append(detectedResults, FinalResult{
-				Desc:  det.Desc,
-				Match: bestMatch,
-				Score: bestScore,
-			})
 		}
 
 		// Get all inventory to find missing items
 		inventory, _ := listInventory(qdrantURL)
-		var missingItems []string
+		
+		var foundResults []ProductResult
+		for _, v := range foundMap {
+			foundResults = append(foundResults, v)
+		}
+
+		type MissingItem struct {
+			Name     string `json:"name"`
+			ImageURL string `json:"imageUrl"`
+		}
+		var missingItems []MissingItem
+		
 		for _, item := range inventory {
 			payload := item["payload"].(map[string]any)
 			name := payload["name"].(string)
-			if !foundNames[name] {
-				missingItems = append(missingItems, name)
+			imgUrl, _ := payload["imageUrl"].(string)
+			imgUrl = fixURL(imgUrl, r.Host)
+			
+			if _, found := foundMap[name]; !found {
+				missingItems = append(missingItems, MissingItem{
+					Name:     name,
+					ImageURL: imgUrl,
+				})
 			}
 		}
 
 		type AnalysisResponse struct {
-			Found   []FinalResult `json:"found"`
-			Missing []string      `json:"missing"`
+			Found   []ProductResult `json:"found"`
+			Missing []MissingItem   `json:"missing"`
 		}
 
-		log.Printf("Analysis complete, returning %d found and %d missing", len(detectedResults), len(missingItems))
+		log.Printf("Analysis complete, returning %d unique found and %d missing", len(foundResults), len(missingItems))
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(AnalysisResponse{
-			Found:   detectedResults,
+			Found:   foundResults,
 			Missing: missingItems,
 		})
 	}))
@@ -455,7 +522,7 @@ func listInventory(url string) ([]map[string]any, error) {
 		}
 
 		item := map[string]any{
-			"id":      p.Id.GetNum(),
+			"id":      fmt.Sprintf("%d", p.Id.GetNum()),
 			"payload": payload,
 		}
 		items = append(items, item)
@@ -566,7 +633,7 @@ func getEmbeddingBytes(url string, imgData []byte, filename string) ([]float32, 
 	return res.Embedding, nil
 }
 
-func saveMultipleToQdrant(url string, name string, vectors [][]float32) error {
+func saveMultipleToQdrant(url string, name string, imageUrl string, vectors [][]float32) error {
 	client, err := qdrant.NewClient(&qdrant.Config{
 		Host: "qdrant",
 		Port: 6334,
@@ -585,12 +652,17 @@ func saveMultipleToQdrant(url string, name string, vectors [][]float32) error {
 	var points []*qdrant.PointStruct
 	for i, vector := range vectors {
 		id := uint64(SystemID(fmt.Sprintf("%s_%d", name, i)))
+		payload := map[string]any{
+			"name": name,
+		}
+		if imageUrl != "" {
+			payload["imageUrl"] = imageUrl
+		}
+
 		points = append(points, &qdrant.PointStruct{
 			Id:      qdrant.NewIDNum(id),
 			Vectors: qdrant.NewVectorsDense(vector),
-			Payload: qdrant.NewValueMap(map[string]any{
-				"name": name,
-			}),
+			Payload: qdrant.NewValueMap(payload),
 		})
 	}
 
@@ -636,8 +708,9 @@ func performVectorSearch(url string, vector []float32) ([]map[string]any, error)
 			payload[k] = v.GetStringValue()
 		}
 		results = append(results, map[string]any{
-			"name":  payload["name"],
-			"score": hit.Score,
+			"name":     payload["name"],
+			"imageUrl": payload["imageUrl"],
+			"score":    hit.Score,
 		})
 	}
 	return results, nil

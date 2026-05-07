@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { Upload, Package, CheckCircle2, Trash2, LayoutDashboard, PlusCircle, Loader2 } from 'lucide-react'
 
 interface InventoryItem {
-  id: number
+  id: string
   payload: {
     name: string
+    imageUrl?: string
   }
 }
 
@@ -67,7 +68,7 @@ function App() {
     }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return
     try {
       const apiHost = window.location.hostname
@@ -122,8 +123,12 @@ function App() {
               {items.map((item) => (
                 <div key={item.id} style={{ backgroundColor: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                   <div>
-                    <div style={{ width: '40px', height: '40px', backgroundColor: '#eff6ff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center', color: '#2563eb', marginBottom: '16px' }}>
-                      <Package size={20} />
+                    <div style={{ width: '100%', height: '160px', backgroundColor: '#eff6ff', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', marginBottom: '16px', overflow: 'hidden' }}>
+                      {item.payload.imageUrl ? (
+                        <img src={item.payload.imageUrl} alt={item.payload.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <Package size={40} />
+                      )}
                     </div>
                     <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>{item.payload.name}</h3>
                     <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>ID: {item.id}</p>
