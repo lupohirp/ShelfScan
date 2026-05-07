@@ -5,3 +5,4 @@ mcp/main
 server/main
 server/__debug_*
 mcp/__debug_*
+server/uploads/*
