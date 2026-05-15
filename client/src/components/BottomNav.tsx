@@ -13,24 +13,28 @@ export default function BottomNav() {
   const navigate = useNavigate()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200 safe-bottom z-50">
-      <div className="max-w-lg mx-auto flex items-center justify-around h-14">
+    <div className="fixed bottom-6 left-0 right-0 px-6 z-50 flex justify-center pointer-events-none">
+      <nav className="glass-pill rounded-full px-4 py-2 flex items-center gap-1 pointer-events-auto">
         {tabs.map(({ path, icon: Icon, label }) => {
           const active = location.pathname.startsWith(path)
           return (
             <button
               key={path}
               onClick={() => navigate(path)}
-              className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${
-                active ? 'text-accent' : 'text-gray-400'
+              className={`flex flex-col items-center justify-center w-16 h-12 rounded-2xl transition-all duration-300 ${
+                active 
+                  ? 'text-accent bg-accent/10' 
+                  : 'text-gray-400 active:bg-gray-100'
               }`}
             >
-              <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
-              <span className="text-[10px] font-medium">{label}</span>
+              <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+              <span className={`text-[10px] font-bold mt-0.5 ${active ? 'opacity-100' : 'opacity-70'}`}>
+                {label}
+              </span>
             </button>
           )
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   )
 }
