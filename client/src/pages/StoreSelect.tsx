@@ -24,7 +24,7 @@ export default function StoreSelect() {
   }
 
   return (
-    <PageShell bottomNav={false}>
+    <PageShell bottomNav={true}>
       <TopBar title="Seleziona Negozio" back />
 
       <div className="px-6 pt-6">

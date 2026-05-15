@@ -43,7 +43,7 @@ export default function ScanResults() {
   ]
 
   return (
-    <PageShell bottomNav={false}>
+    <PageShell bottomNav={true}>
       <TopBar
         title="Risultati"
         back

@@ -157,7 +157,6 @@ export default function Home() {
         </div>
       </div>
 
-      <BottomNav />
     </PageShell>
   )
 }

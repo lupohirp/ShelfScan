@@ -16,6 +16,7 @@ import AdminProducts from './pages/admin/AdminProducts'
 import AdminStores from './pages/admin/AdminStores'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminChecks from './pages/admin/AdminChecks'
+import MobileLayout from './components/MobileLayout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuth((s) => s.isAuthenticated)
@@ -29,16 +30,20 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Navigate to="/home" replace />} />
 
-      {/* Mobile routes */}
-      <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-      <Route path="/scan" element={<ProtectedRoute><StoreSelect /></ProtectedRoute>} />
+      {/* Main Mobile Routes with persistent BottomNav */}
+      <Route element={<ProtectedRoute><MobileLayout /></ProtectedRoute>}>
+        <Route path="/home" element={<Home />} />
+        <Route path="/scan" element={<StoreSelect />} />
+        <Route path="/history" element={<History />} />
+        <Route path="/history/:id" element={<HistoryDetail />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
+
+      {/* Fullscreen / Special Mobile routes (No BottomNav) */}
       <Route path="/scan/camera" element={<ProtectedRoute><Camera /></ProtectedRoute>} />
       <Route path="/scan/results" element={<ProtectedRoute><ScanResults /></ProtectedRoute>} />
       <Route path="/scan/edit" element={<ProtectedRoute><ManualEdit /></ProtectedRoute>} />
       <Route path="/scan/report" element={<ProtectedRoute><ReportPreview /></ProtectedRoute>} />
-      <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-      <Route path="/history/:id" element={<ProtectedRoute><HistoryDetail /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
       {/* Admin routes */}
       <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
