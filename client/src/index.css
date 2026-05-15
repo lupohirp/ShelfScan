@@ -1,53 +1,52 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --color-primary: #000000;
-  --color-primary-light: #1a1a1a;
+  --font-sans: 'Josefin Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   
-  /* New Vibrant Palette */
-  --color-accent: #6366f1; /* Indigo 500 */
-  --color-accent-dark: #4f46e5; /* Indigo 600 */
-  --color-violet: #8b5cf6; /* Violet 500 */
+  /* Liu-Jo Luxury Palette */
+  --color-bg-logged: #E8E4DF;
+  --color-surface: rgba(255, 255, 255, 0.78);
+  --color-surface-strong: rgba(255, 255, 255, 0.9);
   
-  --color-success: #10b981; /* Emerald 500 */
-  --color-success-light: #ecfdf5;
-  --color-warning: #f59e0b; /* Amber 500 */
-  --color-warning-light: #fffbeb;
-  --color-danger: #ef4444; /* Red 500 */
-  --color-danger-light: #fef2f2;
+  --color-accent: #0071E3; /* Apple Blue */
+  --color-gold: #B4894D; /* Luxury Gold */
+  --color-gold-light: #F8F2EA;
   
-  /* Tinted Grays */
-  --color-gray-50: #f8fafc; /* Slate 50 */
-  --color-gray-100: #f1f5f9; /* Slate 100 */
-  --color-gray-200: #e2e8f0; /* Slate 200 */
-  --color-gray-300: #cbd5e1; /* Slate 300 */
-  --color-gray-400: #94a3b8; /* Slate 400 */
-  --color-gray-500: #64748b; /* Slate 500 */
-  --color-gray-600: #475569; /* Slate 600 */
-  --color-gray-700: #334155; /* Slate 700 */
-  --color-gray-800: #1e293b; /* Slate 800 */
-  --color-gray-900: #0f172a; /* Slate 900 */
+  --color-primary: #1D1D1F;
+  --color-text-secondary: #6E6E73;
+  --color-text-tertiary: #86868B;
+  
+  --color-success: #30D158;
+  --color-success-light: #E8FAF0;
+  --color-warning: #FF9500;
+  --color-warning-light: #FFF4E6;
+  --color-danger: #FF3B30;
+  --color-danger-light: #FFF0EF;
+  
+  /* Grays */
+  --color-gray-50: #F5F5F7;
+  --color-gray-100: #E8E8ED;
+  --color-gray-200: #D2D2D7;
 }
 
 @utility glass-card {
-  @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.06)];
+  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_8px_24px_rgba(62,42,26,0.08)];
 }
 
 @utility glass-pill {
-  @apply bg-white/80 backdrop-blur-2xl border border-white/30 shadow-[0_4px_24px_rgba(0,0,0,0.08)];
+  @apply bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_4px_20px_rgba(62,42,26,0.06)];
 }
 
 @utility gradient-accent {
-  @apply bg-gradient-to-br from-violet-500 to-indigo-600;
+  @apply bg-gradient-to-br from-[#B4894D] to-[#D4AF37];
 }
 
 @utility gradient-mesh {
-  background-color: #ffffff;
+  background-color: #E8E4DF;
   background-image: 
-    radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
-    radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+    radial-gradient(at 0% 0%, hsla(30,30%,90%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 0%, hsla(30,20%,85%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(30,30%,90%,1) 0, transparent 50%);
 }
 
 * {
@@ -57,12 +56,12 @@
 html, body {
   overscroll-behavior: none;
   margin: 0;
+  background: var(--color-bg-logged);
 }
 
 body {
   font-family: var(--font-sans);
-  background: var(--color-gray-50);
-  color: var(--color-gray-900);
+  color: var(--color-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

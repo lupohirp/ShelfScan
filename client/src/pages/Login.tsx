@@ -28,40 +28,40 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-svh flex flex-col items-center justify-center px-6 overflow-hidden bg-gray-900">
-      {/* Animated Background Elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-violet-600/30 rounded-full blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-indigo-600/30 rounded-full blur-[120px] animate-pulse delay-1000" />
+    <div className="relative min-h-svh flex flex-col items-center justify-center px-6 overflow-hidden bg-[#E8E4DF]">
+      {/* Animated Background Elements - Softer/Warm */}
+      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-[#B4894D]/10 rounded-full blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#B4894D]/5 rounded-full blur-[120px] animate-pulse delay-1000" />
       
       <div className="w-full max-w-sm z-10 animate-fade-in">
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
-          <div className="w-20 h-20 gradient-accent rounded-[24px] flex items-center justify-center mb-6 shadow-xl shadow-indigo-500/20 animate-float">
+          <div className="w-20 h-20 gradient-accent rounded-[24px] flex items-center justify-center mb-6 shadow-xl shadow-[#B4894D]/20 animate-float">
             <ScanLine size={40} className="text-white" />
           </div>
-          <h1 className="text-[32px] font-bold tracking-tight text-white">ShelfScan</h1>
-          <p className="text-gray-400 text-[15px] mt-1 font-medium">Visual Inventory Intelligence</p>
+          <h1 className="text-[36px] font-bold tracking-tight text-[#1D1D1F]">ShelfScan</h1>
+          <p className="text-[#6E6E73] text-[15px] mt-1 font-medium tracking-wide uppercase">Boutique Inventory Check</p>
         </div>
 
         {/* Form Card */}
-        <div className="glass-card rounded-[32px] p-8">
+        <div className="glass-card rounded-[32px] p-8 border-white/60">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">
-                Email aziendale
+              <label className="block text-[12px] font-semibold text-[#6E6E73] uppercase tracking-wider mb-2 ml-1">
+                Email
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nome@azienda.it"
-                className="w-full h-13 px-4 bg-gray-50/50 rounded-2xl text-[16px] outline-none border border-gray-200 focus:border-accent focus:ring-4 focus:ring-accent/10 transition-all placeholder:text-gray-400"
+                className="w-full h-13 px-4 bg-white/50 rounded-2xl text-[16px] outline-none border border-transparent focus:border-[#B4894D] focus:ring-4 focus:ring-[#B4894D]/10 transition-all placeholder:text-gray-400"
                 autoComplete="email"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">
+              <label className="block text-[12px] font-semibold text-[#6E6E73] uppercase tracking-wider mb-2 ml-1">
                 Password
               </label>
               <div className="relative">
@@ -70,7 +70,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="La tua password"
-                  className="w-full h-13 px-4 pr-12 bg-gray-50/50 rounded-2xl text-[16px] outline-none border border-gray-200 focus:border-accent focus:ring-4 focus:ring-accent/10 transition-all placeholder:text-gray-400"
+                  className="w-full h-13 px-4 pr-12 bg-white/50 rounded-2xl text-[16px] outline-none border border-transparent focus:border-[#B4894D] focus:ring-4 focus:ring-[#B4894D]/10 transition-all placeholder:text-gray-400"
                   autoComplete="current-password"
                 />
                 <button
@@ -90,7 +90,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-14 gradient-accent text-white rounded-2xl font-bold text-[17px] shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.97] hover:brightness-110 disabled:opacity-50 mt-2"
+              className="w-full h-14 bg-[#1D1D1F] text-white rounded-2xl font-bold text-[17px] shadow-lg shadow-black/10 transition-all active:scale-[0.97] hover:brightness-110 disabled:opacity-50 mt-2"
             >
               {loading ? (
                 <span className="inline-flex items-center gap-2">
@@ -102,14 +102,14 @@ export default function Login() {
               )}
             </button>
 
-            <button type="button" className="w-full text-gray-500 text-sm font-semibold py-2 active:text-accent transition-colors">
+            <button type="button" className="w-full text-[#0071E3] text-sm font-semibold py-2 active:opacity-70 transition-opacity">
               Password dimenticata?
             </button>
           </form>
         </div>
         
-        <p className="text-center text-gray-500 text-sm mt-8">
-          Non hai un account? <span className="text-indigo-400 font-bold">Contatta admin</span>
+        <p className="text-center text-[#86868B] text-sm mt-8">
+          Non hai un account? <span className="text-[#B4894D] font-bold">Contatta admin</span>
         </p>
       </div>
     </div>
