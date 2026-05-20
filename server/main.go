@@ -14,6 +14,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/gorilla/websocket"
 
 	"github.com/disintegration/imaging"
 	"github.com/google/generative-ai-go/genai"
@@ -41,6 +44,62 @@ type AnalysisResponse struct {
 	Missing []MissingItem   `json:"missing"`
 }
 
+type MCPClient struct {
+	conn *websocket.Conn
+}
+
+func NewMCPClient(url string) (*MCPClient, error) {
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &MCPClient{conn: conn}, nil
+}
+
+func (c *MCPClient) Close() {
+	c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	c.conn.Close()
+}
+
+func (c *MCPClient) CallVectorSearch(embedding []float32) (string, error) {
+	req := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "tools/call",
+		"params": map[string]interface{}{
+			"name": "vector_search",
+			"arguments": map[string]interface{}{
+				"embedding": embedding,
+			},
+		},
+	}
+	err := c.conn.WriteJSON(req)
+	if err != nil {
+		return "", err
+	}
+
+	_, message, err := c.conn.ReadMessage()
+	if err != nil {
+		return "", err
+	}
+
+	var res struct {
+		Result struct {
+			Content []struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(message, &res); err != nil {
+		return "", err
+	}
+	if len(res.Result.Content) == 0 {
+		return "", fmt.Errorf("no content in result")
+	}
+	return res.Result.Content[0].Text, nil
+}
+
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -62,7 +121,6 @@ func fixURL(imgURL string, host string) string {
 		return ""
 	}
 	if strings.HasPrefix(imgURL, "http") {
-		// If it's already absolute (legacy), try to fix the host if it's localhost
 		if strings.Contains(imgURL, "localhost") && !strings.Contains(host, "localhost") {
 			return strings.Replace(imgURL, "localhost:8080", host, 1)
 		}
@@ -101,9 +159,11 @@ func main() {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			// Fix URLs dynamically for the current host
 			for _, item := range items {
-				payload := item["payload"].(map[string]any)
+				payload, ok := item["payload"].(map[string]any)
+				if !ok {
+					continue
+				}
 				if img, ok := payload["imageUrl"].(string); ok {
 					payload["imageUrl"] = fixURL(img, r.Host)
 				}
@@ -147,14 +207,12 @@ func main() {
 		}
 		defer file.Close()
 
-		// 1. Get Embedding
 		embedding, err := getEmbedding(embeddingsURL, file, handler.Filename)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Embedding error: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		// 2. Search Qdrant
 		results, err := performVectorSearch(qdrantURL, embedding)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Search error: %v", err), http.StatusInternalServerError)
@@ -183,18 +241,20 @@ func main() {
 			return
 		}
 
+		color := r.FormValue("color")
+		material := r.FormValue("material")
+
 		files := r.MultipartForm.File["images"]
 		if len(files) == 0 {
 			http.Error(w, "No images uploaded", http.StatusBadRequest)
 			return
 		}
 
-		// Create uploads directory if it doesn't exist
 		os.MkdirAll("uploads", 0755)
 		var savedURL string
 
 		var embeddings [][]float32
-		for i, fileHeader := range files {
+		for idx, fileHeader := range files {
 			file, err := fileHeader.Open()
 			if err != nil {
 				http.Error(w, "Error opening file", http.StatusInternalServerError)
@@ -202,15 +262,13 @@ func main() {
 			}
 			defer file.Close()
 
-			// Save the first image as the representative thumbnail
-			if i == 0 {
+			if idx == 0 {
 				filename := fmt.Sprintf("%d_%s", SystemID(name), fileHeader.Filename)
 				dst, err := os.Create("uploads/" + filename)
 				if err == nil {
 					defer dst.Close()
 					io.Copy(dst, file)
-					file.Seek(0, 0) // Reset file pointer for embedding
-					// Store only the relative path to be flexible with hostnames
+					file.Seek(0, 0)
 					savedURL = "/uploads/" + filename
 				}
 			}
@@ -223,7 +281,7 @@ func main() {
 			embeddings = append(embeddings, embedding)
 		}
 
-		err = saveMultipleToQdrant(qdrantURL, name, savedURL, embeddings)
+		err = saveMultipleToQdrant(qdrantURL, name, savedURL, color, material, embeddings)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
 			return
@@ -233,7 +291,6 @@ func main() {
 		fmt.Fprintf(w, "Successfully uploaded and indexed %d views for %s", len(embeddings), name)
 	}))
 
-	// Serve static uploads with CORS
 	uploadsFS := http.FileServer(http.Dir("uploads"))
 	http.Handle("/uploads/", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		http.StripPrefix("/uploads/", uploadsFS).ServeHTTP(w, r)
@@ -268,27 +325,33 @@ func main() {
 			return
 		}
 
-		log.Printf("Image received, size: %d bytes", len(imgData))
-
 		img, _, err := image.Decode(bytes.NewReader(imgData))
 		if err != nil {
 			log.Printf("Error decoding image: %v", err)
 			http.Error(w, "Error decoding image", http.StatusInternalServerError)
 			return
 		}
+
 		bounds := img.Bounds()
 		width := bounds.Dx()
 		height := bounds.Dy()
 		log.Printf("Image decoded successfully, dimensions: %dx%d", width, height)
 
-		// Re-encode to JPEG to ensure format consistency
-		buf := new(bytes.Buffer)
-		if err := jpeg.Encode(buf, img, &jpeg.Options{Quality: 85}); err != nil {
-			log.Printf("Error re-encoding image: %v", err)
-			http.Error(w, "Error processing image", http.StatusInternalServerError)
-			return
+		// Resize image for Gemini to speed up processing (max 1024px)
+		var geminiImgData []byte
+		if width > 1024 || height > 1024 {
+			log.Printf("Resizing image for Gemini (original: %dx%d)", width, height)
+			resized := imaging.Fit(img, 1024, 1024, imaging.Lanczos)
+			buf := new(bytes.Buffer)
+			jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
+			geminiImgData = buf.Bytes()
+		} else {
+			// Re-encode to ensure consistency and manageable size
+			buf := new(bytes.Buffer)
+			jpeg.Encode(buf, img, &jpeg.Options{Quality: 85})
+			geminiImgData = buf.Bytes()
 		}
-		imgData = buf.Bytes()
+		log.Printf("Image prepared for AI, size: %d bytes", len(geminiImgData))
 
 		ctx := context.Background()
 		apiKey := os.Getenv("GEMINI_API_KEY")
@@ -309,40 +372,38 @@ func main() {
 		}
 		defer client.Close()
 
-		// Using gemma-4-26b-it as requested (native multimodal support)
 		model := client.GenerativeModel("gemma-4-26b-a4b-it")
+		// Tune parameters for speed
+		model.SetTemperature(0.1)      // Low temperature for faster, more focused output
+		model.SetMaxOutputTokens(1024) // Limit output size for faster completion
 
-		prompt := `Analyze this jewelry display. Identify each distinct jewelry item. Return ONLY a valid JSON array of objects. Each object must have:
-"desc": a short description of the item.
-"box": an array of 4 numbers [ymin, xmin, ymax, xmax] representing the normalized bounding box (0 to 1000).`
+		prompt := `Analyze this jewelry display. List each distinct jewelry item.
+		Return ONLY a valid JSON array of objects. Each object must have:
+		"desc": a short description including color/material.
+		"box": an array [ymin, xmin, ymax, xmax] (normalized 0 to 1000).`
 
 		var resp *genai.GenerateContentResponse
-		log.Printf("Sending request to Gemini/Gemma model...")
 
-		// Simple retry for transient 500 errors
 		for i := 0; i < 3; i++ {
-			resp, err = model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
+			log.Printf("Sending request to Gemini/Gemma model (attempt %d)...", i+1)
+			reqCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+			resp, err = model.GenerateContent(reqCtx, genai.Text(prompt), genai.ImageData("jpeg", geminiImgData))
+			cancel()
 			if err == nil {
 				break
 			}
-			if !strings.Contains(err.Error(), "500") {
+			log.Printf("AI Generation error (attempt %d): %v", i+1, err)
+			if !strings.Contains(err.Error(), "500") && !strings.Contains(err.Error(), "deadline") {
 				break
 			}
-			log.Printf("AI Generation transient error (attempt %d): %v", i+1, err)
 		}
 
 		if err != nil {
-			log.Printf("AI Generation error: %v", err)
+			log.Printf("AI Generation final error: %v", err)
 			http.Error(w, fmt.Sprintf("AI Generation error: %v", err), http.StatusInternalServerError)
 			return
 		}
 		log.Printf("Received response from Gemini/Gemma")
-
-		if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil {
-			log.Printf("Empty response from AI")
-			http.Error(w, "Empty response from AI", http.StatusInternalServerError)
-			return
-		}
 
 		var responseText string
 		for _, part := range resp.Candidates[0].Content.Parts {
@@ -351,9 +412,7 @@ func main() {
 			}
 		}
 
-		// Improved extraction: find the JSON array block more carefully
 		var extracted string
-		// First try: look for the last markdown block
 		if start := strings.LastIndex(responseText, "```"); start != -1 {
 			temp := responseText[:start]
 			if blockStart := strings.LastIndex(temp, "```"); blockStart != -1 {
@@ -362,21 +421,16 @@ func main() {
 				extracted = strings.TrimSpace(inner)
 			}
 		}
-
-		// Second try: look for the last [ ] block that looks like a JSON array of objects
 		if extracted == "" {
-			// Find all [ ... ] candidates
 			lastOpen := strings.LastIndex(responseText, "[")
 			lastClose := strings.LastIndex(responseText, "]")
 			if lastOpen != -1 && lastClose != -1 && lastClose > lastOpen {
 				candidate := responseText[lastOpen : lastClose+1]
-				// Check if it contains "desc" and some form of box to be reasonably sure
 				if strings.Contains(candidate, "\"desc\"") && (strings.Contains(candidate, "\"box\"") || strings.Contains(candidate, "\"box_2d\"")) {
 					extracted = candidate
 				}
 			}
 		}
-
 		if extracted != "" {
 			responseText = extracted
 		}
@@ -394,10 +448,20 @@ func main() {
 			return
 		}
 
-		// Map: Product Name -> Max Score achieved in any crop
 		productMaxScores := make(map[string]float32)
-		// Map: Product Name -> Image URL
 		productImageURLs := make(map[string]string)
+
+		mcpUrl := os.Getenv("MCP_URL")
+		if mcpUrl == "" {
+			mcpUrl = "ws://mcp:8081/ws"
+		}
+
+		mcpClient, err := NewMCPClient(mcpUrl)
+		if err != nil {
+			log.Printf("Error connecting to MCP: %v", err)
+		} else {
+			defer mcpClient.Close()
+		}
 
 		for i, det := range detections {
 			box := det.Box
@@ -408,81 +472,104 @@ func main() {
 				continue
 			}
 
-			ymin := box[0] * height / 1000
-			xmin := box[1] * width / 1000
-			ymax := box[2] * height / 1000
-			xmax := box[3] * width / 1000
-
+			// Normalized 0-1000 to image pixels
+			ymin, xmin, ymax, xmax := box[0]*height/1000, box[1]*width/1000, box[2]*height/1000, box[3]*width/1000
 			if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
 				continue
 			}
 
-			log.Printf("Cropping image %d: [%d, %d, %d, %d]", i, xmin, ymin, xmax, ymax)
+			log.Printf("Cropping item %d (%s): [%d, %d, %d, %d]", i, det.Desc, xmin, ymin, xmax, ymax)
 			cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
 			cropBuf := new(bytes.Buffer)
 			jpeg.Encode(cropBuf, cropped, nil)
 
 			emb, err := getEmbeddingBytes(embeddingsURL, cropBuf.Bytes(), "crop.jpg")
 			if err != nil {
-				log.Printf("Error getting embedding for crop %d: %v", i, err)
 				continue
 			}
 
-			// Get top 5 hits to see if this crop matches MULTIPLE potential items
-			hits, err := performVectorSearchWithLimit(qdrantURL, emb, 5)
-			if err != nil {
-				log.Printf("Search error for crop %d: %v", i, err)
-				continue
-			}
+			if mcpClient != nil {
+				rawResults, err := mcpClient.CallVectorSearch(emb)
+				if err != nil {
+					log.Printf("Error calling MCP for item %d: %v", i, err)
+					continue
+				}
 
-			if len(hits) == 0 {
-				log.Printf("Crop %d: No matches found.", i)
-			} else {
+				var hits []map[string]interface{}
+				json.Unmarshal([]byte(rawResults), &hits)
+
+				var bestMatchName string
+				var bestMatchImgUrl string
+				var bestMatchScore float32 = -1.0
+
 				for _, hit := range hits {
-					name := hit["name"].(string)
+					name, okName := hit["name"].(string)
+					imgUrl, okImg := hit["imageUrl"].(string)
+					if !okName || !okImg {
+						continue
+					}
+
+					hitColor, _ := hit["color"].(string)
+					hitMaterial, _ := hit["material"].(string)
+
 					var score float32
 					if s, ok := hit["score"].(float32); ok {
 						score = s
 					} else if s, ok := hit["score"].(float64); ok {
 						score = float32(s)
 					}
-					log.Printf("Crop %d: Potential match '%s' (score: %f)", i, name, score)
 
-					// If score is decent, track it. If we've seen this product before, keep the best score.
-					if score > 0.74 {
-						if currentMax, ok := productMaxScores[name]; !ok || score > currentMax {
-							productMaxScores[name] = score
-							productImageURLs[name] = hit["imageUrl"].(string)
-							log.Printf("Crop %d: New best match for '%s' (score: %f)", i, name, score)
-						}
+					// Reranking/Boosting: Check if Gemma's description matches metadata
+					descLower := strings.ToLower(det.Desc)
+					
+					// Calculate boost
+					var boost float32 = 0
+					if hitColor != "" && strings.Contains(descLower, strings.ToLower(hitColor)) {
+						boost += 0.20 // Increased boost to make sure color is the deciding factor
+					}
+					if hitMaterial != "" && strings.Contains(descLower, strings.ToLower(hitMaterial)) {
+						boost += 0.10 
+					}
+					
+					finalScore := score + boost
+					log.Printf("Evaluating match for det (%s): %s (base: %f, color: %s, material: %s, boost: %f, final: %f)", det.Desc, name, score, hitColor, hitMaterial, boost, finalScore)
+
+					if finalScore > bestMatchScore {
+						bestMatchScore = finalScore
+						bestMatchName = name
+						bestMatchImgUrl = imgUrl
+					}
+				}
+
+				if bestMatchScore > 0.70 { // Increased threshold to avoid false positives
+					if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
+						productMaxScores[bestMatchName] = bestMatchScore
+						productImageURLs[bestMatchName] = bestMatchImgUrl
+						log.Printf("Best match accepted for det (%s): %s (%f)", det.Desc, bestMatchName, bestMatchScore)
 					}
 				}
 			}
 		}
 
-		// Calculate Found vs Missing
 		inventory, _ := listInventory(qdrantURL)
-
 		foundResults := []ProductResult{}
 		missingItems := []MissingItem{}
 
-		log.Printf("Found products (via analysis): %v", productMaxScores)
-
-		// Final check against full inventory
 		for _, item := range inventory {
-			payload := item["payload"].(map[string]any)
-			name := payload["name"].(string)
-			imgUrl, _ := payload["imageUrl"].(string)
+			payload, ok := item["payload"].(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _ := payload["name"].(string)
 
 			if score, found := productMaxScores[name]; found {
-				log.Printf("Inventory Item '%s' found (best score: %f)", name, score)
 				foundResults = append(foundResults, ProductResult{
 					Name:     name,
 					ImageURL: fixURL(productImageURLs[name], r.Host),
 					Score:    score,
 				})
 			} else {
-				log.Printf("Inventory Item '%s' NOT found in scan", name)
+				imgUrl, _ := payload["imageUrl"].(string)
 				missingItems = append(missingItems, MissingItem{
 					Name:     name,
 					ImageURL: fixURL(imgUrl, r.Host),
@@ -490,33 +577,23 @@ func main() {
 			}
 		}
 
-		log.Printf("Analysis complete, returning %d unique found and %d missing", len(foundResults), len(missingItems))
+		log.Printf("Analysis complete, found %d matches out of %d detections", len(foundResults), len(detections))
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(AnalysisResponse{
-			Found:   foundResults,
-			Missing: missingItems,
-		})
+		json.NewEncoder(w).Encode(AnalysisResponse{Found: foundResults, Missing: missingItems})
 	}))
 
-	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func listInventory(url string) ([]map[string]any, error) {
-	client, err := qdrant.NewClient(&qdrant.Config{
-		Host: "qdrant",
-		Port: 6334,
-	})
+	client, err := qdrant.NewClient(&qdrant.Config{Host: "qdrant", Port: 6334})
 	if err != nil {
-		client, err = qdrant.NewClient(&qdrant.Config{
-			Host: "localhost",
-			Port: 6334,
-		})
-		if err != nil {
-			return nil, err
-		}
+		client, err = qdrant.NewClient(&qdrant.Config{Host: "localhost", Port: 6334})
+	}
+	if err != nil {
+		return nil, err
 	}
 	defer client.Close()
 
@@ -535,36 +612,22 @@ func listInventory(url string) ([]map[string]any, error) {
 		for k, v := range p.Payload {
 			payload[k] = v.GetStringValue()
 		}
-
-		item := map[string]any{
-			"id":      fmt.Sprintf("%d", p.Id.GetNum()),
-			"payload": payload,
-		}
-		items = append(items, item)
+		items = append(items, map[string]any{"id": fmt.Sprintf("%d", p.Id.GetNum()), "payload": payload})
 	}
-
 	return items, nil
 }
 
 func deleteFromQdrant(url string, idStr string) error {
-	client, err := qdrant.NewClient(&qdrant.Config{
-		Host: "qdrant",
-		Port: 6334,
-	})
+	client, err := qdrant.NewClient(&qdrant.Config{Host: "qdrant", Port: 6334})
 	if err != nil {
-		client, err = qdrant.NewClient(&qdrant.Config{
-			Host: "localhost",
-			Port: 6334,
-		})
-		if err != nil {
-			return err
-		}
+		client, err = qdrant.NewClient(&qdrant.Config{Host: "localhost", Port: 6334})
+	}
+	if err != nil {
+		return err
 	}
 	defer client.Close()
-
 	var id uint64
 	fmt.Sscanf(idStr, "%d", &id)
-
 	_, err = client.Delete(context.Background(), &qdrant.DeletePoints{
 		CollectionName: "jewelry_inventory",
 		Points:         qdrant.NewPointsSelector(qdrant.NewIDNum(id)),
@@ -575,118 +638,62 @@ func deleteFromQdrant(url string, idStr string) error {
 func getEmbedding(url string, file io.Reader, filename string) ([]float32, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", filename)
-	if err != nil {
-		return nil, err
-	}
-	_, err = io.Copy(part, file)
-	if err != nil {
-		return nil, err
-	}
+	part, _ := writer.CreateFormFile("file", filename)
+	io.Copy(part, file)
 	writer.Close()
-
-	req, err := http.NewRequest("POST", url+"/embed", body)
-	if err != nil {
-		return nil, err
-	}
+	req, _ := http.NewRequest("POST", url+"/embed", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("embedding service returned status %d", resp.StatusCode)
-	}
-
 	var res EmbeddingResponse
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return nil, err
-	}
-
+	json.NewDecoder(resp.Body).Decode(&res)
 	return res.Embedding, nil
 }
 
 func getEmbeddingBytes(url string, imgData []byte, filename string) ([]float32, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", filename)
-	if err != nil {
-		return nil, err
-	}
-	_, err = io.Copy(part, bytes.NewReader(imgData))
-	if err != nil {
-		return nil, err
-	}
+	part, _ := writer.CreateFormFile("file", filename)
+	io.Copy(part, bytes.NewReader(imgData))
 	writer.Close()
-
-	req, err := http.NewRequest("POST", url+"/embed", body)
-	if err != nil {
-		return nil, err
-	}
+	req, _ := http.NewRequest("POST", url+"/embed", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("embedding service returned status %d", resp.StatusCode)
-	}
-
 	var res EmbeddingResponse
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return nil, err
-	}
-
+	json.NewDecoder(resp.Body).Decode(&res)
 	return res.Embedding, nil
 }
 
-func saveMultipleToQdrant(url string, name string, imageUrl string, vectors [][]float32) error {
-	client, err := qdrant.NewClient(&qdrant.Config{
-		Host: "qdrant",
-		Port: 6334,
-	})
+func saveMultipleToQdrant(url string, name string, imageUrl string, color string, material string, vectors [][]float32) error {
+	client, err := qdrant.NewClient(&qdrant.Config{Host: "qdrant", Port: 6334})
 	if err != nil {
-		client, err = qdrant.NewClient(&qdrant.Config{
-			Host: "localhost",
-			Port: 6334,
-		})
-		if err != nil {
-			return err
-		}
+		client, err = qdrant.NewClient(&qdrant.Config{Host: "localhost", Port: 6334})
+	}
+	if err != nil {
+		return err
 	}
 	defer client.Close()
-
 	var points []*qdrant.PointStruct
 	for i, vector := range vectors {
 		id := uint64(SystemID(fmt.Sprintf("%s_%d", name, i)))
 		payload := map[string]any{
-			"name": name,
+			"name":     name,
+			"color":    color,
+			"material": material,
 		}
 		if imageUrl != "" {
 			payload["imageUrl"] = imageUrl
 		}
-
-		points = append(points, &qdrant.PointStruct{
-			Id:      qdrant.NewIDNum(id),
-			Vectors: qdrant.NewVectorsDense(vector),
-			Payload: qdrant.NewValueMap(payload),
-		})
+		points = append(points, &qdrant.PointStruct{Id: qdrant.NewIDNum(id), Vectors: qdrant.NewVectorsDense(vector), Payload: qdrant.NewValueMap(payload)})
 	}
-
-	upsertPoints := &qdrant.UpsertPoints{
-		CollectionName: "jewelry_inventory",
-		Points:         points,
-	}
-
-	_, err = client.Upsert(context.Background(), upsertPoints)
+	_, err = client.Upsert(context.Background(), &qdrant.UpsertPoints{CollectionName: "jewelry_inventory", Points: points})
 	return err
 }
 
@@ -695,21 +702,14 @@ func performVectorSearch(url string, vector []float32) ([]map[string]any, error)
 }
 
 func performVectorSearchWithLimit(url string, vector []float32, limit uint64) ([]map[string]any, error) {
-	client, err := qdrant.NewClient(&qdrant.Config{
-		Host: "qdrant",
-		Port: 6334,
-	})
+	client, err := qdrant.NewClient(&qdrant.Config{Host: "qdrant", Port: 6334})
 	if err != nil {
-		client, err = qdrant.NewClient(&qdrant.Config{
-			Host: "localhost",
-			Port: 6334,
-		})
-		if err != nil {
-			return nil, err
-		}
+		client, err = qdrant.NewClient(&qdrant.Config{Host: "localhost", Port: 6334})
+	}
+	if err != nil {
+		return nil, err
 	}
 	defer client.Close()
-
 	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
 		CollectionName: "jewelry_inventory",
 		Query:          qdrant.NewQueryDense(vector),
@@ -719,18 +719,13 @@ func performVectorSearchWithLimit(url string, vector []float32, limit uint64) ([
 	if err != nil {
 		return nil, err
 	}
-
 	var results []map[string]any
 	for _, hit := range searchResult {
 		payload := make(map[string]any)
 		for k, v := range hit.Payload {
 			payload[k] = v.GetStringValue()
 		}
-		results = append(results, map[string]any{
-			"name":     payload["name"],
-			"imageUrl": payload["imageUrl"],
-			"score":    hit.Score,
-		})
+		results = append(results, map[string]any{"name": payload["name"], "imageUrl": payload["imageUrl"], "score": hit.Score})
 	}
 	return results, nil
 }
