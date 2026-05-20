@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { mockHistory } from '../lib/mock-data'
 import PageShell from '../components/PageShell'
-import { Search, MapPin, ChevronRight, Filter } from 'lucide-react'
+import { Search, MapPin, Filter } from 'lucide-react'
 
 export default function History() {
   const [query, setQuery] = useState('')

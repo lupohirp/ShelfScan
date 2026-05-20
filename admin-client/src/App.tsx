@@ -6,6 +6,8 @@ interface InventoryItem {
   payload: {
     name: string
     imageUrl?: string
+    color?: string
+    material?: string
   }
 }
 
@@ -14,6 +16,8 @@ function App() {
   const [view, setView] = useState<'list' | 'add'>('list')
   const [files, setFiles] = useState<FileList | null>(null)
   const [name, setName] = useState('')
+  const [color, setColor] = useState('')
+  const [material, setMaterial] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
@@ -44,6 +48,8 @@ function App() {
       formData.append('images', files[i])
     }
     formData.append('name', name)
+    formData.append('color', color)
+    formData.append('material', material)
 
     try {
       const apiHost = window.location.hostname
@@ -54,6 +60,8 @@ function App() {
       if (response.ok) {
         setSuccess(true)
         setName('')
+        setColor('')
+        setMaterial('')
         setFiles(null)
         fetchInventory()
         setTimeout(() => {
@@ -131,7 +139,11 @@ function App() {
                       )}
                     </div>
                     <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>{item.payload.name}</h3>
-                    <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '4px' }}>ID: {item.id}</p>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                      {item.payload.color && <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>{item.payload.color}</span>}
+                      {item.payload.material && <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>{item.payload.material}</span>}
+                    </div>
+                    <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '8px' }}>ID: {item.id}</p>
                   </div>
                   <button 
                     onClick={() => handleDelete(item.id)}
@@ -170,10 +182,33 @@ function App() {
                   type="text" 
                   value={name} 
                   onChange={(e) => setName(e.target.value)} 
-                  placeholder="e.g. Diamond Ring 18k White Gold"
+                  placeholder="e.g. Diamond Ring"
                   style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
                   required
                 />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Color</label>
+                  <input 
+                    type="text" 
+                    value={color} 
+                    onChange={(e) => setColor(e.target.value)} 
+                    placeholder="e.g. Gold, Silver, Rose"
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Material</label>
+                  <input 
+                    type="text" 
+                    value={material} 
+                    onChange={(e) => setMaterial(e.target.value)} 
+                    placeholder="e.g. 18k, Diamond, Steel"
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                  />
+                </div>
               </div>
 
               <div>

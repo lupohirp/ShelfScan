@@ -24,61 +24,59 @@ export default function StoreSelect() {
   }
 
   return (
-    <PageShell bottomNav={true}>
-      <TopBar title="Seleziona Negozio" back />
+    <PageShell>
+      <TopBar title="SELEZIONA STORE" back />
 
-      <div className="px-6 pt-6 pb-32">
+      <div className="px-8 pt-10 pb-40">
         {/* Search */}
-        <div className="relative mb-6">
-          <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#86868B]" />
+        <div className="relative mb-12">
+          <Search size={20} className="absolute left-0 top-1/2 -translate-y-1/2 text-black" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cerca negozio o città..."
-            className="w-full h-13 pl-12 pr-4 bg-white/60 border border-transparent rounded-[20px] text-[16px] outline-none shadow-sm shadow-black/5 focus:border-[#B4894D] focus:ring-4 focus:ring-[#B4894D]/5 transition-all placeholder:text-[#AEAEB2]"
+            placeholder="CERCA NEGOZIO O CITTÀ..."
+            className="w-full pl-8 py-4 border-b border-gray-100 text-[12px] font-black uppercase tracking-[0.2em] outline-none focus:border-black transition-colors bg-transparent placeholder:text-gray-300"
           />
         </div>
 
         {/* Add new */}
-        <button className="w-full flex items-center gap-4 p-4 mb-8 border-2 border-dashed border-[#B4894D]/20 rounded-[28px] text-[#B4894D] active:bg-[#B4894D]/5 transition-all group">
-          <div className="w-12 h-12 bg-[#B4894D]/10 rounded-2xl flex items-center justify-center group-active:scale-95 transition-transform">
-            <Plus size={24} />
-          </div>
-          <span className="text-[16px] font-bold">Aggiungi nuovo negozio</span>
+        <button className="w-full flex items-center justify-center gap-4 py-6 mb-12 border border-gray-100 bg-gray-50/30 text-black active:bg-gray-100 transition-all group">
+          <Plus size={20} strokeWidth={1} />
+          <span className="text-[12px] font-black uppercase tracking-[0.2em]">Nuovo Store</span>
         </button>
 
-        <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-[13px] font-bold text-[#86868B] uppercase tracking-wider">Negozi nelle vicinanze</h2>
-          <span className="text-[13px] font-bold text-[#0071E3]">{filtered.length}</span>
+        <div className="mb-8">
+          <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Negozi suggeriti</h2>
         </div>
 
         {/* Store list */}
-        <div className="space-y-4">
+        <div className="space-y-0">
           {filtered.map((store) => (
             <button
               key={store.id}
               onClick={() => handleSelect(store)}
-              className="w-full flex items-center gap-4 p-5 glass-card rounded-[28px] border-white/60 active:scale-[0.99] transition-all text-left"
+              className="w-full py-8 border-b border-gray-50 flex items-center justify-between active:opacity-50 transition-opacity text-left group"
             >
-              <div className="w-12 h-12 bg-[#F8F2EA] rounded-2xl flex items-center justify-center border border-[#B4894D]/10">
-                <MapPin size={20} className="text-[#B4894D]" />
+              <div className="flex-1 min-w-0 pr-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[14px] font-black uppercase tracking-[0.1em] text-black">{store.name}</span>
+                  <div className="w-1.5 h-1.5 bg-black rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <div className="flex items-center gap-2 text-gray-400 font-bold uppercase text-[10px] tracking-widest">
+                  <MapPin size={10} />
+                  <span>{store.city} — {store.address}</span>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[16px] font-bold text-[#1D1D1F] truncate">{store.name}</p>
-                <p className="text-[13px] text-[#86868B] font-medium truncate mt-0.5">{store.address}, {store.city}</p>
-              </div>
-              <ChevronRight size={18} className="text-[#D2D2D7] shrink-0" />
+              <ChevronRight size={18} className="text-black opacity-30 group-hover:opacity-100 transition-opacity" strokeWidth={1.5} />
             </button>
           ))}
         </div>
 
         {filtered.length === 0 && (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 bg-black/5 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search size={24} className="text-[#AEAEB2]" />
-            </div>
-            <p className="text-[#86868B] font-bold">Nessun negozio trovato</p>
+          <div className="text-center py-20 grayscale opacity-40">
+            <Search size={32} className="mx-auto mb-4" strokeWidth={1} />
+            <p className="text-[12px] font-black uppercase tracking-[0.2em]">Nessun risultato</p>
           </div>
         )}
       </div>

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useScan } from '../store/scan'
 import { X, Zap, ImageIcon, ScanLine, Camera as CameraIcon } from 'lucide-react'
 import type { CheckSession } from '../types'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export default function Camera() {
   const navigate = useNavigate()
@@ -19,7 +18,7 @@ export default function Camera() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const stabilityTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const stabilityTimerRef = useRef<any>(null)
 
   // Request 4K Camera & Lifecycle Management
   useEffect(() => {
