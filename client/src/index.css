@@ -1,62 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Josefin Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Red Hat Display', "Helvetica Neue", Helvetica, Arial, sans-serif;
   
-  /* Liu-Jo Luxury Palette */
-  --color-bg-logged: #E8E4DF;
-  --color-surface: rgba(255, 255, 255, 0.78);
-  --color-surface-strong: rgba(255, 255, 255, 0.9);
+  /* Official Liu Jo Minimalist Palette */
+  --color-bg-base: #FFFFFF;
+  --color-primary: #000000;
+  --color-secondary: #707070;
   
-  --color-accent: #0071E3; /* Apple Blue */
-  --color-gold: #B4894D; /* Luxury Gold */
-  --color-gold-light: #F8F2EA;
+  --color-accent: #000000;
+  --color-accent-contrast: #FFFFFF;
   
-  --color-primary: #1D1D1F;
-  --color-text-secondary: #6E6E73;
-  --color-text-tertiary: #86868B;
+  --color-gray-50: #F8F8F8;
+  --color-gray-100: #F2F2F2;
+  --color-gray-200: #E5E5E5;
+  --color-gray-300: #CCCCCC;
+  --color-gray-400: #999999;
   
-  --color-success: #30D158;
-  --color-success-light: #E8FAF0;
-  --color-warning: #FF9500;
-  --color-warning-light: #FFF4E6;
-  --color-danger: #FF3B30;
-  --color-danger-light: #FFF0EF;
-  
-  /* Grays */
-  --color-gray-50: #F5F5F7;
-  --color-gray-100: #E8E8ED;
-  --color-gray-200: #D2D2D7;
+  --color-success: #27AE60;
+  --color-warning: #F2994A;
+  --color-danger: #EB5757;
 }
 
-@utility glass-card {
-  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-[0_8px_24px_rgba(62,42,26,0.08)];
+@utility lj-card {
+  @apply bg-white border border-gray-100 shadow-[0_2px_15px_rgba(0,0,0,0.02)];
 }
 
-@utility glass-pill {
-  @apply bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_4px_20px_rgba(62,42,26,0.06)];
+@utility lj-button {
+  @apply bg-black text-white font-bold uppercase tracking-[0.15em] text-[13px] py-4 px-8 transition-all active:opacity-80;
 }
 
-@utility gradient-accent {
-  @apply bg-gradient-to-br from-[#B4894D] to-[#D4AF37];
-}
-
-@utility gradient-mesh {
-  background-color: #E8E4DF;
-  background-image: 
-    radial-gradient(at 0% 0%, hsla(30,30%,90%,1) 0, transparent 50%), 
-    radial-gradient(at 50% 0%, hsla(30,20%,85%,1) 0, transparent 50%), 
-    radial-gradient(at 100% 0%, hsla(30,30%,90%,1) 0, transparent 50%);
+@utility lj-input {
+  @apply w-full border-b border-gray-300 py-3 text-[15px] outline-none focus:border-black transition-colors bg-transparent rounded-none;
 }
 
 * {
   -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
 }
 
 html, body {
   overscroll-behavior: none;
   margin: 0;
-  background: var(--color-bg-logged);
+  background: var(--color-bg-base);
 }
 
 body {
@@ -74,28 +60,28 @@ input, textarea, select {
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fade-in 0.5s ease-out;
 }
 
-@keyframes pulse-scan {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+@keyframes slide-up {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-.animate-pulse-scan {
-  animation: pulse-scan 1.5s ease-in-out infinite;
+.animate-slide-up {
+  animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
 }
 
-.animate-float {
-  animation: float 6s ease-in-out infinite;
+.animate-scan-line {
+  animation: scan-line 2s linear infinite;
 }

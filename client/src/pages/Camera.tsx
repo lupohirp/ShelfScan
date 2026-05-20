@@ -156,7 +156,7 @@ export default function Camera() {
       
       const foundProducts: any[] = analysisData.found.map(r => ({
         id: 'found-' + r.name,
-        sku: 'IDENTIFIED',
+        sku: Math.round(r.score * 100) + '%',
         name: r.name,
         category: 'identified',
         imageUrl: r.imageUrl,
@@ -257,21 +257,39 @@ export default function Camera() {
       </div>
 
       {/* 3. Viewfinder / Level UI */}
-      <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+        {/* Instruction Text */}
+        <div className="mb-8 text-center px-6 transition-opacity duration-300">
+          <p className={`text-white text-lg font-medium drop-shadow-lg ${isStable ? 'opacity-50' : 'opacity-100'}`}>
+            {isStable ? 'Resta fermo...' : 'Inquadra la vetrina'}
+          </p>
+          {!isStable && (
+            <p className="text-white/60 text-xs mt-1 uppercase tracking-widest font-bold">
+              Allinea il pallino al centro
+            </p>
+          )}
+        </div>
+
         {/* Level Bubble */}
-        <div className={`w-36 h-36 border-2 rounded-full flex items-center justify-center transition-all duration-300 ${isStable ? 'border-green-500 bg-green-500/20 scale-110' : 'border-white/20'}`}>
+        <div className={`w-32 h-32 border-2 rounded-full flex items-center justify-center transition-all duration-500 mb-4 ${isStable ? 'border-green-500 bg-green-500/20 scale-100 opacity-40' : 'border-white/20'}`}>
           <div 
-            className={`w-5 h-5 rounded-full transition-colors duration-300 ${isStable ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}
-            style={{ transform: `translate(${roll * 2.5}px, ${(pitch - 90) * 2.5}px)` }}
+            className={`w-4 h-4 rounded-full transition-colors duration-300 ${isStable ? 'bg-green-500' : 'bg-red-500'}`}
+            style={{ transform: `translate(${roll * 2}px, ${(pitch - 90) * 2}px)` }}
           />
         </div>
 
-        {/* Frame */}
-        <div className={`absolute w-[85%] aspect-[3/4] border-2 rounded-3xl transition-colors duration-500 ${isStable ? 'border-green-500/60' : 'border-white/10'}`}>
-          <div className={`absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 rounded-tl-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
-          <div className={`absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 rounded-tr-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
-          <div className={`absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 rounded-bl-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
-          <div className={`absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 rounded-br-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
+        {/* Showcase Guide Frame */}
+        <div className={`relative w-[90%] aspect-[4/5] border-2 rounded-3xl transition-all duration-500 ${isStable ? 'border-green-500 scale-105' : 'border-white/20'}`}>
+          {/* Corner accents */}
+          <div className={`absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 rounded-tl-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
+          <div className={`absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 rounded-tr-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
+          <div className={`absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 rounded-bl-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
+          <div className={`absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 rounded-br-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
+          
+          {/* Subtle scanning line effect if stable */}
+          {isStable && (
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-500/10 to-transparent animate-scan-line rounded-3xl" />
+          )}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
-import { Eye, EyeOff, ScanLine } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -28,88 +28,87 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-svh flex flex-col items-center justify-center px-6 overflow-hidden bg-[#E8E4DF]">
-      {/* Animated Background Elements - Softer/Warm */}
-      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-[#B4894D]/10 rounded-full blur-[120px] animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#B4894D]/5 rounded-full blur-[120px] animate-pulse delay-1000" />
-      
-      <div className="w-full max-w-sm z-10 animate-fade-in">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-20 h-20 gradient-accent rounded-[24px] flex items-center justify-center mb-6 shadow-xl shadow-[#B4894D]/20 animate-float">
-            <ScanLine size={40} className="text-white" />
-          </div>
-          <h1 className="text-[36px] font-bold tracking-tight text-[#1D1D1F]">ShelfScan</h1>
-          <p className="text-[#6E6E73] text-[15px] mt-1 font-medium tracking-wide uppercase">Boutique Inventory Check</p>
+    <div className="min-h-svh flex flex-col items-center justify-center px-8 bg-white animate-fade-in">
+      <div className="w-full max-w-[360px]">
+        {/* Logo Section */}
+        <div className="flex flex-col items-center mb-16">
+          <h1 className="text-[42px] font-black tracking-[-0.05em] leading-none mb-1">LIU·JO</h1>
+          <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">Inventory Management</p>
         </div>
 
-        {/* Form Card */}
-        <div className="glass-card rounded-[32px] p-8 border-white/60">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-[12px] font-semibold text-[#6E6E73] uppercase tracking-wider mb-2 ml-1">
-                Email
-              </label>
+        {/* Welcome Text */}
+        <div className="mb-10 text-center">
+          <h2 className="text-[20px] font-bold uppercase tracking-[0.1em] mb-2">Benvenuto</h2>
+          <p className="text-[14px] text-gray-500 font-medium">Accedi per gestire il tuo store</p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-black mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Indirizzo email"
+              className="lj-input"
+              autoComplete="email"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-black mb-1">
+              Password
+            </label>
+            <div className="relative">
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="nome@azienda.it"
-                className="w-full h-13 px-4 bg-white/50 rounded-2xl text-[16px] outline-none border border-transparent focus:border-[#B4894D] focus:ring-4 focus:ring-[#B4894D]/10 transition-all placeholder:text-gray-400"
-                autoComplete="email"
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Inserisci la password"
+                className="lj-input"
+                autoComplete="current-password"
               />
+              <button
+                type="button"
+                onClick={() => setShowPw(!showPw)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 p-2"
+              >
+                {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-[12px] font-semibold text-[#6E6E73] uppercase tracking-wider mb-2 ml-1">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPw ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="La tua password"
-                  className="w-full h-13 px-4 pr-12 bg-white/50 rounded-2xl text-[16px] outline-none border border-transparent focus:border-[#B4894D] focus:ring-4 focus:ring-[#B4894D]/10 transition-all placeholder:text-gray-400"
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 p-2 active:scale-90 transition-transform"
-                >
-                  {showPw ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
+          {error && (
+            <p className="text-danger text-[13px] text-center font-bold">{error}</p>
+          )}
 
-            {error && (
-              <p className="text-danger text-sm text-center font-medium animate-shake">{error}</p>
-            )}
-
+          <div className="pt-4">
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-14 bg-[#1D1D1F] text-white rounded-2xl font-bold text-[17px] shadow-lg shadow-black/10 transition-all active:scale-[0.97] hover:brightness-110 disabled:opacity-50 mt-2"
+              className="w-full lj-button flex items-center justify-center gap-3"
             >
               {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
-                  Accesso...
-                </span>
-              ) : (
-                'Accedi'
-              )}
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : null}
+              Accedi
             </button>
+          </div>
 
-            <button type="button" className="w-full text-[#0071E3] text-sm font-semibold py-2 active:opacity-70 transition-opacity">
+          <div className="flex flex-col gap-4 text-center">
+            <button type="button" className="text-[12px] font-bold uppercase tracking-[0.1em] text-gray-400 hover:text-black transition-colors">
               Password dimenticata?
             </button>
-          </form>
-        </div>
-        
-        <p className="text-center text-[#86868B] text-sm mt-8">
-          Non hai un account? <span className="text-[#B4894D] font-bold">Contatta admin</span>
+          </div>
+        </form>
+      </div>
+      
+      <div className="fixed bottom-10 text-center">
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-300">
+          Official Partner Portal
         </p>
       </div>
     </div>

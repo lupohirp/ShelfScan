@@ -2,14 +2,13 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import { mockHistory } from '../lib/mock-data'
 import PageShell from '../components/PageShell'
-import BottomNav from '../components/BottomNav'
 import {
   ScanLine,
   TrendingUp,
   ChevronRight,
   MapPin,
   Clock,
-  LayoutGrid,
+  Grid3X3,
 } from 'lucide-react'
 
 export default function Home() {
@@ -24,67 +23,63 @@ export default function Home() {
 
   return (
     <PageShell>
-      {/* Header */}
-      <div className="px-6 pt-12 pb-6 safe-top flex items-end justify-between">
+      {/* Header Section */}
+      <div className="px-8 pt-16 pb-10 safe-top border-b border-gray-100 flex items-end justify-between bg-white">
         <div>
-          <p className="text-[#86868B] text-[13px] font-bold uppercase tracking-[0.1em]">Bentornato,</p>
-          <h1 className="text-[36px] font-bold tracking-tight text-[#1D1D1F] mt-1">
-            {user?.firstName || 'Marco'}
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Store Associate</p>
+          <h1 className="text-[32px] font-black tracking-tight text-black leading-none">
+            {user?.firstName?.toUpperCase() || 'MARCO'}
           </h1>
         </div>
-        <div className="w-12 h-12 glass-card rounded-2xl flex items-center justify-center text-[#B4894D] border-white/60">
-          <LayoutGrid size={24} />
+        <div className="w-10 h-10 border border-gray-100 flex items-center justify-center text-black">
+          <Grid3X3 size={20} />
         </div>
       </div>
 
-      {/* Primary CTA */}
-      <div className="px-6 mb-8">
+      {/* Main CTA */}
+      <div className="p-8 border-b border-gray-100 bg-gray-50/50">
         <button
           onClick={() => navigate('/scan')}
-          className="w-full gradient-accent text-white rounded-[32px] p-6 flex items-center gap-5 shadow-xl shadow-[#B4894D]/25 active:scale-[0.98] transition-all hover:brightness-110"
+          className="w-full bg-black text-white p-8 flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.99]"
         >
-          <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-[20px] flex items-center justify-center shrink-0 border border-white/30">
-            <ScanLine size={28} />
-          </div>
-          <div className="text-left">
-            <span className="text-[20px] font-bold block leading-tight">Nuovo Check</span>
-            <span className="text-white/80 text-[14px] font-medium tracking-wide uppercase">
-              Analisi Boutique
+          <ScanLine size={32} strokeWidth={1.5} />
+          <div className="text-center">
+            <span className="text-[16px] font-black uppercase tracking-[0.2em] block mb-1">Nuova Scansione</span>
+            <span className="text-white/50 text-[11px] font-bold uppercase tracking-[0.1em]">
+              Inventory Visual Check
             </span>
-          </div>
-          <div className="ml-auto w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-            <ChevronRight size={22} className="text-white/80" />
           </div>
         </button>
       </div>
 
-      {/* Stats Bento Grid */}
-      <div className="px-6 mb-10">
+      {/* Stats Bento */}
+      <div className="px-8 py-10">
+        <h2 className="text-[12px] font-black uppercase tracking-[0.25em] mb-6">Overview Mensile</h2>
         <div className="grid grid-cols-2 gap-4">
-          <div className="glass-card rounded-[28px] p-5 border-white/60">
-            <div className="w-10 h-10 bg-[#F8F2EA] rounded-xl flex items-center justify-center mb-4 border border-[#B4894D]/10">
-              <Clock size={20} className="text-[#B4894D]" />
+          <div className="lj-card p-6 flex flex-col justify-between aspect-square">
+            <Clock size={18} className="text-gray-400" />
+            <div>
+              <p className="text-[32px] font-black tracking-tighter leading-none mb-1">{totalChecks}</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-tight">Check Completati</p>
             </div>
-            <p className="text-[28px] font-bold tracking-tight text-[#1D1D1F]">{totalChecks}</p>
-            <p className="text-[12px] text-[#86868B] font-bold uppercase tracking-wider">Check mensili</p>
           </div>
-          <div className="glass-card rounded-[28px] p-5 border-white/60">
-            <div className="w-10 h-10 bg-[#E8FAF0] rounded-xl flex items-center justify-center mb-4 border border-[#30D158]/10">
-              <TrendingUp size={20} className="text-[#30D158]" />
+          <div className="lj-card p-6 flex flex-col justify-between aspect-square">
+            <TrendingUp size={18} className="text-gray-400" />
+            <div>
+              <p className="text-[32px] font-black tracking-tighter leading-none mb-1">{avgCoverage}%</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-tight">Average Coverage</p>
             </div>
-            <p className="text-[28px] font-bold tracking-tight text-[#1D1D1F]">{avgCoverage}%</p>
-            <p className="text-[12px] text-[#86868B] font-bold uppercase tracking-wider">Coverage medio</p>
           </div>
         </div>
       </div>
 
       {/* Recent Activity */}
-      <div className="px-6 pb-32">
-        <div className="flex items-center justify-between mb-5 px-1">
-          <h2 className="text-[18px] font-bold text-[#1D1D1F]">Attività Recente</h2>
+      <div className="px-8 pb-32">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-[12px] font-black uppercase tracking-[0.25em]">Attività Recente</h2>
           <button
             onClick={() => navigate('/history')}
-            className="text-[#0071E3] text-[14px] font-bold"
+            className="text-black text-[11px] font-black uppercase tracking-[0.15em] border-b-2 border-black pb-0.5"
           >
             Vedi tutto
           </button>
@@ -95,57 +90,35 @@ export default function Home() {
             <button
               key={check.id}
               onClick={() => navigate(`/history/${check.id}`)}
-              className="w-full glass-card rounded-[28px] p-5 flex items-center gap-4 border-white/60 active:scale-[0.99] transition-all text-left"
+              className="w-full lj-card p-5 flex items-center gap-5 active:bg-gray-50 transition-all text-left"
             >
-              {/* Luxury Coverage Circle */}
-              <div className="relative w-14 h-14 shrink-0">
-                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="#F1F5F9"
-                    strokeWidth="3"
-                  />
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke={check.coverage >= 70 ? '#30D158' : check.coverage >= 40 ? '#FF9500' : '#FF3B30'}
-                    strokeWidth="3"
-                    strokeDasharray={`${check.coverage}, 100`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-[12px] font-bold text-[#1D1D1F]">
-                  {check.coverage}%
-                </span>
+              {/* Minimal Coverage Indicator */}
+              <div className="relative w-12 h-12 shrink-0 border border-gray-100 flex items-center justify-center font-black text-[13px]">
+                {check.coverage}%
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="text-[16px] font-bold text-[#1D1D1F] truncate">
+                <p className="text-[14px] font-black uppercase tracking-wider text-black truncate">
                   {check.store.name}
                 </p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <MapPin size={13} className="text-[#86868B] shrink-0" />
-                  <span className="text-[13px] text-[#86868B] font-medium truncate">
+                <div className="flex items-center gap-2 mt-1">
+                  <MapPin size={11} className="text-gray-400 shrink-0" />
+                  <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wide truncate">
                     {check.store.city}
-                  </span>
-                  <span className="text-[#D2D2D7] mx-0.5">·</span>
-                  <span className="text-[13px] text-[#86868B] font-medium">
-                    {new Date(check.createdAt).toLocaleDateString('it-IT', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-col items-end gap-1.5">
-                <div className="w-7 h-7 rounded-full bg-[#B4894D]/10 border border-[#B4894D]/20 flex items-center justify-center text-[11px] font-bold text-[#B4894D]">
-                  {check.foundProducts.length}
-                </div>
+                <span className="text-[10px] text-gray-400 font-black uppercase">
+                  {new Date(check.createdAt).toLocaleDateString('it-IT', {
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                </span>
                 {check.status === 'draft' && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF9500] bg-[#FFF4E6] px-2.5 py-1 rounded-full border border-[#FF9500]/10">
-                    Bozza
+                  <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white bg-black px-2 py-1">
+                    Draft
                   </span>
                 )}
               </div>
@@ -153,7 +126,6 @@ export default function Home() {
           ))}
         </div>
       </div>
-
     </PageShell>
   )
 }
