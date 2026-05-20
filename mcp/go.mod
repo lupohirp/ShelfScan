@@ -5,6 +5,7 @@ go 1.26.1
 require github.com/qdrant/go-client v1.17.1
 
 require (
+	github.com/gorilla/websocket v1.5.3 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
