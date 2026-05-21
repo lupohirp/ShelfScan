@@ -15,6 +15,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Pre-download the model into the image
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('clip-ViT-B-32', device='cpu')"
 
+# Python memory optimizations
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV MALLOC_TRIM_THRESHOLD_=100000
+
 COPY . .
 
 # Make sure entrypoint is executable
