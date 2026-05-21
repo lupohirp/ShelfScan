@@ -4,8 +4,10 @@ import (
 	_ "image/png"
 	"net/http"
 	"os"
+	"strconv"
 
 	"shelfscan-api/internal/embedding"
+	"shelfscan-api/internal/gemini"
 	handler "shelfscan-api/internal/handler"
 	"shelfscan-api/internal/mcp"
 	middleware "shelfscan-api/internal/middleware"
@@ -23,6 +25,19 @@ func main() {
 
 	embeddingsHost := os.Getenv("EMBEDDINGS_HOST")
 	embeddingsPort := os.Getenv("EMBEDDINGS_PORT")
+
+	prompt := os.Getenv("GEMINI_PROMPT")
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	generativeModel := os.Getenv("GEMINI_MODEL")
+	temperature := os.Getenv("GEMINI_TEMPERATURE")
+	maxOutputTokens := os.Getenv("GEMINI_MAX_OUTPUT_TOKENS")
+
+	if prompt == "" {
+		prompt = `Analyze this jewelry display. List each distinct jewelry item.
+	 Return ONLY a valid JSON array of objects. Each object must have:
+	 "desc": a short description including color/material.
+	 "box": an array [ymin, xmin, ymax, xmax] (normalized 0 to 1000).`
+	}
 
 	mcpUrl := os.Getenv("MCP_URL")
 
@@ -43,11 +58,22 @@ func main() {
 	mcpClient := mcp.NewMCPClient().
 		WithURL(mcpUrl)
 
+	temp, _ := strconv.Atoi(temperature)
+	tokens, _ := strconv.Atoi(maxOutputTokens)
+
+	geminiClient := gemini.NewGeminiClient().
+		WithGenerativeModel(generativeModel).
+		WithApiKey(apiKey).
+		WithPrompt(prompt).
+		WithTemperature(temp).
+		WithMaxOutputTokens(tokens)
+
 	handlers := handler.NewHandler().
 		WithCorsMiddleware(corsMiddleware).
 		WithQdrantClient(qdrantClient).
 		WithEmbeddingClient(embeddingClient).
-		WithMCP(mcpClient)
+		WithMCPClient(mcpClient).
+		WithGeminiClient(geminiClient)
 
 	http.HandleFunc("/health", handlers.HealthHandler)
 

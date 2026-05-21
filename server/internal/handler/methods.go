@@ -18,7 +18,6 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/option"
 )
 
 func (h *Handler) HealthHandler(w http.ResponseWriter, r *http.Request) {
@@ -246,29 +245,6 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		apiKey := os.Getenv("GEMINI_API_KEY")
-		if apiKey == "" {
-			apiKey = r.FormValue("apiKey")
-		}
-		if apiKey == "" {
-			log.Printf("Error: Missing API Key")
-			http.Error(w, "Missing API Key", http.StatusBadRequest)
-			return
-		}
-
-		ctx := context.Background()
-		client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
-		if err != nil {
-			log.Printf("Error creating GenAI client: %v", err)
-			http.Error(w, fmt.Sprintf("AI SDK error: %v", err), http.StatusInternalServerError)
-			return
-		}
-		defer client.Close()
-
-		model := client.GenerativeModel("gemma-4-26b-a4b-it")
-		model.SetTemperature(0.1)
-		model.SetMaxOutputTokens(1024)
-
 		productMaxScores := make(map[string]float32)
 		productImageURLs := make(map[string]string)
 		var allImageResults []subdomain.ImageResult
@@ -304,15 +280,19 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				geminiImgData = buf.Bytes()
 			}
 
-			prompt := `Analyze this jewelry display. List each distinct jewelry item.
-	Return ONLY a valid JSON array of objects. Each object must have:
-	"desc": a short description including color/material.
-	"box": an array [ymin, xmin, ymax, xmax] (normalized 0 to 1000).`
+			// 		prompt := `Analyze this jewelry display. List each distinct jewelry item.
+			// Return ONLY a valid JSON array of objects. Each object must have:
+			// "desc": a short description including color/material.
+			// "box": an array [ymin, xmin, ymax, xmax] (normalized 0 to 1000).`
+
+			ctx := context.Background()
+
+			model := h.geminiClient.GetClient(ctx)
 
 			var resp *genai.GenerateContentResponse
 			for i := 0; i < 2; i++ {
 				reqCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-				resp, err = model.GenerateContent(reqCtx, genai.Text(prompt), genai.ImageData("jpeg", geminiImgData))
+				resp, err = model.GenerateContent(reqCtx, genai.Text(h.geminiClient.Prompt), genai.ImageData("jpeg", geminiImgData))
 				cancel()
 				if err == nil {
 					break

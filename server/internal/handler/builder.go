@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"shelfscan-api/internal/embedding"
+	"shelfscan-api/internal/gemini"
 	"shelfscan-api/internal/mcp"
 	"shelfscan-api/internal/qdrant"
 )
@@ -13,6 +14,7 @@ type Handler struct {
 	qdrantClient    *qdrant.QdrantClient
 	embeddingClient *embedding.EmbeddingClient
 	mcpClient       *mcp.MCPClient
+	geminiClient    *gemini.GeminiClient
 }
 
 func NewHandler() *Handler {
@@ -34,7 +36,12 @@ func (h *Handler) WithEmbeddingClient(client *embedding.EmbeddingClient) *Handle
 	return h
 }
 
-func (h *Handler) WithMCP(mcpClient *mcp.MCPClient) *Handler {
+func (h *Handler) WithMCPClient(mcpClient *mcp.MCPClient) *Handler {
 	h.mcpClient = mcpClient
+	return h
+}
+
+func (h *Handler) WithGeminiClient(geminiClient *gemini.GeminiClient) *Handler {
+	h.geminiClient = geminiClient
 	return h
 }
