@@ -1,11 +1,13 @@
 package qdrant
 
+import "strconv"
+
 type QdrantClient struct {
 	host string
 	port int
 }
 
-func (q *QdrantClient) NewQdrantClient() *QdrantClient {
+func NewQdrantClient() *QdrantClient {
 	return &QdrantClient{}
 }
 
@@ -14,7 +16,9 @@ func (q *QdrantClient) WithHost(host string) *QdrantClient {
 	return q
 }
 
-func (q *QdrantClient) WithPort(port int) *QdrantClient {
-	q.port = port
+func (q *QdrantClient) WithPort(port string) *QdrantClient {
+	if p, err := strconv.Atoi(port); err == nil {
+		q.port = p
+	}
 	return q
 }
