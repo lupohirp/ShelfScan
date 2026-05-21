@@ -39,6 +39,11 @@ export interface Scan {
   createdAt: string
 }
 
+export interface AnalyzedImage {
+  capturedImage: string
+  detections: { desc: string, box?: number[], box_2d?: number[] }[]
+}
+
 export interface CheckSession {
   id: string
   store: Store
@@ -49,4 +54,5 @@ export interface CheckSession {
   coverage: number
   createdAt: string
   finalizedAt?: string
+  analyzedImages?: AnalyzedImage[]
 }

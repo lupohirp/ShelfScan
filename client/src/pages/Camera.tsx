@@ -10,6 +10,7 @@ export default function Camera() {
   const setSession = useScan((s) => s.setSession)
   
   const [analyzing, setAnalyzing] = useState(false)
+  const [capturedImages, setCapturedImages] = useState<string[]>([])
   const [pitch, setPitch] = useState(0)
   const [roll, setRoll] = useState(0)
   const [isStable, setIsStable] = useState(false)
@@ -80,7 +81,6 @@ export default function Camera() {
     const video = videoRef.current
     const canvas = canvasRef.current
     
-    // Use actual video dimensions for 4K capture
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     const ctx = canvas.getContext('2d')
@@ -89,23 +89,21 @@ export default function Camera() {
     ctx.drawImage(video, 0, 0)
     const imageData = canvas.toDataURL('image/jpeg', 0.8)
     
+    setCapturedImages(prev => [...prev, imageData])
+
     // Visual flash effect
     const flash = document.createElement('div')
     flash.className = 'fixed inset-0 bg-white z-[200] animate-out fade-out duration-300'
     document.body.appendChild(flash)
     setTimeout(() => flash.remove(), 300)
-
-    handleAnalysis(imageData)
   }, [videoRef, canvasRef])
 
   // Stability Detection & Auto-capture
   useEffect(() => {
-    // For shelf scanning, "level" means the phone is vertical (beta approx 90)
-    // and not tilted sideways (gamma approx 0)
     const isLevel = Math.abs(pitch - 90) < 7 && Math.abs(roll) < 7
     setIsStable(isLevel)
 
-    if (isLevel && !analyzing) {
+    if (isLevel && !analyzing && capturedImages.length === 0) { 
       if (!stabilityTimerRef.current) {
         stabilityTimerRef.current = setTimeout(() => {
           captureImage()
@@ -117,24 +115,20 @@ export default function Camera() {
         stabilityTimerRef.current = null
       }
     }
-  }, [pitch, roll, captureImage, analyzing])
+  }, [pitch, roll, captureImage, analyzing, capturedImages.length])
 
-  const handleAnalysis = async (imageData: string) => {
-    if (analyzing) return
+  const handleAnalysis = async () => {
+    if (analyzing || capturedImages.length === 0) return
     setAnalyzing(true)
     
     try {
-      // Do not stop the stream here, keep it alive for better UX and retries
-      
-      const res = await fetch(imageData)
-      const blob = await res.blob()
-      
-      if (blob.size === 0) {
-        throw new Error('Captured image is empty')
-      }
-      
       const formData = new FormData()
-      formData.append('image', blob, 'shelf_scan.jpg')
+      
+      for (let i = 0; i < capturedImages.length; i++) {
+        const res = await fetch(capturedImages[i])
+        const blob = await res.blob()
+        formData.append('images', blob, `photo_${i}.jpg`)
+      }
       
       const apiHost = window.location.hostname
       const analysisResponse = await fetch(`http://${apiHost}:8080/analyze`, {
@@ -149,7 +143,8 @@ export default function Camera() {
       
       const analysisData = await analysisResponse.json() as {
         found: {name: string, imageUrl: string, score: number}[],
-        missing: {name: string, imageUrl: string}[]
+        missing: {name: string, imageUrl: string}[],
+        imageResults: { detections: { desc: string, box?: number[], box_2d?: number[] }[] }[]
       }
       console.log('AI Analysis data:', analysisData)
       
@@ -171,6 +166,11 @@ export default function Camera() {
         status: 'active'
       }))
 
+      const analyzedImages = analysisData.imageResults.map((ir, idx) => ({
+        capturedImage: capturedImages[idx],
+        detections: ir.detections
+      }))
+
       const session: CheckSession = {
         id: Date.now().toString(),
         store: selectedStore || { id: '1', name: 'Vetrina Centrale', city: '', address: 'Indirizzo mock' },
@@ -182,6 +182,7 @@ export default function Camera() {
           ? Math.round((foundProducts.length / (foundProducts.length + missingProducts.length)) * 100) 
           : 0,
         createdAt: new Date().toISOString(),
+        analyzedImages: analyzedImages
       }
       
       setSession(session)
@@ -200,7 +201,7 @@ export default function Camera() {
       const reader = new FileReader()
       reader.onload = (ev) => {
         if (ev.target?.result) {
-          handleAnalysis(ev.target.result as string)
+          setCapturedImages(prev => [...prev, ev.target?.result as string])
         }
       }
       reader.readAsDataURL(file)
@@ -217,14 +218,13 @@ export default function Camera() {
           <div className="absolute inset-0 rounded-3xl border-2 border-accent animate-ping opacity-30" />
         </div>
         <h2 className="text-xl font-semibold mb-2">Analisi in corso</h2>
-        <p className="text-white/50 text-sm">Confronto con inventario Qdrant...</p>
+        <p className="text-white/50 text-sm">Processing di {capturedImages.length} foto...</p>
       </div>
     )
   }
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden select-none">
-      {/* 1. Video Layer */}
       <video
         ref={videoRef}
         autoPlay
@@ -235,7 +235,6 @@ export default function Camera() {
       
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* 2. Top Bar UI */}
       <div className="absolute top-0 left-0 right-0 p-6 pt-12 flex justify-between items-center z-50 pointer-events-none">
         <button
           onClick={handleBack}
@@ -255,21 +254,18 @@ export default function Camera() {
         </button>
       </div>
 
-      {/* 3. Viewfinder / Level UI */}
       <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-        {/* Instruction Text */}
         <div className="mb-8 text-center px-6 transition-opacity duration-300">
           <p className={`text-white text-lg font-medium drop-shadow-lg ${isStable ? 'opacity-50' : 'opacity-100'}`}>
             {isStable ? 'Resta fermo...' : 'Inquadra la vetrina'}
           </p>
           {!isStable && (
             <p className="text-white/60 text-xs mt-1 uppercase tracking-widest font-bold">
-              Allinea il pallino al centro
+              {capturedImages.length > 0 ? `${capturedImages.length} foto pronte` : 'Allinea il pallino al centro'}
             </p>
           )}
         </div>
 
-        {/* Level Bubble */}
         <div className={`w-32 h-32 border-2 rounded-full flex items-center justify-center transition-all duration-500 mb-4 ${isStable ? 'border-green-500 bg-green-500/20 scale-100 opacity-40' : 'border-white/20'}`}>
           <div 
             className={`w-4 h-4 rounded-full transition-colors duration-300 ${isStable ? 'bg-green-500' : 'bg-red-500'}`}
@@ -277,22 +273,34 @@ export default function Camera() {
           />
         </div>
 
-        {/* Showcase Guide Frame */}
         <div className={`relative w-[90%] aspect-[4/5] border-2 rounded-3xl transition-all duration-500 ${isStable ? 'border-green-500 scale-105' : 'border-white/20'}`}>
-          {/* Corner accents */}
           <div className={`absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 rounded-tl-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
           <div className={`absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 rounded-tr-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
           <div className={`absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 rounded-bl-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
           <div className={`absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 rounded-br-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
           
-          {/* Subtle scanning line effect if stable */}
           {isStable && (
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-500/10 to-transparent animate-scan-line rounded-3xl" />
           )}
         </div>
       </div>
 
-      {/* 4. Bottom Controls UI */}
+      {capturedImages.length > 0 && (
+        <div className="absolute bottom-40 left-0 right-0 px-6 z-50 flex gap-3 overflow-x-auto pb-4 no-scrollbar">
+          {capturedImages.map((img, idx) => (
+            <div key={idx} className="relative w-20 h-24 shrink-0 rounded-lg border-2 border-white/20 overflow-hidden bg-black shadow-xl animate-in fade-in slide-in-from-bottom-2">
+              <img src={img} className="w-full h-full object-cover" />
+              <button 
+                onClick={() => setCapturedImages(prev => prev.filter((_, i) => i !== idx))}
+                className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center pointer-events-auto active:scale-90"
+              >
+                <X size={12} className="text-white" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="absolute bottom-0 left-0 right-0 p-8 pb-16 flex justify-around items-center z-50 pointer-events-none bg-gradient-to-t from-black/90 to-transparent">
         <button
           onClick={() => fileRef.current?.click()}
@@ -302,7 +310,6 @@ export default function Camera() {
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileCapture} />
 
-        {/* Shutter Button - FORCED VISIBILITY */}
         <button
           onClick={captureImage}
           className={`w-24 h-24 rounded-full border-[6px] flex items-center justify-center transition-all pointer-events-auto active:scale-90 ${isStable ? 'border-green-500 scale-110 shadow-[0_0_30px_rgba(34,197,94,0.4)]' : 'border-white shadow-lg'}`}
@@ -311,9 +318,18 @@ export default function Camera() {
           <div className={`w-18 h-18 rounded-full transition-colors ${isStable ? 'bg-green-500' : 'bg-white'}`} />
         </button>
 
-        <div className="w-14 h-14 flex items-center justify-center text-white/20">
-          <CameraIcon size={28} />
-        </div>
+        {capturedImages.length > 0 ? (
+          <button
+            onClick={handleAnalysis}
+            className="w-14 h-14 bg-accent rounded-2xl flex items-center justify-center text-black pointer-events-auto active:scale-95 transition-all shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)] animate-in zoom-in"
+          >
+            <ScanLine size={28} />
+          </button>
+        ) : (
+          <div className="w-14 h-14 flex items-center justify-center text-white/20">
+            <CameraIcon size={28} />
+          </div>
+        )}
       </div>
     </div>
   )

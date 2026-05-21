@@ -5,7 +5,6 @@ import PageShell from '../components/PageShell'
 import {
   ScanLine,
   TrendingUp,
-  ChevronRight,
   MapPin,
   Clock,
   Grid3X3,

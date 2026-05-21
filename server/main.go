@@ -39,9 +39,20 @@ type MissingItem struct {
 	ImageURL string `json:"imageUrl"`
 }
 
+type Detection struct {
+	Desc  string `json:"desc"`
+	Box   []int  `json:"box"`
+	Box2D []int  `json:"box_2d"`
+}
+
+type ImageResult struct {
+	Detections []Detection `json:"detections"`
+}
+
 type AnalysisResponse struct {
-	Found   []ProductResult `json:"found"`
-	Missing []MissingItem   `json:"missing"`
+	Found        []ProductResult `json:"found"`
+	Missing      []MissingItem   `json:"missing"`
+	ImageResults []ImageResult   `json:"imageResults"`
 }
 
 type MCPClient struct {
@@ -303,57 +314,26 @@ func main() {
 			return
 		}
 
-		err := r.ParseMultipartForm(50 << 20)
+		err := r.ParseMultipartForm(100 << 20) // Up to 100MB for multiple photos
 		if err != nil {
 			log.Printf("Error parsing form: %v", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		file, _, err := r.FormFile("image")
-		if err != nil {
-			log.Printf("Error getting image file: %v", err)
-			http.Error(w, "Missing image", http.StatusBadRequest)
-			return
-		}
-		defer file.Close()
-
-		imgData, err := io.ReadAll(file)
-		if err != nil {
-			log.Printf("Error reading image: %v", err)
-			http.Error(w, "Error reading image", http.StatusInternalServerError)
-			return
+		imageFiles := r.MultipartForm.File["images"]
+		if len(imageFiles) == 0 {
+			// Fallback to single "image" field for backward compatibility
+			if _, _, err := r.FormFile("image"); err == nil {
+				imageFiles = r.MultipartForm.File["image"]
+			}
 		}
 
-		img, _, err := image.Decode(bytes.NewReader(imgData))
-		if err != nil {
-			log.Printf("Error decoding image: %v", err)
-			http.Error(w, "Error decoding image", http.StatusInternalServerError)
+		if len(imageFiles) == 0 {
+			http.Error(w, "Missing images", http.StatusBadRequest)
 			return
 		}
 
-		bounds := img.Bounds()
-		width := bounds.Dx()
-		height := bounds.Dy()
-		log.Printf("Image decoded successfully, dimensions: %dx%d", width, height)
-
-		// Resize image for Gemini to speed up processing (max 1024px)
-		var geminiImgData []byte
-		if width > 1024 || height > 1024 {
-			log.Printf("Resizing image for Gemini (original: %dx%d)", width, height)
-			resized := imaging.Fit(img, 1024, 1024, imaging.Lanczos)
-			buf := new(bytes.Buffer)
-			jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
-			geminiImgData = buf.Bytes()
-		} else {
-			// Re-encode to ensure consistency and manageable size
-			buf := new(bytes.Buffer)
-			jpeg.Encode(buf, img, &jpeg.Options{Quality: 85})
-			geminiImgData = buf.Bytes()
-		}
-		log.Printf("Image prepared for AI, size: %d bytes", len(geminiImgData))
-
-		ctx := context.Background()
 		apiKey := os.Getenv("GEMINI_API_KEY")
 		if apiKey == "" {
 			apiKey = r.FormValue("apiKey")
@@ -364,6 +344,7 @@ func main() {
 			return
 		}
 
+		ctx := context.Background()
 		client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 		if err != nil {
 			log.Printf("Error creating GenAI client: %v", err)
@@ -373,181 +354,189 @@ func main() {
 		defer client.Close()
 
 		model := client.GenerativeModel("gemma-4-26b-a4b-it")
-		// Tune parameters for speed
-		model.SetTemperature(0.1)      // Low temperature for faster, more focused output
-		model.SetMaxOutputTokens(1024) // Limit output size for faster completion
-
-		prompt := `Analyze this jewelry display. List each distinct jewelry item.
-		Return ONLY a valid JSON array of objects. Each object must have:
-		"desc": a short description including color/material.
-		"box": an array [ymin, xmin, ymax, xmax] (normalized 0 to 1000).`
-
-		var resp *genai.GenerateContentResponse
-
-		for i := 0; i < 3; i++ {
-			log.Printf("Sending request to Gemini/Gemma model (attempt %d)...", i+1)
-			reqCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
-			resp, err = model.GenerateContent(reqCtx, genai.Text(prompt), genai.ImageData("jpeg", geminiImgData))
-			cancel()
-			if err == nil {
-				break
-			}
-			log.Printf("AI Generation error (attempt %d): %v", i+1, err)
-			if !strings.Contains(err.Error(), "500") && !strings.Contains(err.Error(), "deadline") {
-				break
-			}
-		}
-
-		if err != nil {
-			log.Printf("AI Generation final error: %v", err)
-			http.Error(w, fmt.Sprintf("AI Generation error: %v", err), http.StatusInternalServerError)
-			return
-		}
-		log.Printf("Received response from Gemini/Gemma")
-
-		var responseText string
-		for _, part := range resp.Candidates[0].Content.Parts {
-			if text, ok := part.(genai.Text); ok {
-				responseText += string(text)
-			}
-		}
-
-		var extracted string
-		if start := strings.LastIndex(responseText, "```"); start != -1 {
-			temp := responseText[:start]
-			if blockStart := strings.LastIndex(temp, "```"); blockStart != -1 {
-				inner := responseText[blockStart+3 : start]
-				inner = strings.TrimPrefix(inner, "json")
-				extracted = strings.TrimSpace(inner)
-			}
-		}
-		if extracted == "" {
-			lastOpen := strings.LastIndex(responseText, "[")
-			lastClose := strings.LastIndex(responseText, "]")
-			if lastOpen != -1 && lastClose != -1 && lastClose > lastOpen {
-				candidate := responseText[lastOpen : lastClose+1]
-				if strings.Contains(candidate, "\"desc\"") && (strings.Contains(candidate, "\"box\"") || strings.Contains(candidate, "\"box_2d\"")) {
-					extracted = candidate
-				}
-			}
-		}
-		if extracted != "" {
-			responseText = extracted
-		}
-		log.Printf("Extracted JSON: %s", responseText)
-
-		type Detection struct {
-			Desc  string `json:"desc"`
-			Box   []int  `json:"box"`
-			Box2D []int  `json:"box_2d"`
-		}
-		var detections []Detection
-		if err := json.Unmarshal([]byte(responseText), &detections); err != nil {
-			log.Printf("Failed to parse AI JSON: %v", err)
-			http.Error(w, fmt.Sprintf("Failed to parse AI JSON: %v. Raw: %s", err, responseText), http.StatusInternalServerError)
-			return
-		}
-
-		productMaxScores := make(map[string]float32)
-		productImageURLs := make(map[string]string)
+		model.SetTemperature(0.1)
+		model.SetMaxOutputTokens(1024)
 
 		mcpUrl := os.Getenv("MCP_URL")
 		if mcpUrl == "" {
 			mcpUrl = "ws://mcp:8081/ws"
 		}
-
-		mcpClient, err := NewMCPClient(mcpUrl)
-		if err != nil {
-			log.Printf("Error connecting to MCP: %v", err)
-		} else {
-			defer mcpClient.Close()
+		embeddingsURL := os.Getenv("EMBEDDINGS_URL")
+		if embeddingsURL == "" {
+			embeddingsURL = "http://localhost:8001"
+		}
+		qdrantURL := os.Getenv("QDRANT_URL")
+		if qdrantURL == "" {
+			qdrantURL = "http://localhost:6333"
 		}
 
-		for i, det := range detections {
-			box := det.Box
-			if len(box) != 4 {
-				box = det.Box2D
-			}
-			if len(box) != 4 {
-				continue
-			}
+		productMaxScores := make(map[string]float32)
+		productImageURLs := make(map[string]string)
+		var allImageResults []ImageResult
 
-			// Normalized 0-1000 to image pixels
-			ymin, xmin, ymax, xmax := box[0]*height/1000, box[1]*width/1000, box[2]*height/1000, box[3]*width/1000
-			if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
-				continue
-			}
-
-			log.Printf("Cropping item %d (%s): [%d, %d, %d, %d]", i, det.Desc, xmin, ymin, xmax, ymax)
-			cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
-			cropBuf := new(bytes.Buffer)
-			jpeg.Encode(cropBuf, cropped, nil)
-
-			emb, err := getEmbeddingBytes(embeddingsURL, cropBuf.Bytes(), "crop.jpg")
+		for imgIdx, fileHeader := range imageFiles {
+			log.Printf("Processing image %d/%d: %s", imgIdx+1, len(imageFiles), fileHeader.Filename)
+			file, err := fileHeader.Open()
 			if err != nil {
+				log.Printf("Error opening image %d: %v", imgIdx, err)
+				continue
+			}
+			imgData, _ := io.ReadAll(file)
+			file.Close()
+
+			img, _, err := image.Decode(bytes.NewReader(imgData))
+			if err != nil {
+				log.Printf("Error decoding image %d: %v", imgIdx, err)
 				continue
 			}
 
-			if mcpClient != nil {
-				rawResults, err := mcpClient.CallVectorSearch(emb)
-				if err != nil {
-					log.Printf("Error calling MCP for item %d: %v", i, err)
-					continue
+			bounds := img.Bounds()
+			width, height := bounds.Dx(), bounds.Dy()
+
+			var geminiImgData []byte
+			if width > 1024 || height > 1024 {
+				resized := imaging.Fit(img, 1024, 1024, imaging.Lanczos)
+				buf := new(bytes.Buffer)
+				jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
+				geminiImgData = buf.Bytes()
+			} else {
+				buf := new(bytes.Buffer)
+				jpeg.Encode(buf, img, &jpeg.Options{Quality: 85})
+				geminiImgData = buf.Bytes()
+			}
+
+			prompt := `Analyze this jewelry display. List each distinct jewelry item.
+Return ONLY a valid JSON array of objects. Each object must have:
+"desc": a short description including color/material.
+"box": an array [ymin, xmin, ymax, xmax] (normalized 0 to 1000).`
+
+			var resp *genai.GenerateContentResponse
+			for i := 0; i < 2; i++ {
+				reqCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+				resp, err = model.GenerateContent(reqCtx, genai.Text(prompt), genai.ImageData("jpeg", geminiImgData))
+				cancel()
+				if err == nil {
+					break
 				}
+			}
+			if err != nil {
+				log.Printf("AI error for image %d: %v", imgIdx, err)
+				continue
+			}
 
-				var hits []map[string]interface{}
-				json.Unmarshal([]byte(rawResults), &hits)
+			var responseText string
+			for _, part := range resp.Candidates[0].Content.Parts {
+				if text, ok := part.(genai.Text); ok {
+					responseText += string(text)
+				}
+			}
 
-				var bestMatchName string
-				var bestMatchImgUrl string
-				var bestMatchScore float32 = -1.0
+			var extracted string
+			if start := strings.LastIndex(responseText, "```"); start != -1 {
+				temp := responseText[:start]
+				if blockStart := strings.LastIndex(temp, "```"); blockStart != -1 {
+					inner := responseText[blockStart+3 : start]
+					inner = strings.TrimPrefix(inner, "json")
+					extracted = strings.TrimSpace(inner)
+				}
+			}
+			if extracted == "" {
+				lastOpen := strings.LastIndex(responseText, "[")
+				lastClose := strings.LastIndex(responseText, "]")
+				if lastOpen != -1 && lastClose != -1 && lastClose > lastOpen {
+					candidate := responseText[lastOpen : lastClose+1]
+					if strings.Contains(candidate, "\"desc\"") && (strings.Contains(candidate, "\"box\"") || strings.Contains(candidate, "\"box_2d\"")) {
+						extracted = candidate
+					}
+				}
+			}
+			if extracted != "" {
+				responseText = extracted
+			}
 
-				for _, hit := range hits {
-					name, okName := hit["name"].(string)
-					imgUrl, okImg := hit["imageUrl"].(string)
-					if !okName || !okImg {
+			var detections []Detection
+			json.Unmarshal([]byte(responseText), &detections)
+			allImageResults = append(allImageResults, ImageResult{Detections: detections})
+
+			mcpClient, err := NewMCPClient(mcpUrl)
+			if err == nil {
+				for _, det := range detections {
+					box := det.Box
+					if len(box) != 4 {
+						box = det.Box2D
+					}
+					if len(box) != 4 {
 						continue
 					}
 
-					hitColor, _ := hit["color"].(string)
-					hitMaterial, _ := hit["material"].(string)
-
-					var score float32
-					if s, ok := hit["score"].(float32); ok {
-						score = s
-					} else if s, ok := hit["score"].(float64); ok {
-						score = float32(s)
+					ymin, xmin, ymax, xmax := box[0]*height/1000, box[1]*width/1000, box[2]*height/1000, box[3]*width/1000
+					if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
+						continue
 					}
 
-					// Reranking/Boosting: Check if Gemma's description matches metadata
-					descLower := strings.ToLower(det.Desc)
-					
-					// Calculate boost
-					var boost float32 = 0
-					if hitColor != "" && strings.Contains(descLower, strings.ToLower(hitColor)) {
-						boost += 0.20 // Increased boost to make sure color is the deciding factor
-					}
-					if hitMaterial != "" && strings.Contains(descLower, strings.ToLower(hitMaterial)) {
-						boost += 0.10 
-					}
-					
-					finalScore := score + boost
-					log.Printf("Evaluating match for det (%s): %s (base: %f, color: %s, material: %s, boost: %f, final: %f)", det.Desc, name, score, hitColor, hitMaterial, boost, finalScore)
+					cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
+					cropBuf := new(bytes.Buffer)
+					jpeg.Encode(cropBuf, cropped, nil)
 
-					if finalScore > bestMatchScore {
-						bestMatchScore = finalScore
-						bestMatchName = name
-						bestMatchImgUrl = imgUrl
+					emb, err := getEmbeddingBytes(embeddingsURL, cropBuf.Bytes(), "crop.jpg")
+					if err != nil {
+						continue
+					}
+
+					rawResults, err := mcpClient.CallVectorSearch(emb)
+					if err != nil {
+						continue
+					}
+
+					var hits []map[string]interface{}
+					json.Unmarshal([]byte(rawResults), &hits)
+
+					var bestMatchName string
+					var bestMatchImgUrl string
+					var bestMatchScore float32 = -1.0
+
+					for _, hit := range hits {
+						name, okName := hit["name"].(string)
+						imgUrl, okImg := hit["imageUrl"].(string)
+						if !okName || !okImg {
+							continue
+						}
+						hitColor, _ := hit["color"].(string)
+						hitMaterial, _ := hit["material"].(string)
+
+						var score float32
+						if s, ok := hit["score"].(float32); ok {
+							score = s
+						} else if s, ok := hit["score"].(float64); ok {
+							score = float32(s)
+						}
+
+						descLower := strings.ToLower(det.Desc)
+						var boost float32 = 0
+						if hitColor != "" && strings.Contains(descLower, strings.ToLower(hitColor)) {
+							boost += 0.20
+						}
+						if hitMaterial != "" && strings.Contains(descLower, strings.ToLower(hitMaterial)) {
+							boost += 0.10
+						}
+						finalScore := score + boost
+
+						if finalScore > bestMatchScore {
+							bestMatchScore = finalScore
+							bestMatchName = name
+							bestMatchImgUrl = imgUrl
+						}
+					}
+
+					if bestMatchScore > 0.70 {
+						if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
+							productMaxScores[bestMatchName] = bestMatchScore
+							productImageURLs[bestMatchName] = bestMatchImgUrl
+							log.Printf("Match accepted from img %d: %s (%f)", imgIdx, bestMatchName, bestMatchScore)
+						}
 					}
 				}
-
-				if bestMatchScore > 0.70 { // Increased threshold to avoid false positives
-					if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
-						productMaxScores[bestMatchName] = bestMatchScore
-						productImageURLs[bestMatchName] = bestMatchImgUrl
-						log.Printf("Best match accepted for det (%s): %s (%f)", det.Desc, bestMatchName, bestMatchScore)
-					}
-				}
+				mcpClient.Close()
 			}
 		}
 
@@ -577,9 +566,13 @@ func main() {
 			}
 		}
 
-		log.Printf("Analysis complete, found %d matches out of %d detections", len(foundResults), len(detections))
+		log.Printf("Analysis complete across %d images, found %d products", len(imageFiles), len(foundResults))
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(AnalysisResponse{Found: foundResults, Missing: missingItems})
+		json.NewEncoder(w).Encode(AnalysisResponse{
+			Found:        foundResults,
+			Missing:      missingItems,
+			ImageResults: allImageResults,
+		})
 	}))
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
