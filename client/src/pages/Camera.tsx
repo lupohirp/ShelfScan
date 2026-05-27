@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useScan } from '../store/scan'
-import { X, Zap, ImageIcon, ScanLine, Camera as CameraIcon } from 'lucide-react'
+import { X, Zap, ImageIcon, ScanLine, Camera as CameraIcon, Send } from 'lucide-react'
 import type { CheckSession } from '../types'
 
 export default function Camera() {
@@ -321,9 +321,12 @@ export default function Camera() {
         {capturedImages.length > 0 ? (
           <button
             onClick={handleAnalysis}
-            className="w-14 h-14 bg-accent rounded-2xl flex items-center justify-center text-black pointer-events-auto active:scale-95 transition-all shadow-[0_0_20px_rgba(var(--accent-rgb),0.3)] animate-in zoom-in"
+            className="w-14 h-14 bg-white text-black rounded-2xl flex items-center justify-center pointer-events-auto active:scale-95 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] animate-in zoom-in relative hover:bg-gray-100"
           >
-            <ScanLine size={28} />
+            <Send size={24} />
+            <span className="absolute -top-1.5 -right-1.5 bg-black text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-white">
+              {capturedImages.length}
+            </span>
           </button>
         ) : (
           <div className="w-14 h-14 flex items-center justify-center text-white/20">
