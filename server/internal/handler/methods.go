@@ -252,6 +252,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 		var mainMu sync.Mutex
 		var outerWg sync.WaitGroup
+		sem := make(chan struct{}, 2)
 
 		for imgIdx, fileHeader := range imageFiles {
 			outerWg.Add(1)
@@ -277,8 +278,8 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				width, height := bounds.Dx(), bounds.Dy()
 
 				var geminiImgData []byte
-				if width > 1600 || height > 1600 {
-					resized := imaging.Fit(img, 1600, 1600, imaging.Linear)
+				if width > 1200 || height > 1200 {
+					resized := imaging.Fit(img, 1200, 1200, imaging.Linear)
 					buf := new(bytes.Buffer)
 					jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
 					geminiImgData = buf.Bytes()
@@ -365,7 +366,9 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						cropBuf := new(bytes.Buffer)
 						jpeg.Encode(cropBuf, cropped, nil)
 
+						sem <- struct{}{}
 						emb, err := h.embeddingClient.GetEmbeddingBytes(cropBuf.Bytes(), "crop.jpg")
+						<-sem
 						if err != nil {
 							return
 						}
@@ -392,6 +395,10 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 							hitColor, _ := hit["color"].(string)
 							hitMaterial, _ := hit["material"].(string)
+
+							if hasColorConflict(det.Desc, name, hitColor) {
+								continue
+							}
 
 							var score float32
 							if s, ok := hit["score"].(float32); ok {
@@ -560,6 +567,70 @@ func isCategoryMatch(detDesc string, productName string) bool {
 	for _, kw := range cat.keywords {
 		if strings.Contains(detDesc, kw) {
 			return true
+		}
+	}
+
+	return false
+}
+
+func hasColorConflict(detDesc string, productName string, hitColor string) bool {
+	detDesc = strings.ToLower(detDesc)
+	hitColor = strings.ToLower(hitColor)
+	productName = strings.ToLower(productName)
+
+	if hitColor == "" && productName == "" {
+		return false
+	}
+
+	colors := []struct {
+		name     string
+		synonyms []string
+	}{
+		{name: "gold", synonyms: []string{"gold", "oro", "dorat"}},
+		{name: "silver", synonyms: []string{"silver", "argent"}},
+		{name: "black", synonyms: []string{"black", "nero", "scur"}},
+		{name: "white", synonyms: []string{"white", "bianc", "chiar"}},
+	}
+
+	var hitColorCat = ""
+	for _, c := range colors {
+		for _, syn := range c.synonyms {
+			if strings.Contains(hitColor, syn) {
+				hitColorCat = c.name
+				break
+			}
+		}
+		if hitColorCat != "" {
+			break
+		}
+	}
+
+	if hitColorCat == "" {
+		for _, c := range colors {
+			for _, syn := range c.synonyms {
+				if strings.Contains(productName, syn) {
+					hitColorCat = c.name
+					break
+				}
+			}
+			if hitColorCat != "" {
+				break
+			}
+		}
+	}
+
+	if hitColorCat == "" {
+		return false
+	}
+
+	for _, c := range colors {
+		if c.name == hitColorCat {
+			continue
+		}
+		for _, syn := range c.synonyms {
+			if strings.Contains(detDesc, syn) {
+				return true
+			}
 		}
 	}
 
