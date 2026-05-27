@@ -31,7 +31,7 @@ services:
     environment:
       - QDRANT_HOST=http://qdrant
       - QDRANT_PORT=6333
-      - EMBEDDINGS_URL=http://embeddings
+      - EMBEDDINGS_HOST=http://embeddings
       - EMBEDDINGS_PORT=8001
       - MCP_URL=ws://mcp:8081/ws
       - GEMINI_API_KEY=AIzaSyB7cu8UTzqP-DQUKrB10cdbmVstgnGp5_U
