@@ -24,6 +24,9 @@ func main() {
 	qdrantPort := os.Getenv("QDRANT_PORT")
 
 	embeddingsHost := os.Getenv("EMBEDDINGS_HOST")
+	if embeddingsHost == "" {
+		embeddingsHost = os.Getenv("EMBEDDINGS_URL")
+	}
 	embeddingsPort := os.Getenv("EMBEDDINGS_PORT")
 
 	prompt := os.Getenv("GEMINI_PROMPT")

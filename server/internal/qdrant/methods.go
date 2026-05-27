@@ -8,20 +8,37 @@ import (
 )
 
 func (q *QdrantClient) getClient() (*qdrant.Client, error) {
-	client, err := qdrant.NewClient(&qdrant.Config{Host: q.host, Port: q.port})
+	host := q.host
+	if len(host) > 7 && host[:7] == "http://" {
+		host = host[7:]
+	} else if len(host) > 8 && host[:8] == "https://" {
+		host = host[8:]
+	}
+
+	port := q.port
+	if port == 6333 {
+		port = 6334
+	}
+
+	client, err := qdrant.NewClient(&qdrant.Config{Host: host, Port: port})
 	if err != nil {
-		client, err = qdrant.NewClient(&qdrant.Config{Host: "localhost", Port: 6334})
+		client, err = qdrant.NewClient(&qdrant.Config{Host: "qdrant", Port: 6334})
+		if err != nil {
+			client, err = qdrant.NewClient(&qdrant.Config{Host: "localhost", Port: 6334})
+		}
 	}
 	if err != nil {
 		return nil, err
 	}
-	defer client.Close()
 	return client, nil
-
 }
 
 func (q *QdrantClient) ListInventory() ([]map[string]any, error) {
 	client, err := q.getClient()
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
 
 	points, err := client.Scroll(context.Background(), &qdrant.ScrollPoints{
 		CollectionName: "jewelry_inventory",
@@ -60,6 +77,11 @@ func (q *QdrantClient) DeleteFromQdrant(idStr string) error {
 
 func (q *QdrantClient) SaveMultipleToQdrant(name string, imageUrl string, color string, material string, vectors [][]float32) error {
 	client, err := q.getClient()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
 	var points []*qdrant.PointStruct
 	for i, vector := range vectors {
 		id := uint64(systemID(fmt.Sprintf("%s_%d", name, i)))
@@ -83,6 +105,10 @@ func (q *QdrantClient) PerformVectorSearch(vector []float32) ([]map[string]any, 
 
 func (q *QdrantClient) performVectorSearchWithLimit(vector []float32, limit uint64) ([]map[string]any, error) {
 	client, err := q.getClient()
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
 
 	searchResult, err := client.Query(context.Background(), &qdrant.QueryPoints{
 		CollectionName: "jewelry_inventory",

@@ -14,7 +14,6 @@ import (
 	"shelfscan-api/internal/domain"
 	subdomain "shelfscan-api/internal/domain/sub"
 	"strings"
-	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/google/generative-ai-go/genai"
@@ -288,12 +287,14 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			ctx := context.Background()
 
 			model := h.geminiClient.GetClient(ctx)
+			if model == nil {
+				log.Printf("Gemini model is nil, client initialization failed")
+				continue
+			}
 
 			var resp *genai.GenerateContentResponse
 			for i := 0; i < 2; i++ {
-				reqCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
-				resp, err = model.GenerateContent(reqCtx, genai.Text(h.geminiClient.Prompt), genai.ImageData("jpeg", geminiImgData))
-				cancel()
+				resp, err = model.GenerateContent(ctx, genai.Text(h.geminiClient.Prompt), genai.ImageData("jpeg", geminiImgData))
 				if err == nil {
 					break
 				}
@@ -380,6 +381,11 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						if !okName || !okImg {
 							continue
 						}
+
+						if !isCategoryMatch(det.Desc, name) {
+							continue
+						}
+
 						hitColor, _ := hit["color"].(string)
 						hitMaterial, _ := hit["material"].(string)
 
@@ -388,6 +394,11 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							score = s
 						} else if s, ok := hit["score"].(float64); ok {
 							score = float32(s)
+						}
+
+						// Require a minimum raw visual similarity before applying any text boost
+						if score < 0.72 {
+							continue
 						}
 
 						descLower := strings.ToLower(det.Desc)
@@ -407,7 +418,8 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 
-					if bestMatchScore > 0.70 {
+					// Require a final confidence score of at least 0.80
+					if bestMatchScore >= 0.80 {
 						if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
 							productMaxScores[bestMatchName] = bestMatchScore
 							productImageURLs[bestMatchName] = bestMatchImgUrl
@@ -487,4 +499,61 @@ func systemID(name string) int {
 		return -h
 	}
 	return h
+}
+
+func isCategoryMatch(detDesc string, productName string) bool {
+	detDesc = strings.ToLower(detDesc)
+	productName = strings.ToLower(productName)
+
+	categories := []struct {
+		keywords []string
+		names    []string
+	}{
+		{
+			keywords: []string{"watch", "orolog", "nat ch", "face", "dial"},
+			names:    []string{"watch", "orologio"},
+		},
+		{
+			keywords: []string{"necklace", "collana", "neck", "lace", "caten"},
+			names:    []string{"necklace", "collana", "pendant", "pendente"},
+		},
+		{
+			keywords: []string{"earring", "orecchin", "ear"},
+			names:    []string{"earring", "orecchini"},
+		},
+		{
+			keywords: []string{"bracelet", "braccial", "brace"},
+			names:    []string{"bracelet", "bracciale"},
+		},
+		{
+			keywords: []string{"ring", "anell"},
+			names:    []string{"ring", "anello"},
+		},
+	}
+
+	var prodCatIndex = -1
+	for idx, cat := range categories {
+		for _, n := range cat.names {
+			if strings.Contains(productName, n) {
+				prodCatIndex = idx
+				break
+			}
+		}
+		if prodCatIndex != -1 {
+			break
+		}
+	}
+
+	if prodCatIndex == -1 {
+		return true
+	}
+
+	cat := categories[prodCatIndex]
+	for _, kw := range cat.keywords {
+		if strings.Contains(detDesc, kw) {
+			return true
+		}
+	}
+
+	return false
 }

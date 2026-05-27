@@ -1,5 +1,11 @@
 package gemini
 
+import (
+	"sync"
+
+	"github.com/google/generative-ai-go/genai"
+)
+
 type GeminiClient struct {
 	GenerativeModel string
 	Apikey          string
@@ -7,6 +13,9 @@ type GeminiClient struct {
 
 	Temperature     int
 	MaxOutputTokens int
+
+	mu     sync.Mutex
+	client *genai.Client
 }
 
 func NewGeminiClient() *GeminiClient {
