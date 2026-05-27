@@ -9,11 +9,13 @@ import (
 	"image/jpeg"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"shelfscan-api/internal/domain"
 	subdomain "shelfscan-api/internal/domain/sub"
 	"strings"
+	"sync"
 
 	"github.com/disintegration/imaging"
 	"github.com/google/generative-ai-go/genai"
@@ -246,190 +248,196 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 		productMaxScores := make(map[string]float32)
 		productImageURLs := make(map[string]string)
-		var allImageResults []subdomain.ImageResult
+		allImageResults := make([]subdomain.ImageResult, len(imageFiles))
+
+		var mainMu sync.Mutex
+		var outerWg sync.WaitGroup
 
 		for imgIdx, fileHeader := range imageFiles {
-			log.Printf("Processing image %d/%d: %s", imgIdx+1, len(imageFiles), fileHeader.Filename)
-			file, err := fileHeader.Open()
-			if err != nil {
-				log.Printf("Error opening image %d: %v", imgIdx, err)
-				continue
-			}
-			imgData, _ := io.ReadAll(file)
-			file.Close()
+			outerWg.Add(1)
+			go func(imgIdx int, fileHeader *multipart.FileHeader) {
+				defer outerWg.Done()
 
-			img, _, err := image.Decode(bytes.NewReader(imgData))
-			if err != nil {
-				log.Printf("Error decoding image %d: %v", imgIdx, err)
-				continue
-			}
-
-			bounds := img.Bounds()
-			width, height := bounds.Dx(), bounds.Dy()
-
-			var geminiImgData []byte
-			if width > 1024 || height > 1024 {
-				resized := imaging.Fit(img, 1024, 1024, imaging.Lanczos)
-				buf := new(bytes.Buffer)
-				jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
-				geminiImgData = buf.Bytes()
-			} else {
-				buf := new(bytes.Buffer)
-				jpeg.Encode(buf, img, &jpeg.Options{Quality: 85})
-				geminiImgData = buf.Bytes()
-			}
-
-			// 		prompt := `Analyze this jewelry display. List each distinct jewelry item.
-			// Return ONLY a valid JSON array of objects. Each object must have:
-			// "desc": a short description including color/material.
-			// "box": an array [ymin, xmin, ymax, xmax] (normalized 0 to 1000).`
-
-			ctx := context.Background()
-
-			model := h.geminiClient.GetClient(ctx)
-			if model == nil {
-				log.Printf("Gemini model is nil, client initialization failed")
-				continue
-			}
-
-			var resp *genai.GenerateContentResponse
-			for i := 0; i < 2; i++ {
-				resp, err = model.GenerateContent(ctx, genai.Text(h.geminiClient.Prompt), genai.ImageData("jpeg", geminiImgData))
-				if err == nil {
-					break
+				log.Printf("Processing image %d/%d: %s", imgIdx+1, len(imageFiles), fileHeader.Filename)
+				file, err := fileHeader.Open()
+				if err != nil {
+					log.Printf("Error opening image %d: %v", imgIdx, err)
+					return
 				}
-			}
-			if err != nil {
-				log.Printf("AI error for image %d: %v", imgIdx, err)
-				continue
-			}
+				imgData, _ := io.ReadAll(file)
+				file.Close()
 
-			var responseText string
-			for _, part := range resp.Candidates[0].Content.Parts {
-				if text, ok := part.(genai.Text); ok {
-					responseText += string(text)
+				img, _, err := image.Decode(bytes.NewReader(imgData))
+				if err != nil {
+					log.Printf("Error decoding image %d: %v", imgIdx, err)
+					return
 				}
-			}
 
-			var extracted string
-			if start := strings.LastIndex(responseText, "```"); start != -1 {
-				temp := responseText[:start]
-				if blockStart := strings.LastIndex(temp, "```"); blockStart != -1 {
-					inner := responseText[blockStart+3 : start]
-					inner = strings.TrimPrefix(inner, "json")
-					extracted = strings.TrimSpace(inner)
+				bounds := img.Bounds()
+				width, height := bounds.Dx(), bounds.Dy()
+
+				var geminiImgData []byte
+				if width > 1600 || height > 1600 {
+					resized := imaging.Fit(img, 1600, 1600, imaging.Linear)
+					buf := new(bytes.Buffer)
+					jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
+					geminiImgData = buf.Bytes()
+				} else {
+					buf := new(bytes.Buffer)
+					jpeg.Encode(buf, img, &jpeg.Options{Quality: 85})
+					geminiImgData = buf.Bytes()
 				}
-			}
-			if extracted == "" {
-				lastOpen := strings.LastIndex(responseText, "[")
-				lastClose := strings.LastIndex(responseText, "]")
-				if lastOpen != -1 && lastClose != -1 && lastClose > lastOpen {
-					candidate := responseText[lastOpen : lastClose+1]
-					if strings.Contains(candidate, "\"desc\"") && (strings.Contains(candidate, "\"box\"") || strings.Contains(candidate, "\"box_2d\"")) {
-						extracted = candidate
+
+				ctx := context.Background()
+
+				model := h.geminiClient.GetClient(ctx)
+				if model == nil {
+					log.Printf("Gemini model is nil, client initialization failed")
+					return
+				}
+
+				var resp *genai.GenerateContentResponse
+				for i := 0; i < 2; i++ {
+					resp, err = model.GenerateContent(ctx, genai.Text(h.geminiClient.Prompt), genai.ImageData("jpeg", geminiImgData))
+					if err == nil {
+						break
 					}
 				}
-			}
-			if extracted != "" {
-				responseText = extracted
-			}
+				if err != nil {
+					log.Printf("AI error for image %d: %v", imgIdx, err)
+					return
+				}
 
-			var detections []subdomain.Detection
-			json.Unmarshal([]byte(responseText), &detections)
-			allImageResults = append(allImageResults, subdomain.ImageResult{Detections: detections})
+				var responseText string
+				for _, part := range resp.Candidates[0].Content.Parts {
+					if text, ok := part.(genai.Text); ok {
+						responseText += string(text)
+					}
+				}
 
-			mcpClient, err := h.mcpClient.Connect()
-			if err == nil {
+				var extracted string
+				if start := strings.LastIndex(responseText, "```"); start != -1 {
+					temp := responseText[:start]
+					if blockStart := strings.LastIndex(temp, "```"); blockStart != -1 {
+						inner := responseText[blockStart+3 : start]
+						inner = strings.TrimPrefix(inner, "json")
+						extracted = strings.TrimSpace(inner)
+					}
+				}
+				if extracted == "" {
+					lastOpen := strings.LastIndex(responseText, "[")
+					lastClose := strings.LastIndex(responseText, "]")
+					if lastOpen != -1 && lastClose != -1 && lastClose > lastOpen {
+						candidate := responseText[lastOpen : lastClose+1]
+						if strings.Contains(candidate, "\"desc\"") && (strings.Contains(candidate, "\"box\"") || strings.Contains(candidate, "\"box_2d\"")) {
+							extracted = candidate
+						}
+					}
+				}
+				if extracted != "" {
+					responseText = extracted
+				}
+
+				var detections []subdomain.Detection
+				json.Unmarshal([]byte(responseText), &detections)
+				allImageResults[imgIdx] = subdomain.ImageResult{Detections: detections}
+
+				var wg sync.WaitGroup
 				for _, det := range detections {
-					box := det.Box
-					if len(box) != 4 {
-						box = det.Box2D
-					}
-					if len(box) != 4 {
-						continue
-					}
+					wg.Add(1)
+					go func(det subdomain.Detection) {
+						defer wg.Done()
 
-					ymin, xmin, ymax, xmax := box[0]*height/1000, box[1]*width/1000, box[2]*height/1000, box[3]*width/1000
-					if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
-						continue
-					}
-
-					cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
-					cropBuf := new(bytes.Buffer)
-					jpeg.Encode(cropBuf, cropped, nil)
-
-					emb, err := h.embeddingClient.GetEmbeddingBytes(cropBuf.Bytes(), "crop.jpg")
-					if err != nil {
-						continue
-					}
-
-					rawResults, err := mcpClient.CallVectorSearch(emb)
-					if err != nil {
-						continue
-					}
-
-					var hits []map[string]interface{}
-					json.Unmarshal([]byte(rawResults), &hits)
-
-					var bestMatchName string
-					var bestMatchImgUrl string
-					var bestMatchScore float32 = -1.0
-
-					for _, hit := range hits {
-						name, okName := hit["name"].(string)
-						imgUrl, okImg := hit["imageUrl"].(string)
-						if !okName || !okImg {
-							continue
+						box := det.Box
+						if len(box) != 4 {
+							box = det.Box2D
+						}
+						if len(box) != 4 {
+							return
 						}
 
-						if !isCategoryMatch(det.Desc, name) {
-							continue
+						ymin, xmin, ymax, xmax := box[0]*height/1000, box[1]*width/1000, box[2]*height/1000, box[3]*width/1000
+						if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
+							return
 						}
 
-						hitColor, _ := hit["color"].(string)
-						hitMaterial, _ := hit["material"].(string)
+						cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
+						cropBuf := new(bytes.Buffer)
+						jpeg.Encode(cropBuf, cropped, nil)
 
-						var score float32
-						if s, ok := hit["score"].(float32); ok {
-							score = s
-						} else if s, ok := hit["score"].(float64); ok {
-							score = float32(s)
-						}
-
-						// Require a minimum raw visual similarity before applying any text boost
-						if score < 0.72 {
-							continue
+						emb, err := h.embeddingClient.GetEmbeddingBytes(cropBuf.Bytes(), "crop.jpg")
+						if err != nil {
+							return
 						}
 
-						descLower := strings.ToLower(det.Desc)
-						var boost float32 = 0
-						if hitColor != "" && strings.Contains(descLower, strings.ToLower(hitColor)) {
-							boost += 0.20
+						hits, err := h.qdrantClient.PerformVectorSearch(emb)
+						if err != nil {
+							return
 						}
-						if hitMaterial != "" && strings.Contains(descLower, strings.ToLower(hitMaterial)) {
-							boost += 0.10
-						}
-						finalScore := score + boost
 
-						if finalScore > bestMatchScore {
-							bestMatchScore = finalScore
-							bestMatchName = name
-							bestMatchImgUrl = imgUrl
-						}
-					}
+						var bestMatchName string
+						var bestMatchImgUrl string
+						var bestMatchScore float32 = -1.0
 
-					// Require a final confidence score of at least 0.80
-					if bestMatchScore >= 0.80 {
-						if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
-							productMaxScores[bestMatchName] = bestMatchScore
-							productImageURLs[bestMatchName] = bestMatchImgUrl
-							log.Printf("Match accepted from img %d: %s (%f)", imgIdx, bestMatchName, bestMatchScore)
+						for _, hit := range hits {
+							name, okName := hit["name"].(string)
+							imgUrl, okImg := hit["imageUrl"].(string)
+							if !okName || !okImg {
+								continue
+							}
+
+							if !isCategoryMatch(det.Desc, name) {
+								continue
+							}
+
+							hitColor, _ := hit["color"].(string)
+							hitMaterial, _ := hit["material"].(string)
+
+							var score float32
+							if s, ok := hit["score"].(float32); ok {
+								score = s
+							} else if s, ok := hit["score"].(float64); ok {
+								score = float32(s)
+							}
+
+							// Require a minimum raw visual similarity before applying any text boost
+							if score < 0.65 {
+								continue
+							}
+
+							descLower := strings.ToLower(det.Desc)
+							var boost float32 = 0
+							if hitColor != "" && strings.Contains(descLower, strings.ToLower(hitColor)) {
+								boost += 0.20
+							}
+							if hitMaterial != "" && strings.Contains(descLower, strings.ToLower(hitMaterial)) {
+								boost += 0.10
+							}
+							finalScore := score + boost
+
+							if finalScore > bestMatchScore {
+								bestMatchScore = finalScore
+								bestMatchName = name
+								bestMatchImgUrl = imgUrl
+							}
 						}
-					}
+
+						// Require a final confidence score of at least 0.75
+						if bestMatchScore >= 0.75 {
+							mainMu.Lock()
+							if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
+								productMaxScores[bestMatchName] = bestMatchScore
+								productImageURLs[bestMatchName] = bestMatchImgUrl
+								log.Printf("Match accepted from img %d: %s (%f)", imgIdx, bestMatchName, bestMatchScore)
+							}
+							mainMu.Unlock()
+						}
+					}(det)
 				}
-				mcpClient.Close()
-			}
+				wg.Wait()
+			}(imgIdx, fileHeader)
 		}
+		outerWg.Wait()
 
 		inventory, _ := h.qdrantClient.ListInventory()
 		foundResults := []subdomain.ProductResult{}
@@ -510,24 +518,24 @@ func isCategoryMatch(detDesc string, productName string) bool {
 		names    []string
 	}{
 		{
-			keywords: []string{"watch", "orolog", "nat ch", "face", "dial"},
-			names:    []string{"watch", "orologio"},
+			keywords: []string{"watch", "orolog", "nat ch", "face", "dial", "quadrante", "tempo", "smartwatch"},
+			names:    []string{"watch", "orologio", "cronografo", "smartwatch"},
 		},
 		{
-			keywords: []string{"necklace", "collana", "neck", "lace", "caten"},
-			names:    []string{"necklace", "collana", "pendant", "pendente"},
+			keywords: []string{"necklace", "collana", "neck", "lace", "caten", "chain", "girocollo", "ciondolo", "collier", "pend"},
+			names:    []string{"necklace", "collana", "pendant", "pendente", "girocollo", "ciondolo", "collier", "catena", "catenina"},
 		},
 		{
-			keywords: []string{"earring", "orecchin", "ear"},
-			names:    []string{"earring", "orecchini"},
+			keywords: []string{"earring", "orecchin", "ear", "ing", "lobo", "punti luce", "monachella", "pendenti"},
+			names:    []string{"earring", "orecchini", "orecchino", "lobo", "monachella"},
 		},
 		{
-			keywords: []string{"bracelet", "braccial", "brace"},
-			names:    []string{"bracelet", "bracciale"},
+			keywords: []string{"bracelet", "braccial", "brace", "polso", "chain", "caten", "bangle"},
+			names:    []string{"bracelet", "bracciale", "braccialetto", "bangle"},
 		},
 		{
-			keywords: []string{"ring", "anell"},
-			names:    []string{"ring", "anello"},
+			keywords: []string{"ring", "anell", "fede", "solitario", "veretta"},
+			names:    []string{"ring", "anello", "anelli", "fede", "fedina", "solitario", "veretta"},
 		},
 	}
 

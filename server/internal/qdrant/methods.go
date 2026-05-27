@@ -125,7 +125,13 @@ func (q *QdrantClient) performVectorSearchWithLimit(vector []float32, limit uint
 		for k, v := range hit.Payload {
 			payload[k] = v.GetStringValue()
 		}
-		results = append(results, map[string]any{"name": payload["name"], "imageUrl": payload["imageUrl"], "score": hit.Score})
+		results = append(results, map[string]any{
+			"name":     payload["name"],
+			"imageUrl": payload["imageUrl"],
+			"color":    payload["color"],
+			"material": payload["material"],
+			"score":    hit.Score,
+		})
 	}
 	return results, nil
 }
