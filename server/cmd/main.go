@@ -68,7 +68,7 @@ func main() {
 	}
 	tokens, err := strconv.Atoi(maxOutputTokens)
 	if err != nil || tokens <= 0 {
-		tokens = 2048
+		tokens = 8192
 	}
 
 	log.Printf("Starting server with GEMINI_MODEL=%s, GEMINI_MAX_OUTPUT_TOKENS=%d, GEMINI_TEMPERATURE=%f", generativeModel, tokens, temp)
