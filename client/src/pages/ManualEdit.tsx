@@ -73,7 +73,7 @@ export default function ManualEdit() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold truncate">{product.name}</p>
-                  <p className="text-xs text-gray-500">{product.sku} · {product.category}</p>
+                  <p className="text-xs text-gray-500">SKU: {product.sku || 'N/A'} · {product.category}</p>
                 </div>
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${

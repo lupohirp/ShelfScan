@@ -142,15 +142,16 @@ export default function Camera() {
       }
       
       const analysisData = await analysisResponse.json() as {
-        found: {name: string, imageUrl: string, score: number}[],
-        missing: {name: string, imageUrl: string}[],
+        found: {name: string, sku: string, imageUrl: string, score: number}[],
+        missing: {name: string, sku: string, imageUrl: string}[],
         imageResults: { detections: { desc: string, box?: number[], box_2d?: number[] }[] }[]
       }
       console.log('AI Analysis data:', analysisData)
       
       const foundProducts: any[] = analysisData.found.map(r => ({
         id: 'found-' + r.name,
-        sku: Math.round(r.score * 100) + '%',
+        sku: r.sku || '',
+        confidence: Math.round(r.score * 100),
         name: r.name,
         category: 'identified',
         imageUrl: r.imageUrl,
@@ -159,7 +160,7 @@ export default function Camera() {
 
       const missingProducts: any[] = analysisData.missing.map(m => ({
         id: 'missing-' + m.name,
-        sku: 'MISSING',
+        sku: m.sku || '',
         name: m.name,
         category: 'missing',
         imageUrl: m.imageUrl,

@@ -94,7 +94,9 @@ export default function ReportPreview() {
                 <div key={p.id} className="flex items-center gap-2 text-sm">
                   <div className="w-1.5 h-1.5 bg-success rounded-full shrink-0" />
                   <span className="flex-1 truncate">{p.name}</span>
-                  <span className="text-xs text-gray-400 font-mono">{p.sku}</span>
+                  <span className="text-xs text-gray-400 font-mono">
+                    SKU: {p.sku || 'N/A'}{p.confidence && ` (${p.confidence}%)`}
+                  </span>
                 </div>
               ))}
             </div>
@@ -113,7 +115,7 @@ export default function ReportPreview() {
                 <div key={p.id} className="flex items-center gap-2 text-sm">
                   <div className="w-1.5 h-1.5 bg-danger rounded-full shrink-0" />
                   <span className="flex-1 truncate">{p.name}</span>
-                  <span className="text-xs text-gray-400 font-mono">{p.sku}</span>
+                  <span className="text-xs text-gray-400 font-mono">SKU: {p.sku || 'N/A'}</span>
                 </div>
               ))}
             </div>

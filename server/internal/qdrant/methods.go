@@ -75,7 +75,7 @@ func (q *QdrantClient) DeleteFromQdrant(idStr string) error {
 	return err
 }
 
-func (q *QdrantClient) SaveMultipleToQdrant(name string, imageUrl string, color string, material string, vectors [][]float32) error {
+func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrl string, color string, material string, vectors [][]float32) error {
 	client, err := q.getClient()
 	if err != nil {
 		return err
@@ -87,6 +87,7 @@ func (q *QdrantClient) SaveMultipleToQdrant(name string, imageUrl string, color 
 		id := uint64(systemID(fmt.Sprintf("%s_%d", name, i)))
 		payload := map[string]any{
 			"name":     name,
+			"sku":      sku,
 			"color":    color,
 			"material": material,
 		}
@@ -100,7 +101,7 @@ func (q *QdrantClient) SaveMultipleToQdrant(name string, imageUrl string, color 
 }
 
 func (q *QdrantClient) PerformVectorSearch(vector []float32) ([]map[string]any, error) {
-	return q.performVectorSearchWithLimit(vector, 3)
+	return q.performVectorSearchWithLimit(vector, 10)
 }
 
 func (q *QdrantClient) performVectorSearchWithLimit(vector []float32, limit uint64) ([]map[string]any, error) {
@@ -127,6 +128,7 @@ func (q *QdrantClient) performVectorSearchWithLimit(vector []float32, limit uint
 		}
 		results = append(results, map[string]any{
 			"name":     payload["name"],
+			"sku":      payload["sku"],
 			"imageUrl": payload["imageUrl"],
 			"color":    payload["color"],
 			"material": payload["material"],
@@ -134,6 +136,77 @@ func (q *QdrantClient) performVectorSearchWithLimit(vector []float32, limit uint
 		})
 	}
 	return results, nil
+}
+
+func (q *QdrantClient) UpdatePayload(idStr string, name string, sku string, color string, material string) error {
+	client, err := q.getClient()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	var id uint64
+	fmt.Sscanf(idStr, "%d", &id)
+
+	resp, err := client.Get(context.Background(), &qdrant.GetPoints{
+		CollectionName: "jewelry_inventory",
+		Ids:            []*qdrant.PointId{qdrant.NewIDNum(id)},
+		WithVectors:    qdrant.NewWithVectors(true),
+		WithPayload:    qdrant.NewWithPayload(true),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fetch point: %w", err)
+	}
+	if len(resp) == 0 {
+		return fmt.Errorf("point not found: %s", idStr)
+	}
+
+	point := resp[0]
+	oldPayload := make(map[string]any)
+	for k, v := range point.Payload {
+		oldPayload[k] = v.GetStringValue()
+	}
+	oldName := oldPayload["name"].(string)
+
+	newPayload := map[string]any{
+		"name":     name,
+		"sku":      sku,
+		"color":    color,
+		"material": material,
+	}
+	if img, ok := oldPayload["imageUrl"]; ok {
+		newPayload["imageUrl"] = img
+	}
+
+	if oldName == name {
+		_, err = client.SetPayload(context.Background(), &qdrant.SetPayloadPoints{
+			CollectionName: "jewelry_inventory",
+			PointsSelector: qdrant.NewPointsSelector(qdrant.NewIDNum(id)),
+			Payload:        qdrant.NewValueMap(newPayload),
+		})
+		return err
+	}
+
+	_, err = client.Delete(context.Background(), &qdrant.DeletePoints{
+		CollectionName: "jewelry_inventory",
+		Points:         qdrant.NewPointsSelector(qdrant.NewIDNum(id)),
+	})
+	if err != nil {
+		return err
+	}
+
+	newID := uint64(systemID(fmt.Sprintf("%s_%s", name, idStr)))
+
+	_, err = client.Upsert(context.Background(), &qdrant.UpsertPoints{
+		CollectionName: "jewelry_inventory",
+		Points: []*qdrant.PointStruct{
+			{
+				Id:      qdrant.NewIDNum(newID),
+				Vectors: qdrant.NewVectorsDense(point.Vectors.GetVector().GetDense().GetData()),
+				Payload: qdrant.NewValueMap(newPayload),
+			},
+		},
+	})
+	return err
 }
 
 func systemID(name string) int {

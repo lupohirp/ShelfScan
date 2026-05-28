@@ -23,6 +23,7 @@ export interface Product {
   subcategory?: string
   imageUrl: string
   status: 'active' | 'discontinued'
+  confidence?: number
 }
 
 export interface DetectedProduct {

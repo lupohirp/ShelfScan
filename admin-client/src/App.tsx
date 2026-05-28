@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Upload, Package, CheckCircle2, Trash2, LayoutDashboard, PlusCircle, Loader2 } from 'lucide-react'
+import { Upload, Package, CheckCircle2, Trash2, LayoutDashboard, PlusCircle, Loader2, Pencil } from 'lucide-react'
 
 interface InventoryItem {
   id: string
   payload: {
     name: string
+    sku?: string
     imageUrl?: string
     color?: string
     material?: string
@@ -13,11 +14,25 @@ interface InventoryItem {
 
 function App() {
   const [items, setItems] = useState<InventoryItem[]>([])
-  const [view, setView] = useState<'list' | 'add'>('list')
+  const [view, setView] = useState<'list' | 'add' | 'edit'>('list')
+  const [editId, setEditId] = useState<string | null>(null)
   const [files, setFiles] = useState<FileList | null>(null)
   const [name, setName] = useState('')
-  const [color, setColor] = useState('')
-  const [material, setMaterial] = useState('')
+  const [sku, setSku] = useState('')
+  const [category, setCategory] = useState<string>('watch')
+
+  // Category specific fields
+  const [watchStrapColor, setWatchStrapColor] = useState('')
+  const [watchStrapMaterial, setWatchStrapMaterial] = useState('')
+  const [watchDialColor, setWatchDialColor] = useState('')
+  const [watchDialShape, setWatchDialShape] = useState('')
+
+  const [ringMetal, setRingMetal] = useState('')
+  const [ringStone, setRingStone] = useState('')
+  const [ringStoneColor, setRingStoneColor] = useState('')
+
+  const [jewelryColor, setJewelryColor] = useState('')
+  const [jewelryMaterial, setJewelryMaterial] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
@@ -48,8 +63,31 @@ function App() {
       formData.append('images', files[i])
     }
     formData.append('name', name)
-    formData.append('color', color)
-    formData.append('material', material)
+    formData.append('sku', sku)
+
+    let finalColor = ''
+    let finalMaterial = ''
+
+    if (category === 'watch') {
+      finalColor = jewelryColor || 'Gold'
+      if (watchStrapColor) finalColor += `, strap: ${watchStrapColor}`
+      if (watchDialColor) finalColor += `, dial: ${watchDialColor}`
+
+      finalMaterial = watchStrapMaterial || 'Digital'
+      if (watchDialShape) finalMaterial += ` (${watchDialShape} case)`
+    } else if (category === 'ring') {
+      finalColor = ringMetal || jewelryColor || 'Gold'
+      if (ringStoneColor) finalColor += `, stone: ${ringStoneColor}`
+
+      finalMaterial = ringStone || 'Metal'
+      if (jewelryMaterial) finalMaterial += `, ${jewelryMaterial}`
+    } else {
+      finalColor = jewelryColor
+      finalMaterial = jewelryMaterial
+    }
+
+    formData.append('color', finalColor)
+    formData.append('material', finalMaterial)
 
     try {
       const apiHost = window.location.hostname
@@ -59,10 +97,7 @@ function App() {
       })
       if (response.ok) {
         setSuccess(true)
-        setName('')
-        setColor('')
-        setMaterial('')
-        setFiles(null)
+        resetForm()
         fetchInventory()
         setTimeout(() => {
           setSuccess(false)
@@ -71,6 +106,64 @@ function App() {
       }
     } catch (err) {
       console.error('Upload failed:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resetForm = () => {
+    setName('')
+    setSku('')
+    setJewelryColor('')
+    setJewelryMaterial('')
+    setWatchStrapColor('')
+    setWatchStrapMaterial('')
+    setWatchDialColor('')
+    setWatchDialShape('')
+    setRingMetal('')
+    setRingStone('')
+    setRingStoneColor('')
+    setFiles(null)
+    setEditId(null)
+  }
+
+  const handleStartEdit = (item: InventoryItem) => {
+    setEditId(item.id)
+    setName(item.payload.name)
+    setSku(item.payload.sku || '')
+    setJewelryColor(item.payload.color || '')
+    setJewelryMaterial(item.payload.material || '')
+    setView('edit')
+  }
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editId || !name || !sku) return
+
+    setLoading(true)
+    const formData = new FormData()
+    formData.append('name', name)
+    formData.append('sku', sku)
+    formData.append('color', jewelryColor)
+    formData.append('material', jewelryMaterial)
+
+    try {
+      const apiHost = window.location.hostname
+      const response = await fetch(`http://${apiHost}:8080/inventory?id=${editId}`, {
+        method: 'PUT',
+        body: formData,
+      })
+      if (response.ok) {
+        setSuccess(true)
+        resetForm()
+        fetchInventory()
+        setTimeout(() => {
+          setSuccess(false)
+          setView('list')
+        }, 1500)
+      }
+    } catch (err) {
+      console.error('Edit failed:', err)
     } finally {
       setLoading(false)
     }
@@ -139,20 +232,31 @@ function App() {
                       )}
                     </div>
                     <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>{item.payload.name}</h3>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '0.8125rem', color: '#475569', fontWeight: 600 }}>SKU: {item.payload.sku || 'N/A'}</p>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       {item.payload.color && <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>{item.payload.color}</span>}
                       {item.payload.material && <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>{item.payload.material}</span>}
                     </div>
                     <p style={{ color: '#64748b', fontSize: '0.875rem', marginTop: '8px' }}>ID: {item.id}</p>
                   </div>
-                  <button 
-                    onClick={() => handleDelete(item.id)}
-                    style={{ alignSelf: 'flex-end', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: 'background 0.2s' }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
-                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end', marginTop: '12px' }}>
+                    <button 
+                      onClick={() => handleStartEdit(item)}
+                      style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: 'background 0.2s' }}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(item.id)}
+                      style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px', borderRadius: '6px', transition: 'background 0.2s' }}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               ))}
               {items.length === 0 && (
@@ -164,7 +268,7 @@ function App() {
               )}
             </div>
           </div>
-        ) : (
+        ) : view === 'add' ? (
           <div style={{ maxWidth: '600px', margin: '0 auto', backgroundColor: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>Add New Jewelry</h2>
             <p style={{ color: '#64748b', marginBottom: '32px' }}>Upload multiple photos to generate better AI embeddings.</p>
@@ -176,40 +280,180 @@ function App() {
             )}
 
             <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Jewelry Name</label>
-                <input 
-                  type="text" 
-                  value={name} 
-                  onChange={(e) => setName(e.target.value)} 
-                  placeholder="e.g. Diamond Ring"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
-                  required
-                />
-              </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Color</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Jewelry Name</label>
                   <input 
                     type="text" 
-                    value={color} 
-                    onChange={(e) => setColor(e.target.value)} 
-                    placeholder="e.g. Gold, Silver, Rose"
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                    placeholder="e.g. Diamond Ring"
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                    required
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Material</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>SKU (Stock Keeping Unit)</label>
                   <input 
                     type="text" 
-                    value={material} 
-                    onChange={(e) => setMaterial(e.target.value)} 
-                    placeholder="e.g. 18k, Diamond, Steel"
+                    value={sku} 
+                    onChange={(e) => setSku(e.target.value)} 
+                    placeholder="e.g. TLJ2642"
                     style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                    required
                   />
                 </div>
               </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Category</label>
+                <select 
+                  value={category} 
+                  onChange={(e) => setCategory(e.target.value)} 
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box', backgroundColor: 'white' }}
+                >
+                  <option value="watch">Watch (Orologio)</option>
+                  <option value="ring">Ring (Anello)</option>
+                  <option value="necklace">Necklace (Collana)</option>
+                  <option value="bracelet">Bracelet (Bracciale)</option>
+                  <option value="earring">Earring (Orecchino)</option>
+                  <option value="other">Other (Altro)</option>
+                </select>
+              </div>
+
+              {category === 'watch' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 600, color: '#2563eb' }}>Watch Metadata</h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>Case/Metal Color</label>
+                      <input 
+                        type="text" 
+                        value={jewelryColor} 
+                        onChange={(e) => setJewelryColor(e.target.value)} 
+                        placeholder="e.g. Gold, Silver, Black"
+                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9375rem', boxSizing: 'border-box' }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>Case/Dial Shape</label>
+                      <select 
+                        value={watchDialShape} 
+                        onChange={(e) => setWatchDialShape(e.target.value)} 
+                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9375rem', boxSizing: 'border-box', backgroundColor: 'white' }}
+                      >
+                        <option value="">Select Shape...</option>
+                        <option value="round">Round</option>
+                        <option value="square">Square</option>
+                        <option value="rectangular">Rectangular</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>Strap Color</label>
+                      <input 
+                        type="text" 
+                        value={watchStrapColor} 
+                        onChange={(e) => setWatchStrapColor(e.target.value)} 
+                        placeholder="e.g. Pink, Black, Gold"
+                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9375rem', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>Strap Material/Type</label>
+                      <input 
+                        type="text" 
+                        value={watchStrapMaterial} 
+                        onChange={(e) => setWatchStrapMaterial(e.target.value)} 
+                        placeholder="e.g. Silicone, Mesh, Leather"
+                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9375rem', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>Dial Color</label>
+                    <input 
+                      type="text" 
+                      value={watchDialColor} 
+                      onChange={(e) => setWatchDialColor(e.target.value)} 
+                      placeholder="e.g. Black, White, Silver"
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9375rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {category === 'ring' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <h4 style={{ margin: '0 0 10px 0', fontSize: '1rem', fontWeight: 600, color: '#2563eb' }}>Ring Metadata</h4>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>Metal Type/Color</label>
+                      <input 
+                        type="text" 
+                        value={ringMetal} 
+                        onChange={(e) => setRingMetal(e.target.value)} 
+                        placeholder="e.g. Yellow Gold, White Gold, Silver"
+                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9375rem', boxSizing: 'border-box' }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>Stone Type</label>
+                      <input 
+                        type="text" 
+                        value={ringStone} 
+                        onChange={(e) => setRingStone(e.target.value)} 
+                        placeholder="e.g. Diamond, Ruby, Emerald, None"
+                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9375rem', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.8125rem' }}>Stone Color</label>
+                    <input 
+                      type="text" 
+                      value={ringStoneColor} 
+                      onChange={(e) => setRingStoneColor(e.target.value)} 
+                      placeholder="e.g. White, Red, Blue"
+                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.9375rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {(category !== 'watch' && category !== 'ring') && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Metal Color</label>
+                    <input 
+                      type="text" 
+                      value={jewelryColor} 
+                      onChange={(e) => setJewelryColor(e.target.value)} 
+                      placeholder="e.g. Gold, Silver, Rose"
+                      style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Style/Material Details</label>
+                    <input 
+                      type="text" 
+                      value={jewelryMaterial} 
+                      onChange={(e) => setJewelryMaterial(e.target.value)} 
+                      placeholder="e.g. 18k Chain, Tennis, Hoop"
+                      style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Jewelry Photos (Select Multiple)</label>
@@ -235,14 +479,14 @@ function App() {
 
               <button 
                 type="submit" 
-                disabled={loading || !files || !name}
+                disabled={loading || !files || !name || !sku}
                 style={{ 
                   padding: '14px', 
-                  backgroundColor: (loading || !files || !name) ? '#cbd5e1' : '#2563eb', 
+                  backgroundColor: (loading || !files || !name || !sku) ? '#cbd5e1' : '#2563eb', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '8px', 
-                  cursor: (loading || !files || !name) ? 'not-allowed' : 'pointer',
+                  cursor: (loading || !files || !name || !sku) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -259,6 +503,99 @@ function App() {
               <button 
                 type="button"
                 onClick={() => setView('list')}
+                style={{ color: '#64748b', border: 'none', background: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
+              >
+                Cancel and return to dashboard
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div style={{ maxWidth: '600px', margin: '0 auto', backgroundColor: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>Edit Jewelry Item</h2>
+            <p style={{ color: '#64748b', marginBottom: '32px' }}>Update name, SKU, or visual metadata fields below.</p>
+            
+            {success && (
+              <div style={{ padding: '12px 16px', backgroundColor: '#dcfce7', color: '#166534', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 500 }}>
+                <CheckCircle2 size={20} /> Item successfully updated!
+              </div>
+            )}
+
+            <form onSubmit={handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Jewelry Name</label>
+                  <input 
+                    type="text" 
+                    value={name} 
+                    onChange={(e) => setName(e.target.value)} 
+                    placeholder="e.g. Diamond Ring"
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>SKU (Stock Keeping Unit)</label>
+                  <input 
+                    type="text" 
+                    value={sku} 
+                    onChange={(e) => setSku(e.target.value)} 
+                    placeholder="e.g. TLJ2642"
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Color details</label>
+                  <input 
+                    type="text" 
+                    value={jewelryColor} 
+                    onChange={(e) => setJewelryColor(e.target.value)} 
+                    placeholder="e.g. Gold, strap: Pink"
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Material/Style details</label>
+                  <input 
+                    type="text" 
+                    value={jewelryMaterial} 
+                    onChange={(e) => setJewelryMaterial(e.target.value)} 
+                    placeholder="e.g. Silicone (round case)"
+                    style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading || !name || !sku}
+                style={{ 
+                  padding: '14px', 
+                  backgroundColor: (loading || !name || !sku) ? '#cbd5e1' : '#2563eb', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '8px', 
+                  cursor: (loading || !name || !sku) ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                  transition: 'background 0.2s'
+                }}
+              >
+                {loading ? <Loader2 className="animate-spin" size={20} /> : <PlusCircle size={20} />}
+                {loading ? 'Saving Changes...' : 'Save Changes'}
+              </button>
+              
+              <button 
+                type="button"
+                onClick={() => { resetForm(); setView('list'); }}
                 style={{ color: '#64748b', border: 'none', background: 'none', fontSize: '0.875rem', cursor: 'pointer' }}
               >
                 Cancel and return to dashboard

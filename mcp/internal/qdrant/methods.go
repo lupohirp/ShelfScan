@@ -35,6 +35,7 @@ func (q *QdrantClient) PerformVectorSearch(vector []float32) (string, error) {
 		}
 		results = append(results, map[string]any{
 			"name":     payload["name"],
+			"sku":      payload["sku"],
 			"imageUrl": payload["imageUrl"],
 			"color":    payload["color"],
 			"material": payload["material"],

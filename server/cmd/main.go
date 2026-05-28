@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "image/png"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -46,7 +47,7 @@ func main() {
 
 	corsMiddleware := middleware.NewMiddleware().
 		WithAllowedOrigins("*").
-		WithAllowedMethods("GET,POST,OPTIONS,DELETE").
+		WithAllowedMethods("GET,POST,OPTIONS,DELETE,PUT").
 		WithAllowedHeaders("Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization").
 		DeclareCorsMiddleware()
 
@@ -61,8 +62,16 @@ func main() {
 	mcpClient := mcp.NewMCPClient().
 		WithURL(mcpUrl)
 
-	temp, _ := strconv.Atoi(temperature)
-	tokens, _ := strconv.Atoi(maxOutputTokens)
+	temp, err := strconv.ParseFloat(temperature, 64)
+	if err != nil {
+		temp = 0.1
+	}
+	tokens, err := strconv.Atoi(maxOutputTokens)
+	if err != nil || tokens <= 0 {
+		tokens = 2048
+	}
+
+	log.Printf("Starting server with GEMINI_MODEL=%s, GEMINI_MAX_OUTPUT_TOKENS=%d, GEMINI_TEMPERATURE=%f", generativeModel, tokens, temp)
 
 	geminiClient := gemini.NewGeminiClient().
 		WithGenerativeModel(generativeModel).

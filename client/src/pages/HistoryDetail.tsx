@@ -100,7 +100,9 @@ export default function HistoryDetail() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold truncate">{p.name}</p>
-                  <p className="text-[11px] text-gray-500">{p.sku}</p>
+                  <p className="text-[11px] text-gray-500">
+                    SKU: {p.sku || 'N/A'}{p.confidence && ` · CONFIDENCE: ${p.confidence}%`}
+                  </p>
                 </div>
               </div>
             ))}
@@ -123,7 +125,7 @@ export default function HistoryDetail() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold truncate">{p.name}</p>
-                  <p className="text-[11px] text-gray-500">{p.sku}</p>
+                  <p className="text-[11px] text-gray-500">SKU: {p.sku || 'N/A'}</p>
                 </div>
               </div>
             ))}

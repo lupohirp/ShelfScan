@@ -69,6 +69,38 @@ func (h *Handler) InventoryHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if r.Method == http.MethodPut {
+			id := r.URL.Query().Get("id")
+			if id == "" {
+				http.Error(w, "Missing id", http.StatusBadRequest)
+				return
+			}
+			err := r.ParseMultipartForm(10 << 20)
+			if err != nil {
+				r.ParseForm()
+			}
+			name := r.FormValue("name")
+			if name == "" {
+				http.Error(w, "Missing jewelry name", http.StatusBadRequest)
+				return
+			}
+			sku := r.FormValue("sku")
+			if sku == "" {
+				http.Error(w, "Missing jewelry SKU", http.StatusBadRequest)
+				return
+			}
+			color := r.FormValue("color")
+			material := r.FormValue("material")
+
+			err = h.qdrantClient.UpdatePayload(id, name, sku, color, material)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
 	})
 
 	if h.corsMiddleware != nil {
@@ -143,6 +175,11 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		sku := r.FormValue("sku")
+		if sku == "" {
+			http.Error(w, "Missing jewelry SKU", http.StatusBadRequest)
+			return
+		}
 		color := r.FormValue("color")
 		material := r.FormValue("material")
 
@@ -183,7 +220,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			embeddings = append(embeddings, embedding)
 		}
 
-		err = h.qdrantClient.SaveMultipleToQdrant(name, savedURL, color, material, embeddings)
+		err = h.qdrantClient.SaveMultipleToQdrant(name, sku, savedURL, color, material, embeddings)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
 			return
@@ -291,23 +328,12 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 				ctx := context.Background()
 
-				model := h.geminiClient.GetClient(ctx)
-				if model == nil {
-					log.Printf("Gemini model is nil, client initialization failed")
-					return
-				}
-
-				var resp *genai.GenerateContentResponse
-				for i := 0; i < 2; i++ {
-					resp, err = model.GenerateContent(ctx, genai.Text(h.geminiClient.Prompt), genai.ImageData("jpeg", geminiImgData))
-					if err == nil {
-						break
-					}
-				}
+				resp, modelUsed, err := h.geminiClient.GenerateContentWithFallback(ctx, h.geminiClient.Prompt, geminiImgData)
 				if err != nil {
-					log.Printf("AI error for image %d: %v", imgIdx, err)
+					log.Printf("AI error for image %d (tried all models): %v", imgIdx, err)
 					return
 				}
+				log.Printf("Gemini Finish Reason for image %d (model: %s): %v", imgIdx, modelUsed, resp.Candidates[0].FinishReason)
 
 				var responseText string
 				for _, part := range resp.Candidates[0].Content.Parts {
@@ -339,8 +365,9 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 					responseText = extracted
 				}
 
-				var detections []subdomain.Detection
-				json.Unmarshal([]byte(responseText), &detections)
+				log.Printf("Gemini Response: %s", responseText)
+
+				detections := parseDetections(responseText)
 				allImageResults[imgIdx] = subdomain.ImageResult{Detections: detections}
 
 				var wg sync.WaitGroup
@@ -396,10 +423,6 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							hitColor, _ := hit["color"].(string)
 							hitMaterial, _ := hit["material"].(string)
 
-							if hasColorConflict(det.Desc, name, hitColor) {
-								continue
-							}
-
 							var score float32
 							if s, ok := hit["score"].(float32); ok {
 								score = s
@@ -407,20 +430,79 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								score = float32(s)
 							}
 
+							catMatch := isCategoryMatch(det.Desc, name)
+							colConflict := hasColorConflict(det.Desc, name, hitColor)
+
+							descLower := strings.ToLower(det.Desc)
+							var boost float32 = 0
+
+							if hitColor != "" {
+								parts := strings.Split(hitColor, ",")
+								for i, part := range parts {
+									part = strings.TrimSpace(strings.ToLower(part))
+									if part != "" {
+										weight := float32(0.10)
+										if i == 0 {
+											weight = float32(0.20)
+										}
+										if strings.Contains(descLower, part) {
+											boost += weight
+										} else {
+											words := strings.Fields(part)
+											for _, w := range words {
+												w = strings.TrimFunc(w, func(r rune) bool {
+													return r == ':' || r == '(' || r == ')' || r == '[' || r == ']' || r == ',' || r == '/'
+												})
+												if len(w) > 2 && strings.Contains(descLower, w) {
+													boost += weight / 2
+													break
+												}
+											}
+										}
+									}
+								}
+							}
+
+							if hitMaterial != "" {
+								parts := strings.Split(hitMaterial, ",")
+								for _, part := range parts {
+									part = strings.TrimSpace(strings.ToLower(part))
+									if part != "" {
+										if strings.Contains(descLower, part) {
+											boost += 0.10
+										} else {
+											words := strings.Fields(part)
+											for _, w := range words {
+												w = strings.TrimFunc(w, func(r rune) bool {
+													return r == ':' || r == '(' || r == ')' || r == '[' || r == ']' || r == ',' || r == '/'
+												})
+												if len(w) > 2 && strings.Contains(descLower, w) {
+													boost += 0.05
+													break
+												}
+											}
+										}
+									}
+								}
+							}
+
+							finalScore := score + boost
+
+							log.Printf("[Search Debug] Crop %q -> Candidate: %s, Raw Score: %f, Category Match: %t, Color Conflict: %t, Boost: %f, Final Score: %f",
+								det.Desc, name, score, catMatch, colConflict, boost, finalScore)
+
+							if !catMatch {
+								continue
+							}
+
+							if colConflict {
+								continue
+							}
+
 							// Require a minimum raw visual similarity before applying any text boost
 							if score < 0.65 {
 								continue
 							}
-
-							descLower := strings.ToLower(det.Desc)
-							var boost float32 = 0
-							if hitColor != "" && strings.Contains(descLower, strings.ToLower(hitColor)) {
-								boost += 0.20
-							}
-							if hitMaterial != "" && strings.Contains(descLower, strings.ToLower(hitMaterial)) {
-								boost += 0.10
-							}
-							finalScore := score + boost
 
 							if finalScore > bestMatchScore {
 								bestMatchScore = finalScore
@@ -456,10 +538,12 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			name, _ := payload["name"].(string)
+			sku, _ := payload["sku"].(string)
 
 			if score, found := productMaxScores[name]; found {
 				foundResults = append(foundResults, subdomain.ProductResult{
 					Name:     name,
+					Sku:      sku,
 					ImageURL: fixURL(productImageURLs[name], r.Host),
 					Score:    score,
 				})
@@ -467,6 +551,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				imgUrl, _ := payload["imageUrl"].(string)
 				missingItems = append(missingItems, subdomain.MissingItem{
 					Name:     name,
+					Sku:      sku,
 					ImageURL: fixURL(imgUrl, r.Host),
 				})
 			}
@@ -590,6 +675,8 @@ func hasColorConflict(detDesc string, productName string, hitColor string) bool 
 		{name: "silver", synonyms: []string{"silver", "argent"}},
 		{name: "black", synonyms: []string{"black", "nero", "scur"}},
 		{name: "white", synonyms: []string{"white", "bianc", "chiar"}},
+		{name: "pink", synonyms: []string{"pink", "rosa", "rosat"}},
+		{name: "brown", synonyms: []string{"brown", "marrone", "beige", "tan"}},
 	}
 
 	var hitColorCat = ""
@@ -623,16 +710,63 @@ func hasColorConflict(detDesc string, productName string, hitColor string) bool 
 		return false
 	}
 
+	// Find the FIRST color category mentioned in the detection description
+	var firstColorCat = ""
+	var firstColorIndex = -1
 	for _, c := range colors {
-		if c.name == hitColorCat {
-			continue
-		}
 		for _, syn := range c.synonyms {
-			if strings.Contains(detDesc, syn) {
-				return true
+			idx := strings.Index(detDesc, syn)
+			if idx != -1 {
+				if firstColorIndex == -1 || idx < firstColorIndex {
+					firstColorIndex = idx
+					firstColorCat = c.name
+				}
 			}
 		}
 	}
 
+	// If the description mentions a primary color, it must match the product's color
+	if firstColorCat != "" && firstColorCat != hitColorCat {
+		return true // Conflict!
+	}
+
 	return false
+}
+
+func parseDetections(responseText string) []subdomain.Detection {
+	var detections []subdomain.Detection
+	// Try standard unmarshal first
+	err := json.Unmarshal([]byte(responseText), &detections)
+	if err == nil {
+		return detections
+	}
+
+	log.Printf("Warning: Failed to parse raw JSON (%v). Attempting to recover completed items...", err)
+
+	var recovered []subdomain.Detection
+	depth := 0
+	start := -1
+	for i := 0; i < len(responseText); i++ {
+		char := responseText[i]
+		if char == '{' {
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		} else if char == '}' {
+			depth--
+			if depth == 0 && start != -1 {
+				objStr := responseText[start : i+1]
+				var det subdomain.Detection
+				if err := json.Unmarshal([]byte(objStr), &det); err == nil {
+					recovered = append(recovered, det)
+				} else {
+					log.Printf("Failed to parse recovered object %s: %v", objStr, err)
+				}
+				start = -1
+			}
+		}
+	}
+
+	return recovered
 }

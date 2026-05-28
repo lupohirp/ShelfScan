@@ -11,7 +11,7 @@ type GeminiClient struct {
 	Apikey          string
 	Prompt          string
 
-	Temperature     int
+	Temperature     float64
 	MaxOutputTokens int
 
 	mu     sync.Mutex
@@ -33,7 +33,7 @@ func (g *GeminiClient) WithApiKey(key string) *GeminiClient {
 
 }
 
-func (g *GeminiClient) WithTemperature(temp int) *GeminiClient {
+func (g *GeminiClient) WithTemperature(temp float64) *GeminiClient {
 	g.Temperature = temp
 	return g
 }
