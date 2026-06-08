@@ -55,9 +55,14 @@ func main() {
 		WithHost(qdrantHost).
 		WithPort(qdrantPort)
 
+	if initErr := qdrantClient.InitCollectionIfNeeded(768); initErr != nil {
+		log.Printf("Warning: failed to initialize Qdrant collection: %v", initErr)
+	}
+
 	embeddingClient := embedding.NewEmbedding().
 		WithHost(embeddingsHost).
-		WithPort(embeddingsPort)
+		WithPort(embeddingsPort).
+		WithApiKey(apiKey)
 
 	mcpClient := mcp.NewMCPClient().
 		WithURL(mcpUrl)

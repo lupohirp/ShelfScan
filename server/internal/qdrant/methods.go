@@ -3,6 +3,7 @@ package qdrant
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/qdrant/go-client/qdrant"
 )
@@ -207,6 +208,50 @@ func (q *QdrantClient) UpdatePayload(idStr string, name string, sku string, colo
 		},
 	})
 	return err
+}
+
+func (q *QdrantClient) InitCollectionIfNeeded(size uint64) error {
+	client, err := q.getClient()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	info, err := client.GetCollectionInfo(ctx, "jewelry_inventory")
+	if err == nil {
+		var currentSize uint64
+		if info.Config != nil && info.Config.Params != nil && info.Config.Params.VectorsConfig != nil {
+			if params := info.Config.Params.VectorsConfig.GetParams(); params != nil {
+				currentSize = params.GetSize()
+			}
+		}
+		if currentSize == size {
+			log.Printf("Collection jewelry_inventory already exists with correct vector size %d.", size)
+			return nil
+		}
+		log.Printf("Collection jewelry_inventory has size %d, but expected %d. Recreating...", currentSize, size)
+		err = client.DeleteCollection(ctx, "jewelry_inventory")
+		if err != nil {
+			return fmt.Errorf("failed to delete collection: %w", err)
+		}
+	} else {
+		log.Printf("Collection jewelry_inventory does not exist. Creating...")
+	}
+
+	err = client.CreateCollection(ctx, &qdrant.CreateCollection{
+		CollectionName: "jewelry_inventory",
+		VectorsConfig: qdrant.NewVectorsConfig(&qdrant.VectorParams{
+			Size:     size,
+			Distance: qdrant.Distance_Cosine,
+		}),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create collection: %w", err)
+	}
+
+	log.Printf("Collection jewelry_inventory created successfully with size %d and Cosine distance.", size)
+	return nil
 }
 
 func systemID(name string) int {
