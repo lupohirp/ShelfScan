@@ -500,7 +500,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							}
 
 							// Require a minimum raw visual similarity before applying any text boost
-							if score < 0.65 {
+							if score < 0.70 {
 								continue
 							}
 
@@ -511,8 +511,8 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 
-						// Require a final confidence score of at least 0.75
-						if bestMatchScore >= 0.75 {
+						// Require a final confidence score of at least 0.80
+						if bestMatchScore >= 0.80 {
 							mainMu.Lock()
 							if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
 								productMaxScores[bestMatchName] = bestMatchScore
