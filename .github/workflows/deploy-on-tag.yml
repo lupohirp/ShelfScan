@@ -254,6 +254,8 @@ jobs:
           MCP_PORT="${{ secrets.MCP_PORT }}"
           QDRANT_PORT="${{ secrets.QDRANT_PORT }}"
           QDRANT_PORT_GRPC="${{ secrets.QDRANT_PORT_GRPC }}"
+          CLIENT_PORT="${{ secrets.CLIENT_PORT }}"
+          ADMIN_CLIENT_PORT="${{ secrets.ADMIN_CLIENT_PORT }}"
 
           HTTP_PORT=${HTTP_PORT:-8090}
           ADMIN_PORT=${ADMIN_PORT:-8182}
@@ -262,6 +264,8 @@ jobs:
           MCP_PORT=${MCP_PORT:-8087}
           QDRANT_PORT=${QDRANT_PORT:-6335}
           QDRANT_PORT_GRPC=${QDRANT_PORT_GRPC:-6336}
+          CLIENT_PORT=${CLIENT_PORT:-5175}
+          ADMIN_CLIENT_PORT=${ADMIN_CLIENT_PORT:-5176}
 
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << EOF
           cat << EOT > /shelfscan/.env
@@ -280,6 +284,8 @@ jobs:
           MCP_PORT=$MCP_PORT
           QDRANT_PORT=$QDRANT_PORT
           QDRANT_PORT_GRPC=$QDRANT_PORT_GRPC
+          CLIENT_PORT=$CLIENT_PORT
+          ADMIN_CLIENT_PORT=$ADMIN_CLIENT_PORT
           EOT
           EOF
 
