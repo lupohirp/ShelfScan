@@ -8,8 +8,8 @@ services:
     networks:
       - shelfscan-network
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "${QDRANT_PORT:-6333}:6333"
+      - "${QDRANT_PORT_GRPC:-6334}:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
 
@@ -29,7 +29,7 @@ services:
       - QDRANT_PORT=6333
       - MCP_URL=ws://mcp:8081/ws
     ports:
-      - "8080:8080"
+      - "${API_PORT:-8080}:8080"
     volumes:
       - ./server/uploads:/app/uploads
 
@@ -44,7 +44,7 @@ services:
     environment:
       - QDRANT_URL=http://qdrant:6333
     ports:
-      - "8081:8081"
+      - "${MCP_PORT:-8081}:8081"
 
   client:
     image: ghcr.io/${GHCR_OWNER:-lupohirp}/${CLIENT_IMAGE:-shelfscan-client}:dev-latest
