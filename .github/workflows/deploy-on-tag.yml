@@ -238,8 +238,8 @@ jobs:
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
         shell: bash
         run: |
-          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" "mkdir -p /app"
-          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no docker-compose.deploy.yml "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/app/docker-compose.yml"
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" "mkdir -p /shelfscan"
+          sshpass -p "$SSH_PASSWORD" scp -o StrictHostKeyChecking=no docker-compose.deploy.yml "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/shelfscan/docker-compose.yml"
 
       - name: Generate .env file on server
         env:
@@ -256,7 +256,7 @@ jobs:
           HTTPS_PORT=${HTTPS_PORT:-8443}
 
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << EOF
-          cat << EOT > /app/.env
+          cat << EOT > /shelfscan/.env
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL=models/gemini-2.5-flash
           GEMINI_TEMPERATURE=0.3
@@ -279,7 +279,7 @@ jobs:
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << 'EOF'
           set -e
 
-          cd /app
+          cd /shelfscan
 
           echo "${{ secrets.GH_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
