@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: shelfscan-qdrant
+    restart: unless-stopped
+    networks:
+      - shelfscan-network
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  embeddings:
+    image: ghcr.io/${GHCR_OWNER:-lupohirp}/${EMBEDDINGS_IMAGE:-shelfscan-embeddings}:dev-latest
+    container_name: shelfscan-embeddings
+    restart: unless-stopped
+    networks:
+      - shelfscan-network
+    depends_on:
+      - qdrant
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+    ports:
+      - "8001:8001"
+
+  api:
+    image: ghcr.io/${GHCR_OWNER:-lupohirp}/${API_IMAGE:-shelfscan-api}:dev-latest
+    container_name: shelfscan-api
+    restart: unless-stopped
+    networks:
+      - shelfscan-network
+    depends_on:
+      - qdrant
+      - embeddings
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=development
+      - QDRANT_HOST=http://qdrant
+      - QDRANT_PORT=6333
+      - EMBEDDINGS_HOST=http://embeddings
+      - EMBEDDINGS_PORT=8001
+      - MCP_URL=ws://mcp:8081/ws
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./server/uploads:/app/uploads
+
+  mcp:
+    image: ghcr.io/${GHCR_OWNER:-lupohirp}/${MCP_IMAGE:-shelfscan-mcp}:dev-latest
+    container_name: shelfscan-mcp
+    restart: unless-stopped
+    networks:
+      - shelfscan-network
+    depends_on:
+      - qdrant
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+    ports:
+      - "8081:8081"
+
+  client:
+    image: ghcr.io/${GHCR_OWNER:-lupohirp}/${CLIENT_IMAGE:-shelfscan-client}:dev-latest
+    container_name: shelfscan-client
+    restart: unless-stopped
+    networks:
+      - shelfscan-network
+    depends_on:
+      - api
+
+  admin-client:
+    image: ghcr.io/${GHCR_OWNER:-lupohirp}/${ADMIN_CLIENT_IMAGE:-shelfscan-admin-client}:dev-latest
+    container_name: shelfscan-admin-client
+    restart: unless-stopped
+    networks:
+      - shelfscan-network
+    depends_on:
+      - api
+
+  nginx-proxy-manager:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: shelfscan-npm
+    restart: unless-stopped
+    networks:
+      - shelfscan-network
+    environment:
+      - DB_MYSQL_HOST=shelfscan-npm-db
+      - DB_MYSQL_PORT=3306
+      - DB_MYSQL_USER=npm
+      - DB_MYSQL_PASSWORD=npm
+      - DB_MYSQL_NAME=npm
+    ports:
+      - '${HTTP_PORT:-80}:80'
+      - '${ADMIN_PORT:-81}:81'
+      - '${HTTPS_PORT:-443}:443'
+    volumes:
+      - ./npm/data:/data
+      - ./npm/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - npm-db
+      - client
+      - admin-client
+      - api
+      - mcp
+
+  npm-db:
+    image: 'jc21/mariadb-aria:latest'
+    container_name: shelfscan-npm-db
+    restart: unless-stopped
+    networks:
+      - shelfscan-network
+    environment:
+      - MYSQL_ROOT_PASSWORD=npm
+      - MYSQL_DATABASE=npm
+      - MYSQL_USER=npm
+      - MYSQL_PASSWORD=npm
+    volumes:
+      - ./npm/mysql:/var/lib/mysql
+
+volumes:
+  qdrant_storage:
+
+networks:
+  shelfscan-network:
+    driver: bridge

@@ -55,6 +55,7 @@ func (h *Handler) InventoryHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if r.Method == http.MethodDelete {
+
 			id := r.URL.Query().Get("id")
 			if id == "" {
 				http.Error(w, "Missing id", http.StatusBadRequest)

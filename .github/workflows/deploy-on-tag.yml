@@ -193,18 +193,37 @@ jobs:
       - name: Prepare docker-compose file
         shell: bash
         run: |
-          if [[ -f "docker-compose.yml" ]]; then
-            cp docker-compose.yml docker-compose.deploy.yml
-          else
-            echo "Missing docker-compose.yml file"
-            exit 1
-          fi
+          if [[ "${{ needs.prepare.outputs.environment }}" == "dev" ]]; then
+            if [[ -f "docker-compose.dev.yml" ]]; then
+              cp docker-compose.dev.yml docker-compose.deploy.yml
+            elif [[ -f "docker-compose.dev.yaml" ]]; then
+              cp docker-compose.dev.yaml docker-compose.deploy.yml
+            else
+              echo "Missing docker-compose.dev.yml or docker-compose.dev.yaml file"
+              exit 1
+            fi
 
-          # Replace local build tags with remote registry images
-          sed -i "s|build: ./server|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-          sed -i "s|build: ./client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-          sed -i "s|build: ./admin-client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-          sed -i "s|build: ./mcp|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            # Replace placeholder images with the actual built image and tag for dev
+            sed -i "s|image: .*shelfscan-api.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-admin-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-mcp.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+          else
+            if [[ -f "docker-compose.yml" ]]; then
+              cp docker-compose.yml docker-compose.deploy.yml
+            elif [[ -f "docker-compose.yaml" ]]; then
+              cp docker-compose.yaml docker-compose.deploy.yml
+            else
+              echo "Missing docker-compose.yml or docker-compose.yaml file"
+              exit 1
+            fi
+
+            # Replace local build tags with remote registry images for production
+            sed -i "s|build: ./server|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./admin-client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./mcp|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+          fi
 
       - name: Setup SSH with password
         shell: bash
