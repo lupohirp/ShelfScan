@@ -13,19 +13,6 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
 
-  embeddings:
-    image: ghcr.io/${GHCR_OWNER:-lupohirp}/${EMBEDDINGS_IMAGE:-shelfscan-embeddings}:dev-latest
-    container_name: shelfscan-embeddings
-    restart: unless-stopped
-    networks:
-      - shelfscan-network
-    depends_on:
-      - qdrant
-    environment:
-      - QDRANT_URL=http://qdrant:6333
-    ports:
-      - "8001:8001"
-
   api:
     image: ghcr.io/${GHCR_OWNER:-lupohirp}/${API_IMAGE:-shelfscan-api}:dev-latest
     container_name: shelfscan-api
@@ -34,15 +21,12 @@ services:
       - shelfscan-network
     depends_on:
       - qdrant
-      - embeddings
     env_file:
       - .env
     environment:
       - ENVIRONMENT=development
       - QDRANT_HOST=http://qdrant
       - QDRANT_PORT=6333
-      - EMBEDDINGS_HOST=http://embeddings
-      - EMBEDDINGS_PORT=8001
       - MCP_URL=ws://mcp:8081/ws
     ports:
       - "8080:8080"
