@@ -28,6 +28,8 @@ interface InventoryItem {
   }
 }
 
+const apiBase = import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:8080`;
+
 function App() {
   const [items, setItems] = useState<InventoryItem[]>([])
   const [view, setView] = useState<'list' | 'add' | 'edit'>('list')
@@ -61,8 +63,7 @@ function App() {
 
   const fetchInventory = async () => {
     try {
-      const apiHost = window.location.hostname
-      const response = await fetch(`http://${apiHost}:8080/inventory`)
+      const response = await fetch(`${apiBase}/inventory`)
       if (response.ok) {
         const data = await response.json()
         setItems(data || [])
@@ -138,8 +139,7 @@ function App() {
     formData.append('material', finalMaterial)
 
     try {
-      const apiHost = window.location.hostname
-      const response = await fetch(`http://${apiHost}:8080/upload`, {
+      const response = await fetch(`${apiBase}/upload`, {
         method: 'POST',
         body: formData,
       })
@@ -171,8 +171,7 @@ function App() {
     formData.append('material', jewelryMaterial)
 
     try {
-      const apiHost = window.location.hostname
-      const response = await fetch(`http://${apiHost}:8080/inventory?id=${editId}`, {
+      const response = await fetch(`${apiBase}/inventory?id=${editId}`, {
         method: 'PUT',
         body: formData,
       })
@@ -195,8 +194,7 @@ function App() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return
     try {
-      const apiHost = window.location.hostname
-      const response = await fetch(`http://${apiHost}:8080/inventory?id=${id}`, {
+      const response = await fetch(`${apiBase}/inventory?id=${id}`, {
         method: 'DELETE',
       })
       if (response.ok) {

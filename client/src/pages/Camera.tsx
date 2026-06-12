@@ -130,8 +130,8 @@ export default function Camera() {
         formData.append('images', blob, `photo_${i}.jpg`)
       }
       
-      const apiHost = window.location.hostname
-      const analysisResponse = await fetch(`http://${apiHost}:8080/analyze`, {
+      const apiBase = import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:8080`;
+      const analysisResponse = await fetch(`${apiBase}/analyze`, {
         method: 'POST',
         body: formData
       })
