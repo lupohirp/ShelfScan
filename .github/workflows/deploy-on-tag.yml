@@ -137,6 +137,8 @@ jobs:
           context: ./client
           file: ./client/Dockerfile
           push: true
+          build-args: |
+            VITE_API_URL=${{ secrets.API_URL }}
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.environment }}-latest
@@ -173,6 +175,8 @@ jobs:
           context: ./admin-client
           file: ./admin-client/Dockerfile
           push: true
+          build-args: |
+            VITE_API_URL=${{ secrets.API_URL }}
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.environment }}-latest

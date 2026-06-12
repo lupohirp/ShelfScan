@@ -130,7 +130,19 @@ export default function Camera() {
         formData.append('images', blob, `photo_${i}.jpg`)
       }
       
-      const apiBase = import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:8080`;
+      const getApiUrl = () => {
+        const envUrl = import.meta.env.VITE_API_URL;
+        if (envUrl) {
+          return envUrl;
+        }
+        if (import.meta.env.PROD) {
+          const hostname = window.location.hostname;
+          const baseHost = hostname.replace(/^admin-/, '');
+          return `https://api-${baseHost}`;
+        }
+        return `http://${window.location.hostname}:8080`;
+      };
+      const apiBase = getApiUrl();
       const analysisResponse = await fetch(`${apiBase}/analyze`, {
         method: 'POST',
         body: formData
