@@ -32,6 +32,7 @@ services:
       - "${API_PORT:-8080}:8080"
     volumes:
       - ./server/uploads:/app/uploads
+      - ./logs:/app/logs
 
   mcp:
     image: ghcr.io/${GHCR_OWNER:-lupohirp}/${MCP_IMAGE:-shelfscan-mcp}:dev-latest

@@ -12,10 +12,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"shelfscan-api/internal/domain"
 	subdomain "shelfscan-api/internal/domain/sub"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/google/generative-ai-go/genai"
@@ -255,6 +257,43 @@ func (h *Handler) UploadsHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+type CandidateLog struct {
+	Name          string  `json:"name"`
+	Sku           string  `json:"sku"`
+	RawScore      float32 `json:"raw_score"`
+	CategoryMatch bool    `json:"category_match"`
+	ColorConflict bool    `json:"color_conflict"`
+	Boost         float32 `json:"boost"`
+	FinalScore    float32 `json:"final_score"`
+}
+
+type DetectionLog struct {
+	Desc           string         `json:"desc"`
+	Box            []int          `json:"box"`
+	CropFilename   string         `json:"crop_filename,omitempty"`
+	BestMatch      string         `json:"best_match,omitempty"`
+	BestMatchScore float32        `json:"best_match_score,omitempty"`
+	Accepted       bool           `json:"accepted"`
+	Candidates     []CandidateLog `json:"candidates"`
+}
+
+type ImageLog struct {
+	ImageIdx          int            `json:"image_idx"`
+	Filename          string         `json:"filename"`
+	SavedOriginalFile string         `json:"saved_original_file"`
+	GeminiModel       string         `json:"gemini_model"`
+	GeminiRawResponse string         `json:"gemini_raw_response"`
+	Detections        []DetectionLog `json:"detections"`
+}
+
+type RequestLog struct {
+	RequestID string     `json:"request_id"`
+	Timestamp string     `json:"timestamp"`
+	Images    []ImageLog `json:"images"`
+	Found     []any      `json:"found"`
+	Missing   []any      `json:"missing"`
+}
+
 func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -284,9 +323,19 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Create a unique request directory under /app/logs
+		reqID := fmt.Sprintf("%s_%03d", time.Now().Format("20060102_150405"), time.Now().Nanosecond()/1000000%1000)
+		reqDir := filepath.Join("/app/logs", "req_"+reqID)
+		if mkdirErr := os.MkdirAll(reqDir, 0755); mkdirErr != nil {
+			log.Printf("Warning: failed to create request log dir %s: %v", reqDir, mkdirErr)
+		}
+
 		productMaxScores := make(map[string]float32)
 		productImageURLs := make(map[string]string)
 		allImageResults := make([]subdomain.ImageResult, len(imageFiles))
+
+		imageLogs := make([]ImageLog, len(imageFiles))
+		var logMu sync.Mutex
 
 		var mainMu sync.Mutex
 		var outerWg sync.WaitGroup
@@ -305,6 +354,18 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				imgData, _ := io.ReadAll(file)
 				file.Close()
+
+				// Save original image to log directory
+				originalFilename := fmt.Sprintf("original_%d.jpg", imgIdx)
+				_ = os.WriteFile(filepath.Join(reqDir, originalFilename), imgData, 0644)
+
+				logMu.Lock()
+				imageLogs[imgIdx] = ImageLog{
+					ImageIdx:          imgIdx,
+					Filename:          fileHeader.Filename,
+					SavedOriginalFile: originalFilename,
+				}
+				logMu.Unlock()
 
 				img, _, err := image.Decode(bytes.NewReader(imgData))
 				if err != nil {
@@ -371,10 +432,16 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				detections := parseDetections(responseText)
 				allImageResults[imgIdx] = subdomain.ImageResult{Detections: detections}
 
+				logMu.Lock()
+				imageLogs[imgIdx].GeminiModel = modelUsed
+				imageLogs[imgIdx].GeminiRawResponse = responseText
+				imageLogs[imgIdx].Detections = make([]DetectionLog, len(detections))
+				logMu.Unlock()
+
 				var wg sync.WaitGroup
-				for _, det := range detections {
+				for detIdx, det := range detections {
 					wg.Add(1)
-					go func(det subdomain.Detection) {
+					go func(detIdx int, det subdomain.Detection) {
 						defer wg.Done()
 
 						box := det.Box
@@ -385,6 +452,13 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							return
 						}
 
+						logMu.Lock()
+						imageLogs[imgIdx].Detections[detIdx] = DetectionLog{
+							Desc: det.Desc,
+							Box:  box,
+						}
+						logMu.Unlock()
+
 						ymin, xmin, ymax, xmax := box[0]*height/1000, box[1]*width/1000, box[2]*height/1000, box[3]*width/1000
 						if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
 							return
@@ -393,6 +467,14 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
 						cropBuf := new(bytes.Buffer)
 						jpeg.Encode(cropBuf, cropped, nil)
+
+						// Save cropped image to log directory
+						cropFilename := fmt.Sprintf("crop_%d_%d.jpg", imgIdx, detIdx)
+						_ = os.WriteFile(filepath.Join(reqDir, cropFilename), cropBuf.Bytes(), 0644)
+
+						logMu.Lock()
+						imageLogs[imgIdx].Detections[detIdx].CropFilename = cropFilename
+						logMu.Unlock()
 
 						sem <- struct{}{}
 						emb, err := h.embeddingClient.GetEmbeddingBytes(cropBuf.Bytes(), "crop.jpg")
@@ -423,6 +505,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 							hitColor, _ := hit["color"].(string)
 							hitMaterial, _ := hit["material"].(string)
+							sku, _ := hit["sku"].(string)
 
 							var score float32
 							if s, ok := hit["score"].(float32); ok {
@@ -492,6 +575,20 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							log.Printf("[Search Debug] Crop %q -> Candidate: %s, Raw Score: %f, Category Match: %t, Color Conflict: %t, Boost: %f, Final Score: %f",
 								det.Desc, name, score, catMatch, colConflict, boost, finalScore)
 
+							candLog := CandidateLog{
+								Name:          name,
+								Sku:           sku,
+								RawScore:      score,
+								CategoryMatch: catMatch,
+								ColorConflict: colConflict,
+								Boost:         boost,
+								FinalScore:    finalScore,
+							}
+
+							logMu.Lock()
+							imageLogs[imgIdx].Detections[detIdx].Candidates = append(imageLogs[imgIdx].Detections[detIdx].Candidates, candLog)
+							logMu.Unlock()
+
 							if !catMatch {
 								continue
 							}
@@ -512,6 +609,12 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 
+						logMu.Lock()
+						imageLogs[imgIdx].Detections[detIdx].BestMatch = bestMatchName
+						imageLogs[imgIdx].Detections[detIdx].BestMatchScore = bestMatchScore
+						imageLogs[imgIdx].Detections[detIdx].Accepted = (bestMatchScore >= 0.80)
+						logMu.Unlock()
+
 						// Require a final confidence score of at least 0.80
 						if bestMatchScore >= 0.80 {
 							mainMu.Lock()
@@ -522,7 +625,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							}
 							mainMu.Unlock()
 						}
-					}(det)
+					}(detIdx, det)
 				}
 				wg.Wait()
 			}(imgIdx, fileHeader)
@@ -556,6 +659,31 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 					ImageURL: fixURL(imgUrl, r.Host),
 				})
 			}
+		}
+
+		// Save request analysis log JSON
+		var foundList []any
+		for _, fr := range foundResults {
+			foundList = append(foundList, fr)
+		}
+		var missingList []any
+		for _, mi := range missingItems {
+			missingList = append(missingList, mi)
+		}
+
+		reqLog := RequestLog{
+			RequestID: reqID,
+			Timestamp: time.Now().Format(time.RFC3339),
+			Images:    imageLogs,
+			Found:     foundList,
+			Missing:   missingList,
+		}
+
+		reqLogData, marshalErr := json.MarshalIndent(reqLog, "", "  ")
+		if marshalErr == nil {
+			_ = os.WriteFile(filepath.Join(reqDir, "log.json"), reqLogData, 0644)
+		} else {
+			log.Printf("Warning: failed to marshal request log: %v", marshalErr)
 		}
 
 		log.Printf("Analysis complete across %d images, found %d products", len(imageFiles), len(foundResults))

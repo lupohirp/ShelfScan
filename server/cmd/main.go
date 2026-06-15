@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	_ "image/png"
 	"log"
 	"net/http"
@@ -16,6 +17,15 @@ import (
 )
 
 func main() {
+	// Create logs directory and open api.log for writing
+	_ = os.MkdirAll("/app/logs", 0755)
+	logFile, err := os.OpenFile("/app/logs/api.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err == nil {
+		log.SetOutput(io.MultiWriter(os.Stderr, logFile))
+	} else {
+		log.Printf("Warning: failed to open log file: %v", err)
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
