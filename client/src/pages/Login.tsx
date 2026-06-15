@@ -32,7 +32,7 @@ export default function Login() {
       <div className="w-full max-w-[360px]">
         {/* Logo Section */}
         <div className="flex flex-col items-center mb-16">
-          <h1 className="text-[42px] font-black tracking-[-0.05em] leading-none mb-1">LIU·JO</h1>
+          <img src="/logo.png" alt="LIU·JO" className="h-24 object-contain" />
           <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">Inventory Management</p>
         </div>
 
