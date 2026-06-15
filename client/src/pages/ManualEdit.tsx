@@ -5,6 +5,17 @@ import TopBar from '../components/TopBar'
 import PageShell from '../components/PageShell'
 import { Search, Check, Plus, Minus, Package } from 'lucide-react'
 
+const categoryLabels: Record<string, string> = {
+  Watch: 'Orologio',
+  Ring: 'Anello',
+  Necklace: 'Collana',
+  Bracelet: 'Bracciale',
+  Earring: 'Orecchino',
+  Other: 'Altro',
+  identified: 'Identificato',
+  missing: 'Mancante'
+}
+
 export default function ManualEdit() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
@@ -73,7 +84,7 @@ export default function ManualEdit() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold truncate">{product.name}</p>
-                  <p className="text-xs text-gray-500">SKU: {product.sku || 'N/A'} · {product.category}</p>
+                  <p className="text-xs text-gray-500">SKU: {product.sku || 'N/A'} · {categoryLabels[product.category] || product.category}</p>
                 </div>
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${

@@ -33,14 +33,33 @@ const getApiUrl = () => {
   if (envUrl) {
     return envUrl;
   }
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+    return `http://${hostname}:8080`;
+  }
   if (import.meta.env.PROD) {
-    const hostname = window.location.hostname;
     const baseHost = hostname.replace(/^admin-/, '');
     return `https://api-${baseHost}`;
   }
-  return `http://${window.location.hostname}:8080`;
+  return `http://${hostname}:8080`;
 };
 const apiBase = getApiUrl();
+
+const categoryLabels: Record<string, string> = {
+  All: 'Tutti',
+  Watch: 'Orologio',
+  Ring: 'Anello',
+  Necklace: 'Collana',
+  Bracelet: 'Bracciale',
+  Earring: 'Orecchino',
+  Other: 'Altro',
+  watch: 'Orologio',
+  ring: 'Anello',
+  necklace: 'Collana',
+  bracelet: 'Bracciale',
+  earring: 'Orecchino',
+  other: 'Altro'
+}
 
 function App() {
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -204,7 +223,7 @@ function App() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return
+    if (!confirm('Sei sicuro di voler eliminare questo articolo?')) return
     try {
       const response = await fetch(`${apiBase}/inventory?id=${id}`, {
         method: 'DELETE',
@@ -282,14 +301,14 @@ function App() {
             className={`nav-item ${view === 'add' ? 'active' : ''}`}
           >
             <PlusCircle size={18} />
-            Index New Item
+            Indicizza Nuovo Articolo
           </button>
         </nav>
 
         <div className="sidebar-footer">
           <div className="connection-pill">
             <span className="connection-dot"></span>
-            Qdrant Online
+            Qdrant Connesso
           </div>
         </div>
       </aside>
@@ -300,8 +319,8 @@ function App() {
         {/* Header */}
         <header className="page-header">
           <div className="page-title">
-            <h1>Inventory Overview</h1>
-            <p>Admin Control Panel • Embeddings Indexer</p>
+            <h1>Panoramica Inventario</h1>
+            <p>Pannello di Controllo Amministratore • Indicizzatore Embeddings</p>
           </div>
           
           <div>
@@ -310,7 +329,7 @@ function App() {
               className="lj-btn lj-btn-black"
             >
               <PlusCircle size={15} />
-              Index New Item
+              Indicizza Nuovo Articolo
             </button>
           </div>
         </header>
@@ -319,7 +338,7 @@ function App() {
         <section className="bento-grid">
           <div className="kpi-card">
             <div className="kpi-content">
-              <span className="kpi-label">Indexed Vector Views</span>
+              <span className="kpi-label">Viste Vettori Indicizzate</span>
               <span className="kpi-value">{totalViews}</span>
             </div>
             <Upload size={28} className="kpi-icon" />
@@ -327,7 +346,7 @@ function App() {
 
           <div className="kpi-card">
             <div className="kpi-content">
-              <span className="kpi-label">Distinct Products</span>
+              <span className="kpi-label">Prodotti Distinti</span>
               <span className="kpi-value">{uniqueProductsCount}</span>
             </div>
             <Package size={28} className="kpi-icon" />
@@ -335,7 +354,7 @@ function App() {
 
           <div className="kpi-card">
             <div className="kpi-content">
-              <span className="kpi-label">Active Categories</span>
+              <span className="kpi-label">Categorie Attive</span>
               <span className="kpi-value">{activeCategoriesCount}</span>
             </div>
             <BarChart3 size={28} className="kpi-icon" />
@@ -343,9 +362,9 @@ function App() {
 
           <div className="kpi-card">
             <div className="kpi-content">
-              <span className="kpi-label">Database Engine</span>
+              <span className="kpi-label">Motore Database</span>
               <span className="kpi-value" style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '8px', color: 'var(--color-success)', letterSpacing: '0.05em' }}>
-                QDRANT LOCAL
+                QDRANT LOCALE
               </span>
             </div>
             <Database size={28} className="kpi-icon" style={{ color: 'var(--color-success)', opacity: 0.2 }} />
@@ -364,7 +383,7 @@ function App() {
                 <Search size={16} className="search-icon" />
                 <input 
                   type="text"
-                  placeholder="Search by Name, SKU, Color or Material..."
+                  placeholder="Cerca per Nome, SKU, Colore o Materiale..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="search-input"
@@ -377,14 +396,14 @@ function App() {
                   <button 
                     onClick={() => setLayoutMode('grid')}
                     className={`toggle-btn ${layoutMode === 'grid' ? 'active' : ''}`}
-                    title="Grid View"
+                    title="Vista Griglia"
                   >
                     <Grid3X3 size={16} />
                   </button>
                   <button 
                     onClick={() => setLayoutMode('table')}
                     className={`toggle-btn ${layoutMode === 'table' ? 'active' : ''}`}
-                    title="Table View"
+                    title="Vista Tabella"
                   >
                     <List size={16} />
                   </button>
@@ -400,7 +419,7 @@ function App() {
                   onClick={() => setSelectedFilterCategory(cat)}
                   className={`filter-tab ${selectedFilterCategory === cat ? 'active' : ''}`}
                 >
-                  {cat}
+                  {categoryLabels[cat] || cat}
                 </button>
               ))}
             </div>
@@ -420,7 +439,7 @@ function App() {
                           ) : (
                             <Package size={32} style={{ color: 'var(--color-gray-300)' }} />
                           )}
-                          <span className="category-tag">{cat}</span>
+                          <span className="category-tag">{categoryLabels[cat] || cat}</span>
                         </div>
 
                         {/* Details */}
@@ -431,13 +450,13 @@ function App() {
                           <div className="product-meta-list">
                             {item.payload.color && (
                               <div className="meta-row">
-                                <span className="meta-label">Color:</span>
+                                <span className="meta-label">Colore:</span>
                                 <span className="meta-value">{item.payload.color}</span>
                               </div>
                             )}
                             {item.payload.material && (
                               <div className="meta-row">
-                                <span className="meta-label">Material:</span>
+                                <span className="meta-label">Materiale:</span>
                                 <span className="meta-value">{item.payload.material}</span>
                               </div>
                             )}
@@ -451,14 +470,14 @@ function App() {
                         <button 
                           onClick={() => handleStartEdit(item)}
                           className="lj-btn-icon"
-                          title="Edit Item"
+                          title="Modifica Articolo"
                         >
                           <Pencil size={14} />
                         </button>
                         <button 
                           onClick={() => handleDelete(item.id)}
                           className="lj-btn-icon lj-btn-icon-danger"
-                          title="Delete Item"
+                          title="Elimina Articolo"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -475,13 +494,13 @@ function App() {
                 <table className="lj-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '60px' }}>Preview</th>
-                      <th>Product Name</th>
+                      <th style={{ width: '60px' }}>Anteprima</th>
+                      <th>Nome Prodotto</th>
                       <th>SKU</th>
-                      <th>Category</th>
-                      <th>Color Details</th>
-                      <th>Material Details</th>
-                      <th style={{ width: '100px', textAlign: 'right' }}>Actions</th>
+                      <th>Categoria</th>
+                      <th>Dettagli Colore</th>
+                      <th>Dettagli Materiale</th>
+                      <th style={{ width: '100px', textAlign: 'right' }}>Azioni</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -506,7 +525,7 @@ function App() {
                           </td>
                           <td>
                             <span style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid #000', padding: '2px 6px' }}>
-                              {cat}
+                              {categoryLabels[cat] || cat}
                             </span>
                           </td>
                           <td style={{ color: 'var(--color-secondary)' }}>{item.payload.color || '—'}</td>
@@ -516,14 +535,14 @@ function App() {
                               <button 
                                 onClick={() => handleStartEdit(item)}
                                 className="lj-btn-icon"
-                                title="Edit Item"
+                                title="Modifica Articolo"
                               >
                                 <Pencil size={13} />
                               </button>
                               <button 
                                 onClick={() => handleDelete(item.id)}
                                 className="lj-btn-icon lj-btn-icon-danger"
-                                title="Delete Item"
+                                title="Elimina Articolo"
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -541,13 +560,13 @@ function App() {
             {filteredItems.length === 0 && (
               <div className="empty-state">
                 <Package size={48} style={{ color: 'var(--color-gray-300)' }} />
-                <h3 className="empty-state-title">No Jewelry Found</h3>
-                <p className="empty-state-subtitle">Adjust your search query or select another category</p>
+                <h3 className="empty-state-title">Nessun Gioiello Trovato</h3>
+                <p className="empty-state-subtitle">Modifica la query di ricerca o seleziona un'altra categoria</p>
                 <button 
                   onClick={() => { setSearchTerm(''); setSelectedFilterCategory('All'); }}
                   style={{ marginTop: '16px', textDecoration: 'underline', color: 'black', border: 'none', background: 'none', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', cursor: 'pointer' }}
                 >
-                  Clear all filters
+                  Azzera tutti i filtri
                 </button>
               </div>
             )}
@@ -559,7 +578,7 @@ function App() {
             
             {/* Category distribution */}
             <div className="sidebar-card">
-              <h3 className="sidebar-card-title">Inventory Distribution</h3>
+              <h3 className="sidebar-card-title">Distribuzione Inventario</h3>
               <div className="distribution-list">
                 {['Watch', 'Ring', 'Necklace', 'Bracelet', 'Earring', 'Other'].map((cat) => {
                   const count = categoryCounts[cat] || 0
@@ -567,7 +586,7 @@ function App() {
                   return (
                     <div key={cat} className="dist-item">
                       <div className="dist-info">
-                        <span className="dist-label">{cat}s</span>
+                        <span className="dist-label">{(categoryLabels[cat] || cat)}</span>
                         <span className="dist-count">{count} ({pct}%)</span>
                       </div>
                       <div className="progress-track">
@@ -581,26 +600,26 @@ function App() {
 
             {/* Database Technical Details */}
             <div className="sidebar-card">
-              <h3 className="sidebar-card-title">System Properties</h3>
+              <h3 className="sidebar-card-title">Proprietà di Sistema</h3>
               <div className="db-info-list">
                 <div className="db-info-row">
-                  <span className="db-info-key">Vector Engine:</span>
+                  <span className="db-info-key">Motore Vettoriale:</span>
                   <span className="db-info-val">QDRANT DB</span>
                 </div>
                 <div className="db-info-row">
-                  <span className="db-info-key">Target Collection:</span>
+                  <span className="db-info-key">Collezione Target:</span>
                   <span className="db-info-val">jewelry_inventory</span>
                 </div>
                 <div className="db-info-row">
-                  <span className="db-info-key">Distance Metric:</span>
-                  <span className="db-info-val">Cosine</span>
+                  <span className="db-info-key">Metrica Distanza:</span>
+                  <span className="db-info-val">Coseno</span>
                 </div>
                 <div className="db-info-row">
-                  <span className="db-info-key">Embedding Model:</span>
+                  <span className="db-info-key">Modello di Embedding:</span>
                   <span className="db-info-val">Gemini Multimodal</span>
                 </div>
                 <div className="db-info-row">
-                  <span className="db-info-key">Vector Dimension:</span>
+                  <span className="db-info-key">Dimensione Vettoriale:</span>
                   <span className="db-info-val">768</span>
                 </div>
               </div>
@@ -618,7 +637,7 @@ function App() {
         <div className="drawer-backdrop" onClick={() => { resetForm(); setView('list'); }}>
           <div className="drawer-content" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
-              <h2 className="drawer-title">Index New Item</h2>
+              <h2 className="drawer-title">Indicizza Nuovo Articolo</h2>
               <button onClick={() => { resetForm(); setView('list'); }} className="drawer-close-btn">
                 <X size={20} />
               </button>
@@ -627,49 +646,49 @@ function App() {
             <div className="drawer-body">
               {success && (
                 <div className="lj-alert">
-                  <CheckCircle2 size={16} /> Item Indexed Successfully!
+                  <CheckCircle2 size={16} /> Articolo Indicizzato con Successo!
                 </div>
               )}
 
               <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div className="form-group">
-                  <label className="form-label">Product Name</label>
+                  <label className="form-label">Nome Prodotto</label>
                   <input 
                     type="text" 
                     value={name} 
                     onChange={(e) => setName(e.target.value)} 
-                    placeholder="e.g. LIU JO ELEGANT WATCH GOLD"
+                    placeholder="es. OROLOGIO LIU JO ELEGANTE ORO"
                     className="form-input"
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">SKU (Stock Keeping Unit)</label>
+                  <label className="form-label">SKU (Codice Modello)</label>
                   <input 
                     type="text" 
                     value={sku} 
                     onChange={(e) => setSku(e.target.value)} 
-                    placeholder="e.g. TLJ2642"
+                    placeholder="es. TLJ2642"
                     className="form-input"
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Category</label>
+                  <label className="form-label">Categoria</label>
                   <div className="form-select-wrapper">
                     <select 
                       value={category} 
                       onChange={(e) => setCategory(e.target.value)} 
                       className="form-select"
                     >
-                      <option value="watch">Watch (Orologio)</option>
-                      <option value="ring">Ring (Anello)</option>
-                      <option value="necklace">Necklace (Collana)</option>
-                      <option value="bracelet">Bracelet (Bracciale)</option>
-                      <option value="earring">Earring (Orecchino)</option>
-                      <option value="other">Other (Altro)</option>
+                      <option value="watch">Orologio</option>
+                      <option value="ring">Anello</option>
+                      <option value="necklace">Collana</option>
+                      <option value="bracelet">Bracciale</option>
+                      <option value="earring">Orecchino</option>
+                      <option value="other">Altro</option>
                     </select>
                     <ChevronDown size={16} className="form-select-arrow" />
                   </div>
@@ -678,32 +697,32 @@ function App() {
                 {/* Category specific parameter selectors */}
                 {category === 'watch' && (
                   <div className="category-properties">
-                    <h4 className="category-properties-title">Watch Custom Properties</h4>
-                    <h4 className="category-properties-title">WARNING: THESE PROPERTIES ARE NOT REQUIRED, BUT IT WILL HELP SHELFSCAN TO DETECT BETTER MATCHES</h4>
+                    <h4 className="category-properties-title">Proprietà Personalizzate Orologio</h4>
+                    <h4 className="category-properties-title">ATTENZIONE: QUESTE PROPRIETÀ NON SONO OBBLIGATORIE, MA AIUTERANNO SHELFSCAN A RILEVARE CORRISPONDENZE MIGLIORI</h4>
                     <div className="form-row">
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Case/Metal Color</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Colore Cassa/Metallo</label>
                         <input 
                           type="text" 
                           value={jewelryColor} 
                           onChange={(e) => setJewelryColor(e.target.value)} 
-                          placeholder="e.g. Gold"
+                          placeholder="es. Oro"
                           className="form-input"
                           required
                         />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Case/Dial Shape</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Forma Cassa/Quadrante</label>
                         <div className="form-select-wrapper">
                           <select 
                             value={watchDialShape} 
                             onChange={(e) => setWatchDialShape(e.target.value)} 
                             className="form-select"
                           >
-                            <option value="">Select Shape...</option>
-                            <option value="round">Round</option>
-                            <option value="square">Square</option>
-                            <option value="rectangular">Rectangular</option>
+                            <option value="">Seleziona Forma...</option>
+                            <option value="round">Rotonda</option>
+                            <option value="square">Quadrata</option>
+                            <option value="rectangular">Rettangolare</option>
                           </select>
                           <ChevronDown size={14} className="form-select-arrow" />
                         </div>
@@ -712,34 +731,34 @@ function App() {
 
                     <div className="form-row">
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Strap Color</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Colore Cinturino</label>
                         <input 
                           type="text" 
                           value={watchStrapColor} 
                           onChange={(e) => setWatchStrapColor(e.target.value)} 
-                          placeholder="e.g. Pink"
+                          placeholder="es. Rosa"
                           className="form-input"
                         />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Strap Material</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Materiale Cinturino</label>
                         <input 
                           type="text" 
                           value={watchStrapMaterial} 
                           onChange={(e) => setWatchStrapMaterial(e.target.value)} 
-                          placeholder="e.g. Silicone"
+                          placeholder="es. Silicone"
                           className="form-input"
                         />
                       </div>
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Dial Color</label>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Colore Quadrante</label>
                       <input 
                         type="text" 
                         value={watchDialColor} 
                         onChange={(e) => setWatchDialColor(e.target.value)} 
-                        placeholder="e.g. White"
+                        placeholder="es. Bianco"
                         className="form-input"
                       />
                     </div>
@@ -748,38 +767,38 @@ function App() {
 
                 {category === 'ring' && (
                   <div className="category-properties">
-                    <h4 className="category-properties-title">Ring Custom Properties</h4>
+                    <h4 className="category-properties-title">Proprietà Personalizzate Anello</h4>
                     <div className="form-row">
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Metal Color</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Colore Metallo</label>
                         <input 
                           type="text" 
                           value={ringMetal} 
                           onChange={(e) => setRingMetal(e.target.value)} 
-                          placeholder="e.g. Yellow Gold"
+                          placeholder="es. Oro Giallo"
                           className="form-input"
                           required
                         />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Stone Type</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Tipo di Pietra</label>
                         <input 
                           type="text" 
                           value={ringStone} 
                           onChange={(e) => setRingStone(e.target.value)} 
-                          placeholder="e.g. Diamond"
+                          placeholder="es. Diamante"
                           className="form-input"
                         />
                       </div>
                     </div>
 
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ fontSize: '10px' }}>Stone Color</label>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Colore Pietra</label>
                       <input 
                         type="text" 
                         value={ringStoneColor} 
                         onChange={(e) => setRingStoneColor(e.target.value)} 
-                        placeholder="e.g. White"
+                        placeholder="es. Bianco"
                         className="form-input"
                       />
                     </div>
@@ -788,26 +807,26 @@ function App() {
 
                 {(category !== 'watch' && category !== 'ring') && (
                   <div className="category-properties">
-                    <h4 className="category-properties-title">Jewelry Specifications</h4>
+                    <h4 className="category-properties-title">Specifiche del Gioiello</h4>
                     <div className="form-row">
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Metal Color</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Colore Metallo</label>
                         <input 
                           type="text" 
                           value={jewelryColor} 
                           onChange={(e) => setJewelryColor(e.target.value)} 
-                          placeholder="e.g. Silver"
+                          placeholder="es. Argento"
                           className="form-input"
                           required
                         />
                       </div>
                       <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label className="form-label" style={{ fontSize: '10px' }}>Style Details</label>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Dettagli Stile</label>
                         <input 
                           type="text" 
                           value={jewelryMaterial} 
                           onChange={(e) => setJewelryMaterial(e.target.value)} 
-                          placeholder="e.g. Chain, Tennis"
+                          placeholder="es. Catena, Tennis"
                           className="form-input"
                         />
                       </div>
@@ -816,11 +835,11 @@ function App() {
                 )}
 
                 <div className="form-group">
-                  <label className="form-label">Jewelry Photos (Upload Multiple Angles)</label>
+                  <label className="form-label">Foto del Gioiello (Carica più angolazioni)</label>
                   <div className="dropzone" onClick={() => document.getElementById('drawer-file-input')?.click()}>
                     <Upload size={24} style={{ color: 'var(--color-gray-400)', margin: '0 auto' }} />
-                    <p className="dropzone-title">{files ? `${files.length} Photos Selected` : 'Click to Upload Files'}</p>
-                    <p className="dropzone-subtitle">Supported formats: JPG, PNG, WebP</p>
+                    <p className="dropzone-title">{files ? `${files.length} Foto Selezionate` : 'Clicca per Caricare File'}</p>
+                    <p className="dropzone-subtitle">Formati supportati: JPG, PNG, WebP</p>
                     <input 
                       id="drawer-file-input"
                       type="file" 
@@ -840,7 +859,7 @@ function App() {
                     style={{ width: '100%' }}
                   >
                     {loading ? <Loader2 className="animate-spin" size={16} /> : <PlusCircle size={16} />}
-                    {loading ? 'Generating Embeddings...' : 'Index All Views'}
+                    {loading ? 'Generazione Embeddings...' : 'Indicizza Tutte le Viste'}
                   </button>
                   
                   <button 
@@ -849,7 +868,7 @@ function App() {
                     className="lj-btn lj-btn-outline"
                     style={{ width: '100%' }}
                   >
-                    Cancel
+                    Annulla
                   </button>
                 </div>
               </form>
@@ -863,7 +882,7 @@ function App() {
         <div className="drawer-backdrop" onClick={() => { resetForm(); setView('list'); }}>
           <div className="drawer-content" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
-              <h2 className="drawer-title">Edit Item</h2>
+              <h2 className="drawer-title">Modifica Articolo</h2>
               <button onClick={() => { resetForm(); setView('list'); }} className="drawer-close-btn">
                 <X size={20} />
               </button>
@@ -872,55 +891,55 @@ function App() {
             <div className="drawer-body">
               {success && (
                 <div className="lj-alert">
-                  <CheckCircle2 size={16} /> Item updated successfully!
+                  <CheckCircle2 size={16} /> Articolo aggiornato con successo!
                 </div>
               )}
 
               <form onSubmit={handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div className="form-group">
-                  <label className="form-label">Product Name</label>
+                  <label className="form-label">Nome Prodotto</label>
                   <input 
                     type="text" 
                     value={name} 
                     onChange={(e) => setName(e.target.value)} 
-                    placeholder="e.g. Diamond Ring"
+                    placeholder="es. Anello con Diamante"
                     className="form-input"
                     required
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">SKU (Stock Keeping Unit)</label>
+                  <label className="form-label">SKU (Codice Modello)</label>
                   <input 
                     type="text" 
                     value={sku} 
                     onChange={(e) => setSku(e.target.value)} 
-                    placeholder="e.g. TLJ2642"
+                    placeholder="es. TLJ2642"
                     className="form-input"
                     required
                   />
                 </div>
 
                 <div className="category-properties">
-                  <h4 className="category-properties-title">Specifications</h4>
+                  <h4 className="category-properties-title">Specifiche</h4>
                   <div className="form-group">
-                    <label className="form-label">Color Details</label>
+                    <label className="form-label">Dettagli Colore</label>
                     <input 
                       type="text" 
                       value={jewelryColor} 
                       onChange={(e) => setJewelryColor(e.target.value)} 
-                      placeholder="e.g. Gold, strap: Pink"
+                      placeholder="es. Oro, cinturino: Rosa"
                       className="form-input"
                       required
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Material & Style Details</label>
+                    <label className="form-label">Dettagli Materiale & Stile</label>
                     <input 
                       type="text" 
                       value={jewelryMaterial} 
                       onChange={(e) => setJewelryMaterial(e.target.value)} 
-                      placeholder="e.g. Silicone (round case)"
+                      placeholder="es. Silicone (cassa rotonda)"
                       className="form-input"
                     />
                   </div>
@@ -934,7 +953,7 @@ function App() {
                     style={{ width: '100%' }}
                   >
                     {loading ? <Loader2 className="animate-spin" size={16} /> : <Pencil size={16} />}
-                    {loading ? 'Saving Changes...' : 'Save Changes'}
+                    {loading ? 'Salvataggio in corso...' : 'Salva Modifiche'}
                   </button>
                   
                   <button 
@@ -943,7 +962,7 @@ function App() {
                     className="lj-btn lj-btn-outline"
                     style={{ width: '100%' }}
                   >
-                    Cancel
+                    Annulla
                   </button>
                 </div>
               </form>

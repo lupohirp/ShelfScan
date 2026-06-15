@@ -25,7 +25,7 @@ export default function Home() {
       {/* Header Section */}
       <div className="px-8 pt-16 pb-10 safe-top border-b border-gray-100 flex items-end justify-between bg-white">
         <div>
-          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Store Associate</p>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">Staff Negozio</p>
           <h1 className="text-[32px] font-black tracking-tight text-black leading-none">
             {user?.firstName?.toUpperCase() || 'MARCO'}
           </h1>
@@ -45,7 +45,7 @@ export default function Home() {
           <div className="text-center">
             <span className="text-[16px] font-black uppercase tracking-[0.2em] block mb-1">Nuova Scansione</span>
             <span className="text-white/50 text-[11px] font-bold uppercase tracking-[0.1em]">
-              Inventory Visual Check
+              Controllo Visivo Inventario
             </span>
           </div>
         </button>
@@ -66,7 +66,7 @@ export default function Home() {
             <TrendingUp size={18} className="text-gray-400" />
             <div>
               <p className="text-[32px] font-black tracking-tighter leading-none mb-1">{avgCoverage}%</p>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-tight">Average Coverage</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-tight">Copertura Media</p>
             </div>
           </div>
         </div>
@@ -117,7 +117,7 @@ export default function Home() {
                 </span>
                 {check.status === 'draft' && (
                   <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white bg-black px-2 py-1">
-                    Draft
+                    Bozza
                   </span>
                 )}
               </div>

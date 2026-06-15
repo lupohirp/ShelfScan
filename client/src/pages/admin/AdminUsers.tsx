@@ -10,9 +10,9 @@ const mockUsers = [
 ]
 
 const roleLabels: Record<string, { label: string; className: string }> = {
-  admin: { label: 'Admin', className: 'bg-accent-light text-accent' },
+  admin: { label: 'Amministratore', className: 'bg-accent-light text-accent' },
   rep: { label: 'Rappresentante', className: 'bg-gray-100 text-gray-600' },
-  retailer: { label: 'Retailer', className: 'bg-warning-light text-warning' },
+  retailer: { label: 'Rivenditore', className: 'bg-warning-light text-warning' },
 }
 
 export default function AdminUsers() {

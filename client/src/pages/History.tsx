@@ -19,7 +19,7 @@ export default function History() {
       {/* Header */}
       <div className="px-8 pt-16 pb-10 safe-top border-b border-gray-100 bg-white">
         <h1 className="text-[32px] font-black tracking-tight text-black leading-none">STORICO</h1>
-        <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Check Archive</p>
+        <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Archivio Check</p>
       </div>
 
       <div className="px-8 pt-8">

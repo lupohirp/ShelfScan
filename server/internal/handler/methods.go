@@ -659,6 +659,41 @@ func isCategoryMatch(detDesc string, productName string) bool {
 	return false
 }
 
+func findSynonymIndex(text, synonym string) int {
+	idx := 0
+	for {
+		i := strings.Index(text[idx:], synonym)
+		if i == -1 {
+			return -1
+		}
+		actualIdx := idx + i
+		// Check start boundary
+		startOk := true
+		if actualIdx > 0 {
+			prevChar := text[actualIdx-1]
+			if (prevChar >= 'a' && prevChar <= 'z') || (prevChar >= '0' && prevChar <= '9') {
+				startOk = false
+			}
+		}
+		// Check end boundary
+		endOk := true
+		endIdx := actualIdx + len(synonym)
+		if endIdx < len(text) {
+			nextChar := text[endIdx]
+			if (nextChar >= 'a' && nextChar <= 'z') || (nextChar >= '0' && nextChar <= '9') {
+				// For exact color codes/names, we require absolute boundary
+				if synonym == "tan" || synonym == "gold" || synonym == "pink" || synonym == "brown" || synonym == "black" || synonym == "white" || synonym == "oro" || synonym == "nero" || synonym == "rosa" || synonym == "marrone" || synonym == "beige" {
+					endOk = false
+				}
+			}
+		}
+		if startOk && endOk {
+			return actualIdx
+		}
+		idx = actualIdx + 1
+	}
+}
+
 func hasColorConflict(detDesc string, productName string, hitColor string) bool {
 	detDesc = strings.ToLower(detDesc)
 	hitColor = strings.ToLower(hitColor)
@@ -683,7 +718,7 @@ func hasColorConflict(detDesc string, productName string, hitColor string) bool 
 	var hitColorCat = ""
 	for _, c := range colors {
 		for _, syn := range c.synonyms {
-			if strings.Contains(hitColor, syn) {
+			if findSynonymIndex(hitColor, syn) != -1 {
 				hitColorCat = c.name
 				break
 			}
@@ -696,7 +731,7 @@ func hasColorConflict(detDesc string, productName string, hitColor string) bool 
 	if hitColorCat == "" {
 		for _, c := range colors {
 			for _, syn := range c.synonyms {
-				if strings.Contains(productName, syn) {
+				if findSynonymIndex(productName, syn) != -1 {
 					hitColorCat = c.name
 					break
 				}
@@ -716,7 +751,7 @@ func hasColorConflict(detDesc string, productName string, hitColor string) bool 
 	var firstColorIndex = -1
 	for _, c := range colors {
 		for _, syn := range c.synonyms {
-			idx := strings.Index(detDesc, syn)
+			idx := findSynonymIndex(detDesc, syn)
 			if idx != -1 {
 				if firstColorIndex == -1 || idx < firstColorIndex {
 					firstColorIndex = idx

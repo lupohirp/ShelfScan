@@ -33,7 +33,7 @@ export default function Login() {
         {/* Logo Section */}
         <div className="flex flex-col items-center mb-16">
           <img src="/logo.png" alt="LIU·JO" className="h-24 object-contain" />
-          <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">Inventory Management</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">Gestione Inventario</p>
         </div>
 
         {/* Welcome Text */}
@@ -108,7 +108,7 @@ export default function Login() {
       
       <div className="fixed bottom-10 text-center">
         <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-300">
-          Official Partner Portal
+          Portale Partner Ufficiale
         </p>
       </div>
     </div>

@@ -21,10 +21,10 @@ export default function Settings() {
   }
 
   const menuItems = [
-    { icon: User, label: 'Profilo', subtitle: 'Account Information' },
-    { icon: Bell, label: 'Notifiche', subtitle: 'Push & Email Settings' },
-    { icon: Shield, label: 'Privacy', subtitle: 'Data & Security' },
-    { icon: HelpCircle, label: 'Supporto', subtitle: 'Help Center & FAQ' },
+    { icon: User, label: 'Profilo', subtitle: 'Informazioni Account' },
+    { icon: Bell, label: 'Notifiche', subtitle: 'Impostazioni Push & Email' },
+    { icon: Shield, label: 'Privacy', subtitle: 'Dati & Sicurezza' },
+    { icon: HelpCircle, label: 'Supporto', subtitle: 'Centro Assistenza & FAQ' },
   ]
 
   return (
@@ -32,7 +32,7 @@ export default function Settings() {
       {/* Header */}
       <div className="px-8 pt-16 pb-10 safe-top border-b border-gray-100 bg-white">
         <h1 className="text-[32px] font-black tracking-tight text-black leading-none">ACCOUNT</h1>
-        <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Personal Settings</p>
+        <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mt-2">Impostazioni Personali</p>
       </div>
 
       <div className="px-8 pt-8">
@@ -48,7 +48,7 @@ export default function Settings() {
             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest truncate">{user?.email}</p>
             <div className="mt-2">
               <span className="inline-block text-[9px] font-black text-white bg-black px-2 py-1 uppercase tracking-widest">
-                {user?.role === 'rep' ? 'Associate' : user?.role}
+                {user?.role === 'rep' ? 'Addetto' : user?.role === 'admin' ? 'Amministratore' : user?.role}
               </span>
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function Settings() {
         {/* Version */}
         <div className="text-center py-12 opacity-30">
           <p className="text-[9px] font-black uppercase tracking-[0.3em]">ShelfScan v1.0.0 (MVP)</p>
-          <p className="text-[8px] font-bold uppercase tracking-[0.1em] mt-1">Official Store Terminal</p>
+          <p className="text-[8px] font-bold uppercase tracking-[0.1em] mt-1">Terminale Store Ufficiale</p>
         </div>
       </div>
     </PageShell>

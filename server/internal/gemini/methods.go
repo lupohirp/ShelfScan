@@ -40,14 +40,14 @@ func (g *GeminiClient) GetClientForModel(ctx context.Context, modelName string) 
 			Properties: map[string]*genai.Schema{
 				"desc": {
 					Type:        genai.TypeString,
-					Description: "A short description of the jewelry item including color and material.",
+					Description: "Una breve descrizione in italiano dell'articolo di gioielleria contenente colore e materiale.",
 				},
 				"box": {
 					Type: genai.TypeArray,
 					Items: &genai.Schema{
 						Type: genai.TypeInteger,
 					},
-					Description: "Bounding box coordinates: [ymin, xmin, ymax, xmax] (normalized 0 to 1000).",
+					Description: "Coordinate del bounding box: [ymin, xmin, ymax, xmax] (normalizzato da 0 a 1000).",
 				},
 			},
 			Required: []string{"desc", "box"},

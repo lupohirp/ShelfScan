@@ -59,7 +59,7 @@ export default function ScanResults() {
 
       {/* Coverage Section */}
       <div className="px-8 py-10 bg-gray-50/50 border-b border-gray-100 text-center relative">
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 mb-4">Coverage Score</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 mb-4">Indice di Copertura</p>
         <div className="inline-flex items-baseline gap-1">
           <span className="text-[64px] font-black tracking-tighter leading-none text-black">{coverage}</span>
           <span className="text-[24px] font-black text-black">%</span>
@@ -125,7 +125,7 @@ export default function ScanResults() {
                   </p>
                   {isFound && product.confidence !== undefined && (
                     <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">
-                      CONFIDENCE: {product.confidence}%
+                      CONFIDENZA: {product.confidence}%
                     </p>
                   )}
                 </div>

@@ -60,7 +60,7 @@ export default function HistoryDetail() {
         {/* Coverage */}
         <div className="bg-gray-50 rounded-2xl p-5 mb-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-gray-500 font-medium">Coverage</span>
+            <span className="text-sm text-gray-500 font-medium">Copertura</span>
             <span className="text-2xl font-bold">{coverage}%</span>
           </div>
           <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
@@ -101,7 +101,7 @@ export default function HistoryDetail() {
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold truncate">{p.name}</p>
                   <p className="text-[11px] text-gray-500">
-                    SKU: {p.sku || 'N/A'}{p.confidence && ` · CONFIDENCE: ${p.confidence}%`}
+                    SKU: {p.sku || 'N/A'}{p.confidence && ` · CONFIDENZA: ${p.confidence}%`}
                   </p>
                 </div>
               </div>

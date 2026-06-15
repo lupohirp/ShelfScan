@@ -135,12 +135,15 @@ export default function Camera() {
         if (envUrl) {
           return envUrl;
         }
+        const hostname = window.location.hostname;
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+          return `http://${hostname}:8080`;
+        }
         if (import.meta.env.PROD) {
-          const hostname = window.location.hostname;
           const baseHost = hostname.replace(/^admin-/, '');
           return `https://api-${baseHost}`;
         }
-        return `http://${window.location.hostname}:8080`;
+        return `http://${hostname}:8080`;
       };
       const apiBase = getApiUrl();
       const analysisResponse = await fetch(`${apiBase}/analyze`, {

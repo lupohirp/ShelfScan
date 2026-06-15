@@ -9,6 +9,15 @@ import {
   X,
 } from 'lucide-react'
 
+const categoryLabels: Record<string, string> = {
+  Watch: 'Orologio',
+  Ring: 'Anello',
+  Necklace: 'Collana',
+  Bracelet: 'Bracciale',
+  Earring: 'Orecchino',
+  Other: 'Altro'
+}
+
 export default function AdminProducts() {
   const [query, setQuery] = useState('')
   const [showAdd, setShowAdd] = useState(false)
@@ -79,7 +88,7 @@ export default function AdminProducts() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-[13px] text-gray-500 font-mono">{product.sku}</td>
-                  <td className="px-4 py-3 text-[13px] text-gray-500 hidden sm:table-cell">{product.category}</td>
+                  <td className="px-4 py-3 text-[13px] text-gray-500 hidden sm:table-cell">{categoryLabels[product.category] || product.category}</td>
                   <td className="px-4 py-3 hidden md:table-cell">
                     <span className="text-[12px] text-gray-400">3 foto</span>
                   </td>

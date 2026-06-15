@@ -14,7 +14,7 @@ export default function AdminChecks() {
   return (
     <div className="max-w-6xl mx-auto animate-fade-in">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Check History</h1>
+        <h1 className="text-2xl font-bold">Cronologia Check</h1>
         <button className="h-9 px-3 bg-white border border-gray-200 rounded-xl text-[13px] font-medium flex items-center gap-1.5 hover:bg-gray-50 transition-colors">
           <Download size={14} />
           Esporta CSV

@@ -37,9 +37,9 @@ func main() {
 	maxOutputTokens := os.Getenv("GEMINI_MAX_OUTPUT_TOKENS")
 
 	if prompt == "" {
-		prompt = `Analyze this jewelry display. Identify and list only actual, clearly visible jewelry items (such as rings, necklaces, bracelets, earrings, or watches) that are currently present. Do NOT detect empty slots, empty trays, empty boxes, blank stands, price tags, labels, reflections, or background elements. If no jewelry is visible or the display is empty, return an empty array []. Return ONLY a valid JSON array of objects. Each object must have:
-	 "desc": a short description including color/material.
-	 "box": an array [ymin, xmin, ymax, xmax] (normalized 0 to 1000).`
+		prompt = `Analizza questa esposizione di gioielli. Identifica ed elenca solo gli articoli di gioielleria reali e chiaramente visibili (come anelli, collane, bracciali, orecchini o orologi) attualmente presenti. NON rilevare slot vuoti, vassoi vuoti, scatole vuote, espositori vuoti, cartellini dei prezzi, etichette, riflessi o elementi di sfondo. Se non sono visibili gioielli o l'esposizione è vuota, restituisci un array vuoto []. Restituisci SOLO un array JSON valido di oggetti. Ciascun oggetto deve avere:
+	 "desc": una breve descrizione in italiano contenente colore/materiale.
+	 "box": un array [ymin, xmin, ymax, xmax] (normalizzato da 0 a 1000).`
 	}
 
 	mcpUrl := os.Getenv("MCP_URL")

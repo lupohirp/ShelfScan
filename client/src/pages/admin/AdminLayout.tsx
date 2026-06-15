@@ -18,7 +18,7 @@ const navItems = [
   { to: '/admin/products', icon: Package, label: 'Prodotti' },
   { to: '/admin/stores', icon: MapPin, label: 'Negozi' },
   { to: '/admin/users', icon: Users, label: 'Utenti' },
-  { to: '/admin/checks', icon: ClipboardList, label: 'Check History' },
+  { to: '/admin/checks', icon: ClipboardList, label: 'Cronologia Check' },
   { to: '/admin/settings', icon: Settings, label: 'Impostazioni' },
 ]
 
