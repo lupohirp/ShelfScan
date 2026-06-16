@@ -51,6 +51,9 @@ func (h *Handler) InventoryHandler(w http.ResponseWriter, r *http.Request) {
 				if img, ok := payload["imageUrl"].(string); ok {
 					payload["imageUrl"] = fixURL(img, r.Host)
 				}
+				if thumb, ok := payload["thumbUrl"].(string); ok {
+					payload["thumbUrl"] = fixURL(thumb, r.Host)
+				}
 			}
 			json.NewEncoder(w).Encode(items)
 			return
@@ -194,6 +197,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 		os.MkdirAll("uploads", 0755)
 		var savedURLs []string
+		var savedThumbURLs []string
 
 		var embeddings [][]float32
 		for _, fileHeader := range files {
@@ -204,10 +208,21 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			filename := fmt.Sprintf("%d_%s", systemID(name), fileHeader.Filename)
+			thumbFilename := "thumb_" + filename
+
+			// 1. Save original file
+			origDst, err := os.Create("uploads/" + filename)
+			if err == nil {
+				io.Copy(origDst, file)
+				origDst.Close()
+			}
+			file.Seek(0, 0)
+
+			// 2. Decode and save thumbnail
 			img, _, decodeErr := image.Decode(file)
 			if decodeErr == nil {
 				thumb := imaging.Fit(img, 400, 400, imaging.Linear)
-				dst, err := os.Create("uploads/" + filename)
+				dst, err := os.Create("uploads/" + thumbFilename)
 				if err == nil {
 					jpeg.Encode(dst, thumb, &jpeg.Options{Quality: 80})
 					dst.Close()
@@ -215,7 +230,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			} else {
 				// Fallback to copy if decode failed
 				file.Seek(0, 0)
-				dst, err := os.Create("uploads/" + filename)
+				dst, err := os.Create("uploads/" + thumbFilename)
 				if err == nil {
 					io.Copy(dst, file)
 					dst.Close()
@@ -223,6 +238,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			file.Seek(0, 0)
 			savedURLs = append(savedURLs, "/uploads/"+filename)
+			savedThumbURLs = append(savedThumbURLs, "/uploads/"+thumbFilename)
 
 			embedding, err := h.embeddingClient.GetEmbedding(file, fileHeader.Filename)
 			file.Close()
@@ -233,7 +249,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			embeddings = append(embeddings, embedding)
 		}
 
-		err = h.qdrantClient.SaveMultipleToQdrant(name, sku, savedURLs, color, material, embeddings)
+		err = h.qdrantClient.SaveMultipleToQdrant(name, sku, savedURLs, savedThumbURLs, color, material, embeddings)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
 			return

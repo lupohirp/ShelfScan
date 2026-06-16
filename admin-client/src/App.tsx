@@ -23,6 +23,7 @@ interface InventoryItem {
     name: string
     sku?: string
     imageUrl?: string
+    thumbUrl?: string
     color?: string
     material?: string
   }
@@ -34,6 +35,7 @@ interface GroupedInventoryItem {
   color?: string
   material?: string
   imageUrls: string[]
+  thumbUrls: string[]
   ids: string[]
   category: string
 }
@@ -271,12 +273,17 @@ function App() {
           color: item.payload.color || '',
           material: item.payload.material || '',
           imageUrls: [],
+          thumbUrls: [],
           ids: [],
           category: getItemCategory(item)
         }
       }
       if (item.payload.imageUrl && !groupedMap[sku].imageUrls.includes(item.payload.imageUrl)) {
         groupedMap[sku].imageUrls.push(item.payload.imageUrl)
+      }
+      const thumb = item.payload.thumbUrl || item.payload.imageUrl
+      if (thumb && !groupedMap[sku].thumbUrls.includes(thumb)) {
+        groupedMap[sku].thumbUrls.push(thumb)
       }
       if (!groupedMap[sku].ids.includes(item.id)) {
         groupedMap[sku].ids.push(item.id)
@@ -313,6 +320,8 @@ function App() {
 
     return matchesSearch && matchesCategory
   })
+
+  const currentEditingProduct = groupedItems.find(item => item.sku === sku)
 
   return (
     <div className="dashboard-wrapper">
@@ -468,7 +477,8 @@ function App() {
               <div className="inventory-grid">
                 {filteredItems.map((item) => {
                   const cat = item.category
-                  const mainImage = selectedImageMap[item.sku] || item.imageUrls[0] || ''
+                  const displayThumbs = item.thumbUrls && item.thumbUrls.length > 0 ? item.thumbUrls : item.imageUrls
+                  const mainImage = selectedImageMap[item.sku] || displayThumbs[0] || ''
                   return (
                     <article key={item.sku} className="product-card">
                       <div>
@@ -488,9 +498,9 @@ function App() {
                           <p className="product-sku">SKU: {item.sku}</p>
 
                           {/* Multi-view Thumbnail Row */}
-                          {item.imageUrls.length > 1 && (
+                          {displayThumbs.length > 1 && (
                             <div className="product-views-row" style={{ display: 'flex', gap: '4px', marginTop: '8px', marginBottom: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                              {item.imageUrls.map((url, idx) => (
+                              {displayThumbs.map((url, idx) => (
                                 <img
                                   key={idx}
                                   src={url}
@@ -572,7 +582,8 @@ function App() {
                   <tbody>
                     {filteredItems.map((item) => {
                       const cat = item.category
-                      const mainImage = selectedImageMap[item.sku] || item.imageUrls[0] || ''
+                      const displayThumbs = item.thumbUrls && item.thumbUrls.length > 0 ? item.thumbUrls : item.imageUrls
+                      const mainImage = selectedImageMap[item.sku] || displayThumbs[0] || ''
                       return (
                         <tr key={item.sku}>
                           <td>
@@ -584,9 +595,9 @@ function App() {
                                   <Package size={16} style={{ color: 'var(--color-gray-400)' }} />
                                 )}
                               </div>
-                              {item.imageUrls.length > 1 && (
+                              {displayThumbs.length > 1 && (
                                 <span style={{ fontSize: '9px', color: '#888', textAlign: 'center' }}>
-                                  {item.imageUrls.length} viste
+                                  {displayThumbs.length} viste
                                 </span>
                               )}
                             </div>
@@ -1018,6 +1029,31 @@ function App() {
                     />
                   </div>
                 </div>
+
+                {currentEditingProduct && currentEditingProduct.imageUrls && currentEditingProduct.imageUrls.length > 0 && (
+                  <div className="form-group">
+                    <label className="form-label">Foto Associate ({currentEditingProduct.imageUrls.length}) - Clicca per ingrandire</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px', marginTop: '8px' }}>
+                      {currentEditingProduct.imageUrls.map((url, idx) => (
+                        <a 
+                          key={idx} 
+                          href={url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          style={{ position: 'relative', display: 'block', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-gray-200)', height: '100px' }}
+                        >
+                          <img 
+                            src={url} 
+                            alt={`Photo ${idx}`} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.2s ease' }} 
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
                   <button 

@@ -76,7 +76,7 @@ func (q *QdrantClient) DeleteFromQdrant(idStr string) error {
 	return err
 }
 
-func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls []string, color string, material string, vectors [][]float32) error {
+func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls []string, thumbUrls []string, color string, material string, vectors [][]float32) error {
 	client, err := q.getClient()
 	if err != nil {
 		return err
@@ -94,6 +94,11 @@ func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls [
 		}
 		if i < len(imageUrls) && imageUrls[i] != "" {
 			payload["imageUrl"] = imageUrls[i]
+		}
+		if i < len(thumbUrls) && thumbUrls[i] != "" {
+			payload["thumbUrl"] = thumbUrls[i]
+		} else if i < len(imageUrls) && imageUrls[i] != "" {
+			payload["thumbUrl"] = imageUrls[i]
 		}
 		points = append(points, &qdrant.PointStruct{Id: qdrant.NewIDNum(id), Vectors: qdrant.NewVectorsDense(vector), Payload: qdrant.NewValueMap(payload)})
 	}
@@ -131,6 +136,7 @@ func (q *QdrantClient) performVectorSearchWithLimit(vector []float32, limit uint
 			"name":     payload["name"],
 			"sku":      payload["sku"],
 			"imageUrl": payload["imageUrl"],
+			"thumbUrl": payload["thumbUrl"],
 			"color":    payload["color"],
 			"material": payload["material"],
 			"score":    hit.Score,
