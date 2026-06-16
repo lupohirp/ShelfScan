@@ -28,6 +28,16 @@ interface InventoryItem {
   }
 }
 
+interface GroupedInventoryItem {
+  sku: string
+  name: string
+  color?: string
+  material?: string
+  imageUrls: string[]
+  ids: string[]
+  category: string
+}
+
 const getApiUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) {
@@ -90,7 +100,8 @@ function App() {
   const [jewelryMaterial, setJewelryMaterial] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
+  const [editIds, setEditIds] = useState<string[]>([])
+  const [selectedImageMap, setSelectedImageMap] = useState<Record<string, string>>({})
 
   const fetchInventory = async () => {
     try {
@@ -121,15 +132,15 @@ function App() {
     setRingStone('')
     setRingStoneColor('')
     setFiles(null)
-    setEditId(null)
+    setEditIds([])
   }
 
-  const handleStartEdit = (item: InventoryItem) => {
-    setEditId(item.id)
-    setName(item.payload.name)
-    setSku(item.payload.sku || '')
-    setJewelryColor(item.payload.color || '')
-    setJewelryMaterial(item.payload.material || '')
+  const handleStartEdit = (item: GroupedInventoryItem) => {
+    setEditIds(item.ids)
+    setName(item.name)
+    setSku(item.sku)
+    setJewelryColor(item.color || '')
+    setJewelryMaterial(item.material || '')
     setView('edit')
   }
 
@@ -192,29 +203,29 @@ function App() {
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editId || !name || !sku) return
+    if (editIds.length === 0 || !name || !sku) return
 
     setLoading(true)
-    const formData = new FormData()
-    formData.append('name', name)
-    formData.append('sku', sku)
-    formData.append('color', jewelryColor)
-    formData.append('material', jewelryMaterial)
-
     try {
-      const response = await fetch(`${apiBase}/inventory?id=${editId}`, {
-        method: 'PUT',
-        body: formData,
-      })
-      if (response.ok) {
-        setSuccess(true)
-        resetForm()
-        fetchInventory()
-        setTimeout(() => {
-          setSuccess(false)
-          setView('list')
-        }, 1500)
+      for (const id of editIds) {
+        const formData = new FormData()
+        formData.append('name', name)
+        formData.append('sku', sku)
+        formData.append('color', jewelryColor)
+        formData.append('material', jewelryMaterial)
+
+        await fetch(`${apiBase}/inventory?id=${id}`, {
+          method: 'PUT',
+          body: formData,
+        })
       }
+      setSuccess(true)
+      resetForm()
+      fetchInventory()
+      setTimeout(() => {
+        setSuccess(false)
+        setView('list')
+      }, 1500)
     } catch (err) {
       console.error('Edit failed:', err)
     } finally {
@@ -222,15 +233,15 @@ function App() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Sei sicuro di voler eliminare questo articolo?')) return
+  const handleDelete = async (ids: string[]) => {
+    if (!confirm(`Sei sicuro di voler eliminare questo articolo (incluse tutte le sue ${ids.length} viste)?`)) return
     try {
-      const response = await fetch(`${apiBase}/inventory?id=${id}`, {
-        method: 'DELETE',
-      })
-      if (response.ok) {
-        fetchInventory()
+      for (const id of ids) {
+        await fetch(`${apiBase}/inventory?id=${id}`, {
+          method: 'DELETE',
+        })
       }
+      fetchInventory()
     } catch (err) {
       console.error('Delete failed:', err)
     }
@@ -248,12 +259,40 @@ function App() {
     return 'Other'
   }
 
+  // Grouping logic
+  const getGroupedItems = () => {
+    const groupedMap: Record<string, GroupedInventoryItem> = {}
+    items.forEach(item => {
+      const sku = item.payload.sku || 'N/A'
+      if (!groupedMap[sku]) {
+        groupedMap[sku] = {
+          sku: sku,
+          name: item.payload.name,
+          color: item.payload.color || '',
+          material: item.payload.material || '',
+          imageUrls: [],
+          ids: [],
+          category: getItemCategory(item)
+        }
+      }
+      if (item.payload.imageUrl && !groupedMap[sku].imageUrls.includes(item.payload.imageUrl)) {
+        groupedMap[sku].imageUrls.push(item.payload.imageUrl)
+      }
+      if (!groupedMap[sku].ids.includes(item.id)) {
+        groupedMap[sku].ids.push(item.id)
+      }
+    })
+    return Object.values(groupedMap)
+  }
+
+  const groupedItems = getGroupedItems()
+
   // Dashboard Stats Calculations
   const totalViews = items.length
-  const uniqueProductsCount = new Set(items.map(item => item.payload.sku || item.payload.name)).size
+  const uniqueProductsCount = groupedItems.length
   
-  const categoryCounts = items.reduce((acc, item) => {
-    const cat = getItemCategory(item)
+  const categoryCounts = groupedItems.reduce((acc, item) => {
+    const cat = item.category
     acc[cat] = (acc[cat] || 0) + 1
     return acc
   }, {} as Record<string, number>)
@@ -261,16 +300,16 @@ function App() {
   const activeCategoriesCount = Object.keys(categoryCounts).length
 
   // Filter & Search Logic
-  const filteredItems = items.filter(item => {
+  const filteredItems = groupedItems.filter(item => {
     const matchesSearch = 
-      item.payload.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.payload.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.payload.color || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.payload.material || '').toLowerCase().includes(searchTerm.toLowerCase())
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.color || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.material || '').toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesCategory = 
       selectedFilterCategory === 'All' || 
-      getItemCategory(item) === selectedFilterCategory
+      item.category === selectedFilterCategory
 
     return matchesSearch && matchesCategory
   })
@@ -428,14 +467,15 @@ function App() {
             {layoutMode === 'grid' && filteredItems.length > 0 && (
               <div className="inventory-grid">
                 {filteredItems.map((item) => {
-                  const cat = getItemCategory(item)
+                  const cat = item.category
+                  const mainImage = selectedImageMap[item.sku] || item.imageUrls[0] || ''
                   return (
-                    <article key={item.id} className="product-card">
+                    <article key={item.sku} className="product-card">
                       <div>
                         {/* Image Container */}
                         <div className="product-img-box">
-                          {item.payload.imageUrl ? (
-                            <img src={item.payload.imageUrl} alt={item.payload.name} className="product-img" />
+                          {mainImage ? (
+                            <img src={mainImage} alt={item.name} className="product-img" loading="lazy" />
                           ) : (
                             <Package size={32} style={{ color: 'var(--color-gray-300)' }} />
                           )}
@@ -444,24 +484,50 @@ function App() {
 
                         {/* Details */}
                         <div className="product-info">
-                          <h3 className="product-title">{item.payload.name}</h3>
-                          <p className="product-sku">SKU: {item.payload.sku || 'N/A'}</p>
+                          <h3 className="product-title">{item.name}</h3>
+                          <p className="product-sku">SKU: {item.sku}</p>
+
+                          {/* Multi-view Thumbnail Row */}
+                          {item.imageUrls.length > 1 && (
+                            <div className="product-views-row" style={{ display: 'flex', gap: '4px', marginTop: '8px', marginBottom: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                              {item.imageUrls.map((url, idx) => (
+                                <img
+                                  key={idx}
+                                  src={url}
+                                  alt={`View ${idx}`}
+                                  loading="lazy"
+                                  onMouseEnter={() => setSelectedImageMap(prev => ({ ...prev, [item.sku]: url }))}
+                                  style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    objectFit: 'cover',
+                                    border: mainImage === url ? '2px solid black' : '1px solid #ddd',
+                                    cursor: 'pointer',
+                                    borderRadius: '4px',
+                                    transition: 'all 0.1s ease'
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
 
                           <div className="product-meta-list">
-                            {item.payload.color && (
+                            {item.color && (
                               <div className="meta-row">
                                 <span className="meta-label">Colore:</span>
-                                <span className="meta-value">{item.payload.color}</span>
+                                <span className="meta-value">{item.color}</span>
                               </div>
                             )}
-                            {item.payload.material && (
+                            {item.material && (
                               <div className="meta-row">
                                 <span className="meta-label">Materiale:</span>
-                                <span className="meta-value">{item.payload.material}</span>
+                                <span className="meta-value">{item.material}</span>
                               </div>
                             )}
                           </div>
-                          <p className="qdrant-id">ID: {item.id}</p>
+                          <p className="qdrant-id" style={{ fontSize: '10px', color: 'var(--color-gray-400)', marginTop: '4px' }}>
+                            {item.ids.length} viste Qdrant
+                          </p>
                         </div>
                       </div>
 
@@ -470,14 +536,14 @@ function App() {
                         <button 
                           onClick={() => handleStartEdit(item)}
                           className="lj-btn-icon"
-                          title="Modifica Articolo"
+                          title="Modifica Prodotto"
                         >
                           <Pencil size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item.ids)}
                           className="lj-btn-icon lj-btn-icon-danger"
-                          title="Elimina Articolo"
+                          title="Elimina Prodotto"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -494,7 +560,7 @@ function App() {
                 <table className="lj-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '60px' }}>Anteprima</th>
+                      <th style={{ width: '80px' }}>Anteprima</th>
                       <th>Nome Prodotto</th>
                       <th>SKU</th>
                       <th>Categoria</th>
@@ -505,44 +571,52 @@ function App() {
                   </thead>
                   <tbody>
                     {filteredItems.map((item) => {
-                      const cat = getItemCategory(item)
+                      const cat = item.category
+                      const mainImage = selectedImageMap[item.sku] || item.imageUrls[0] || ''
                       return (
-                        <tr key={item.id}>
+                        <tr key={item.sku}>
                           <td>
-                            <div className="table-thumb">
-                              {item.payload.imageUrl ? (
-                                <img src={item.payload.imageUrl} alt={item.payload.name} />
-                              ) : (
-                                <Package size={16} style={{ color: 'var(--color-gray-400)' }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <div className="table-thumb" style={{ width: '40px', height: '40px', overflow: 'hidden', borderRadius: '4px', border: '1px solid #eee' }}>
+                                {mainImage ? (
+                                  <img src={mainImage} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                ) : (
+                                  <Package size={16} style={{ color: 'var(--color-gray-400)' }} />
+                                )}
+                              </div>
+                              {item.imageUrls.length > 1 && (
+                                <span style={{ fontSize: '9px', color: '#888', textAlign: 'center' }}>
+                                  {item.imageUrls.length} viste
+                                </span>
                               )}
                             </div>
                           </td>
                           <td style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-                            {item.payload.name}
+                            {item.name}
                           </td>
                           <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                            {item.payload.sku || 'N/A'}
+                            {item.sku}
                           </td>
                           <td>
                             <span style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid #000', padding: '2px 6px' }}>
                               {categoryLabels[cat] || cat}
                             </span>
                           </td>
-                          <td style={{ color: 'var(--color-secondary)' }}>{item.payload.color || '—'}</td>
-                          <td style={{ color: 'var(--color-secondary)' }}>{item.payload.material || '—'}</td>
+                          <td style={{ color: 'var(--color-secondary)' }}>{item.color || '—'}</td>
+                          <td style={{ color: 'var(--color-secondary)' }}>{item.material || '—'}</td>
                           <td>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
                               <button 
                                 onClick={() => handleStartEdit(item)}
                                 className="lj-btn-icon"
-                                title="Modifica Articolo"
+                                title="Modifica Prodotto"
                               >
                                 <Pencil size={13} />
                               </button>
                               <button 
-                                onClick={() => handleDelete(item.id)}
+                                onClick={() => handleDelete(item.ids)}
                                 className="lj-btn-icon lj-btn-icon-danger"
-                                title="Elimina Articolo"
+                                title="Elimina Prodotto"
                               >
                                 <Trash2 size={13} />
                               </button>

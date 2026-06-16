@@ -76,7 +76,7 @@ func (q *QdrantClient) DeleteFromQdrant(idStr string) error {
 	return err
 }
 
-func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrl string, color string, material string, vectors [][]float32) error {
+func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls []string, color string, material string, vectors [][]float32) error {
 	client, err := q.getClient()
 	if err != nil {
 		return err
@@ -92,8 +92,8 @@ func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrl st
 			"color":    color,
 			"material": material,
 		}
-		if imageUrl != "" {
-			payload["imageUrl"] = imageUrl
+		if i < len(imageUrls) && imageUrls[i] != "" {
+			payload["imageUrl"] = imageUrls[i]
 		}
 		points = append(points, &qdrant.PointStruct{Id: qdrant.NewIDNum(id), Vectors: qdrant.NewVectorsDense(vector), Payload: qdrant.NewValueMap(payload)})
 	}

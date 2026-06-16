@@ -193,29 +193,39 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		os.MkdirAll("uploads", 0755)
-		var savedURL string
+		var savedURLs []string
 
 		var embeddings [][]float32
-		for idx, fileHeader := range files {
+		for _, fileHeader := range files {
 			file, err := fileHeader.Open()
 			if err != nil {
 				http.Error(w, "Error opening file", http.StatusInternalServerError)
 				return
 			}
-			defer file.Close()
 
-			if idx == 0 {
-				filename := fmt.Sprintf("%d_%s", systemID(name), fileHeader.Filename)
+			filename := fmt.Sprintf("%d_%s", systemID(name), fileHeader.Filename)
+			img, _, decodeErr := image.Decode(file)
+			if decodeErr == nil {
+				thumb := imaging.Fit(img, 400, 400, imaging.Linear)
 				dst, err := os.Create("uploads/" + filename)
 				if err == nil {
-					defer dst.Close()
+					jpeg.Encode(dst, thumb, &jpeg.Options{Quality: 80})
+					dst.Close()
+				}
+			} else {
+				// Fallback to copy if decode failed
+				file.Seek(0, 0)
+				dst, err := os.Create("uploads/" + filename)
+				if err == nil {
 					io.Copy(dst, file)
-					file.Seek(0, 0)
-					savedURL = "/uploads/" + filename
+					dst.Close()
 				}
 			}
+			file.Seek(0, 0)
+			savedURLs = append(savedURLs, "/uploads/"+filename)
 
 			embedding, err := h.embeddingClient.GetEmbedding(file, fileHeader.Filename)
+			file.Close()
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Error generating embedding for %s: %v", fileHeader.Filename, err), http.StatusInternalServerError)
 				return
@@ -223,7 +233,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			embeddings = append(embeddings, embedding)
 		}
 
-		err = h.qdrantClient.SaveMultipleToQdrant(name, sku, savedURL, color, material, embeddings)
+		err = h.qdrantClient.SaveMultipleToQdrant(name, sku, savedURLs, color, material, embeddings)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
 			return
