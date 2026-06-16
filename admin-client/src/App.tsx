@@ -137,12 +137,91 @@ function App() {
     setEditIds([])
   }
 
+  const parseWatchColor = (colorStr: string) => {
+    const parts = colorStr.split(',').map(p => p.trim());
+    let caseColor = parts[0] || '';
+    let strapColor = '';
+    let dialColor = '';
+
+    parts.forEach(part => {
+      if (part.startsWith('strap:')) {
+        strapColor = part.replace('strap:', '').trim();
+      } else if (part.startsWith('dial:')) {
+        dialColor = part.replace('dial:', '').trim();
+      }
+    });
+
+    if (caseColor.startsWith('strap:') || caseColor.startsWith('dial:')) {
+      caseColor = '';
+    }
+
+    return { caseColor, strapColor, dialColor };
+  }
+
+  const parseWatchMaterial = (matStr: string) => {
+    let strapMaterial = matStr || '';
+    let dialShape = '';
+
+    const match = matStr.match(/\((.*?)\s+case\)/);
+    if (match) {
+      dialShape = match[1].trim();
+      strapMaterial = matStr.replace(match[0], '').trim();
+    }
+
+    return { strapMaterial, dialShape };
+  }
+
+  const parseRingColor = (colorStr: string) => {
+    const parts = colorStr.split(',').map(p => p.trim());
+    let metal = parts[0] || '';
+    let stoneColor = '';
+
+    parts.forEach(part => {
+      if (part.startsWith('stone:')) {
+        stoneColor = part.replace('stone:', '').trim();
+      }
+    });
+
+    if (metal.startsWith('stone:')) {
+      metal = '';
+    }
+
+    return { metal, stoneColor };
+  }
+
+  const parseRingMaterial = (matStr: string) => {
+    const parts = matStr.split(',').map(p => p.trim());
+    let stone = parts[0] || '';
+    let style = parts.slice(1).join(', ') || '';
+    return { stone, style };
+  }
+
   const handleStartEdit = (item: GroupedInventoryItem) => {
     setEditIds(item.ids)
     setName(item.name)
     setSku(item.sku)
-    setJewelryColor(item.color || '')
-    setJewelryMaterial(item.material || '')
+    setCategory(item.category.toLowerCase())
+    
+    const cat = item.category.toLowerCase()
+    if (cat === 'watch') {
+      const { caseColor, strapColor, dialColor } = parseWatchColor(item.color || '')
+      const { strapMaterial, dialShape } = parseWatchMaterial(item.material || '')
+      setJewelryColor(caseColor)
+      setWatchStrapColor(strapColor)
+      setWatchDialColor(dialColor)
+      setWatchStrapMaterial(strapMaterial)
+      setWatchDialShape(dialShape)
+    } else if (cat === 'ring') {
+      const { metal, stoneColor } = parseRingColor(item.color || '')
+      const { stone, style } = parseRingMaterial(item.material || '')
+      setRingMetal(metal)
+      setRingStoneColor(stoneColor)
+      setRingStone(stone)
+      setJewelryMaterial(style)
+    } else {
+      setJewelryColor(item.color || '')
+      setJewelryMaterial(item.material || '')
+    }
     setView('edit')
   }
 
@@ -208,13 +287,35 @@ function App() {
     if (editIds.length === 0 || !name || !sku) return
 
     setLoading(true)
+
+    let finalColor = ''
+    let finalMaterial = ''
+
+    if (category === 'watch') {
+      finalColor = jewelryColor || 'Gold'
+      if (watchStrapColor) finalColor += `, strap: ${watchStrapColor}`
+      if (watchDialColor) finalColor += `, dial: ${watchDialColor}`
+
+      finalMaterial = watchStrapMaterial || 'Digital'
+      if (watchDialShape) finalMaterial += ` (${watchDialShape} case)`
+    } else if (category === 'ring') {
+      finalColor = ringMetal || jewelryColor || 'Gold'
+      if (ringStoneColor) finalColor += `, stone: ${ringStoneColor}`
+
+      finalMaterial = ringStone || 'Metal'
+      if (jewelryMaterial) finalMaterial += `, ${jewelryMaterial}`
+    } else {
+      finalColor = jewelryColor
+      finalMaterial = jewelryMaterial
+    }
+
     try {
       for (const id of editIds) {
         const formData = new FormData()
         formData.append('name', name)
         formData.append('sku', sku)
-        formData.append('color', jewelryColor)
-        formData.append('material', jewelryMaterial)
+        formData.append('color', finalColor)
+        formData.append('material', finalMaterial)
 
         await fetch(`${apiBase}/inventory?id=${id}`, {
           method: 'PUT',
@@ -1005,30 +1106,162 @@ function App() {
                   />
                 </div>
 
-                <div className="category-properties">
-                  <h4 className="category-properties-title">Specifiche</h4>
-                  <div className="form-group">
-                    <label className="form-label">Dettagli Colore</label>
-                    <input 
-                      type="text" 
-                      value={jewelryColor} 
-                      onChange={(e) => setJewelryColor(e.target.value)} 
-                      placeholder="es. Oro, cinturino: Rosa"
-                      className="form-input"
-                      required
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Dettagli Materiale & Stile</label>
-                    <input 
-                      type="text" 
-                      value={jewelryMaterial} 
-                      onChange={(e) => setJewelryMaterial(e.target.value)} 
-                      placeholder="es. Silicone (cassa rotonda)"
-                      className="form-input"
-                    />
+                <div className="form-group">
+                  <label className="form-label">Categoria</label>
+                  <div className="form-select-wrapper">
+                    <select 
+                      value={category} 
+                      onChange={(e) => setCategory(e.target.value)} 
+                      className="form-select"
+                    >
+                      <option value="watch">Orologio</option>
+                      <option value="ring">Anello</option>
+                      <option value="necklace">Collana</option>
+                      <option value="bracelet">Bracciale</option>
+                      <option value="earring">Orecchino</option>
+                      <option value="other">Altro</option>
+                    </select>
+                    <ChevronDown size={16} className="form-select-arrow" />
                   </div>
                 </div>
+
+                {category === 'watch' && (
+                  <div className="category-properties">
+                    <h4 className="category-properties-title">Proprietà Personalizzate Orologio</h4>
+                    <div className="form-row">
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Colore Cassa/Metallo</label>
+                        <input 
+                          type="text" 
+                          value={jewelryColor} 
+                          onChange={(e) => setJewelryColor(e.target.value)} 
+                          placeholder="es. Oro"
+                          className="form-input"
+                          required
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Forma Cassa/Quadrante</label>
+                        <div className="form-select-wrapper">
+                          <select 
+                            value={watchDialShape} 
+                            onChange={(e) => setWatchDialShape(e.target.value)} 
+                            className="form-select"
+                          >
+                            <option value="">Seleziona Forma...</option>
+                            <option value="round">Rotonda</option>
+                            <option value="square">Quadrata</option>
+                            <option value="rectangular">Rettangolare</option>
+                          </select>
+                          <ChevronDown size={14} className="form-select-arrow" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Colore Cinturino</label>
+                        <input 
+                          type="text" 
+                          value={watchStrapColor} 
+                          onChange={(e) => setWatchStrapColor(e.target.value)} 
+                          placeholder="es. Rosa"
+                          className="form-input"
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Materiale Cinturino</label>
+                        <input 
+                          type="text" 
+                          value={watchStrapMaterial} 
+                          onChange={(e) => setWatchStrapMaterial(e.target.value)} 
+                          placeholder="es. Silicone"
+                          className="form-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Colore Quadrante</label>
+                      <input 
+                        type="text" 
+                        value={watchDialColor} 
+                        onChange={(e) => setWatchDialColor(e.target.value)} 
+                        placeholder="es. Bianco"
+                        className="form-input"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {category === 'ring' && (
+                  <div className="category-properties">
+                    <h4 className="category-properties-title">Proprietà Personalizzate Anello</h4>
+                    <div className="form-row">
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Colore Metallo</label>
+                        <input 
+                          type="text" 
+                          value={ringMetal} 
+                          onChange={(e) => setRingMetal(e.target.value)} 
+                          placeholder="es. Oro Giallo"
+                          className="form-input"
+                          required
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Tipo di Pietra</label>
+                        <input 
+                          type="text" 
+                          value={ringStone} 
+                          onChange={(e) => setRingStone(e.target.value)} 
+                          placeholder="es. Diamante"
+                          className="form-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ fontSize: '10px' }}>Colore Pietra</label>
+                      <input 
+                        type="text" 
+                        value={ringStoneColor} 
+                        onChange={(e) => setRingStoneColor(e.target.value)} 
+                        placeholder="es. Bianco"
+                        className="form-input"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {(category !== 'watch' && category !== 'ring') && (
+                  <div className="category-properties">
+                    <h4 className="category-properties-title">Specifiche del Gioiello</h4>
+                    <div className="form-row">
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Colore Metallo</label>
+                        <input 
+                          type="text" 
+                          value={jewelryColor} 
+                          onChange={(e) => setJewelryColor(e.target.value)} 
+                          placeholder="es. Argento"
+                          className="form-input"
+                          required
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '10px' }}>Dettagli Stile</label>
+                        <input 
+                          type="text" 
+                          value={jewelryMaterial} 
+                          onChange={(e) => setJewelryMaterial(e.target.value)} 
+                          placeholder="es. Catena, Tennis"
+                          className="form-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {currentEditingProduct && currentEditingProduct.imageUrls && currentEditingProduct.imageUrls.length > 0 && (
                   <div className="form-group">
