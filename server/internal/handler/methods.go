@@ -623,8 +623,8 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								continue
 							}
 
-							// Require a minimum raw visual similarity before applying any text boost
-							if score < 0.70 {
+							// Require a minimum raw visual similarity prima di applicare il boost
+							if score < 0.78 {
 								continue
 							}
 
@@ -638,11 +638,11 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						logMu.Lock()
 						imageLogs[imgIdx].Detections[detIdx].BestMatch = bestMatchName
 						imageLogs[imgIdx].Detections[detIdx].BestMatchScore = bestMatchScore
-						imageLogs[imgIdx].Detections[detIdx].Accepted = (bestMatchScore >= 0.80)
+						imageLogs[imgIdx].Detections[detIdx].Accepted = (bestMatchScore >= 0.95)
 						logMu.Unlock()
 
-						// Require a final confidence score of at least 0.80
-						if bestMatchScore >= 0.80 {
+						// Require a final confidence score of at least 0.95
+						if bestMatchScore >= 0.95 {
 							mainMu.Lock()
 							if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
 								productMaxScores[bestMatchName] = bestMatchScore
@@ -924,36 +924,71 @@ func hasColorConflict(detDesc string, productName string, hitColor string) bool 
 }
 
 func parseDetections(responseText string) []subdomain.Detection {
+	// 1. Try standard unmarshal of a direct array (backward compatibility)
 	var detections []subdomain.Detection
-	// Try standard unmarshal first
-	err := json.Unmarshal([]byte(responseText), &detections)
-	if err == nil {
+	if err := json.Unmarshal([]byte(responseText), &detections); err == nil {
 		return detections
 	}
 
-	log.Printf("Warning: Failed to parse raw JSON (%v). Attempting to recover completed items...", err)
+	// 2. Try standard unmarshal of the structured object response
+	var objResp struct {
+		ScaffaleVuoto bool                  `json:"scaffale_vuoto"`
+		Spiegazione   string                `json:"spiegazione"`
+		Articoli      []subdomain.Detection `json:"articoli"`
+		Empty         bool                  `json:"empty"`
+		Reasoning     string                `json:"reasoning"`
+		Items         []subdomain.Detection `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(responseText), &objResp); err == nil {
+		if len(objResp.Articoli) > 0 {
+			return objResp.Articoli
+		}
+		if len(objResp.Items) > 0 {
+			return objResp.Items
+		}
+		return []subdomain.Detection{}
+	}
+
+	// 3. Fallback: parse any completed Detection sub-objects in a possibly truncated/malformed JSON string
+	log.Printf("Warning: Failed to parse raw JSON. Attempting to recover completed items...")
 
 	var recovered []subdomain.Detection
+	type bracePos struct {
+		index int
+		depth int
+	}
+	var stack []bracePos
 	depth := 0
-	start := -1
+
 	for i := 0; i < len(responseText); i++ {
 		char := responseText[i]
 		if char == '{' {
-			if depth == 0 {
-				start = i
-			}
+			stack = append(stack, bracePos{index: i, depth: depth})
 			depth++
 		} else if char == '}' {
 			depth--
-			if depth == 0 && start != -1 {
-				objStr := responseText[start : i+1]
-				var det subdomain.Detection
-				if err := json.Unmarshal([]byte(objStr), &det); err == nil {
-					recovered = append(recovered, det)
-				} else {
-					log.Printf("Failed to parse recovered object %s: %v", objStr, err)
+			if depth < 0 {
+				depth = 0
+			}
+			if len(stack) > 0 {
+				startBrace := stack[len(stack)-1]
+				stack = stack[:len(stack)-1]
+
+				objStr := responseText[startBrace.index : i+1]
+				// Only parse if it looks like a Detection object (contains desc and box)
+				if strings.Contains(objStr, "\"desc\"") && (strings.Contains(objStr, "\"box\"") || strings.Contains(objStr, "\"box_2d\"")) {
+					var det subdomain.Detection
+					if err := json.Unmarshal([]byte(objStr), &det); err == nil {
+						// Ensure we got a valid box
+						box := det.Box
+						if len(box) != 4 {
+							box = det.Box2D
+						}
+						if len(box) == 4 {
+							recovered = append(recovered, det)
+						}
+					}
 				}
-				start = -1
 			}
 		}
 	}

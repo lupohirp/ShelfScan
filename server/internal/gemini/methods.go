@@ -31,27 +31,44 @@ func (g *GeminiClient) GetClientForModel(ctx context.Context, modelName string) 
 		model.SetMaxOutputTokens(int32(g.MaxOutputTokens))
 	}
 
-	// Enable Structured JSON Schema for reliable output structure
+	// Enable JSON mode and define the structured response schema.
+	// Requiring explanation ("spiegazione") and empty check ("scaffale_vuoto") before list of items ("articoli")
+	// helps prevent the model from getting stuck in hallucination loops on empty shelves.
 	model.ResponseMIMEType = "application/json"
 	model.ResponseSchema = &genai.Schema{
-		Type: genai.TypeArray,
-		Items: &genai.Schema{
-			Type: genai.TypeObject,
-			Properties: map[string]*genai.Schema{
-				"desc": {
-					Type:        genai.TypeString,
-					Description: "Una breve descrizione in italiano dell'articolo di gioielleria contenente colore e materiale.",
-				},
-				"box": {
-					Type: genai.TypeArray,
-					Items: &genai.Schema{
-						Type: genai.TypeInteger,
-					},
-					Description: "Coordinate del bounding box: [ymin, xmin, ymax, xmax] (normalizzato da 0 a 1000).",
-				},
+		Type: genai.TypeObject,
+		Properties: map[string]*genai.Schema{
+			"spiegazione": {
+				Type:        genai.TypeString,
+				Description: "Analisi visiva dell'espositore. Spiega dettagliatamente se vedi articoli reali o solo supporti/cuscinetti vuoti.",
 			},
-			Required: []string{"desc", "box"},
+			"scaffale_vuoto": {
+				Type:        genai.TypeBoolean,
+				Description: "Imposta su true se lo scaffale/espositore è completamente vuoto o contiene solo supporti/espositori vuoti. Imposta su false se ci sono oggetti reali (orologi, gioielli).",
+			},
+			"articoli": {
+				Type: genai.TypeArray,
+				Items: &genai.Schema{
+					Type: genai.TypeObject,
+					Properties: map[string]*genai.Schema{
+						"desc": {
+							Type:        genai.TypeString,
+							Description: "Una breve descrizione in italiano dell'articolo di gioielleria o orologio contenente colore e materiale.",
+						},
+						"box": {
+							Type: genai.TypeArray,
+							Items: &genai.Schema{
+								Type: genai.TypeInteger,
+							},
+							Description: "Coordinate del bounding box: [ymin, xmin, ymax, xmax] (normalizzato da 0 a 1000).",
+						},
+					},
+					Required: []string{"desc", "box"},
+				},
+				Description: "Lista degli articoli reali presenti. Deve essere vuota se scaffale_vuoto è true.",
+			},
 		},
+		Required: []string{"spiegazione", "scaffale_vuoto", "articoli"},
 	}
 
 	return model

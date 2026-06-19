@@ -47,9 +47,12 @@ func main() {
 	maxOutputTokens := os.Getenv("GEMINI_MAX_OUTPUT_TOKENS")
 
 	if prompt == "" {
-		prompt = `Analizza questa esposizione di gioielli. Identifica ed elenca solo gli articoli di gioielleria reali e chiaramente visibili (come anelli, collane, bracciali, orecchini o orologi) attualmente presenti. NON rilevare slot vuoti, vassoi vuoti, scatole vuote, espositori vuoti, cartellini dei prezzi, etichette, riflessi o elementi di sfondo. Se non sono visibili gioielli o l'esposizione è vuota, restituisci un array vuoto []. Restituisci SOLO un array JSON valido di oggetti. Ciascun oggetto deve avere:
-	 "desc": una breve descrizione in italiano contenente colore/materiale.
-	 "box": un array [ymin, xmin, ymax, xmax] (normalizzato da 0 a 1000).`
+		prompt = `Analizza l'immagine dell'espositore o dello scaffale per rilevare articoli reali di gioielleria o orologi.
+Devi compilare la risposta in formato JSON rispettando lo schema.
+1. Nel campo "spiegazione", descrivi brevemente e dettagliatamente cosa vedi (es. "Scaffale con supporti per orologi neri, tutti completamente vuoti" oppure "Vedo tre orologi posizionati sui supporti").
+2. Nel campo "scaffale_vuoto", scrivi true se non ci sono articoli reali (ovvero se ci sono solo supporti vuoti, cuscinetti vuoti o espositori vuoti), altrimenti scrivi false.
+3. Nel campo "articoli", elenca i singoli oggetti reali identificati con descrizione ("desc") e coordinate "box" [ymin, xmin, ymax, xmax] normalizzate da 0 a 1000. Se scaffale_vuoto è true, questo array deve essere vuoto: [].
+Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscinetti vuoti per oggetti reali.`
 	}
 
 	mcpUrl := os.Getenv("MCP_URL")
