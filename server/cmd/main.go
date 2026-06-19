@@ -84,8 +84,8 @@ Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscine
 		temp = 0.1
 	}
 	tokens, err := strconv.Atoi(maxOutputTokens)
-	if err != nil || tokens <= 0 {
-		tokens = 8192
+	if err != nil || tokens < 0 {
+		tokens = 0 // 0 means do not enforce an explicit limit, letting the model default to its maximum (65k tokens for Flash)
 	}
 
 	log.Printf("Starting server with GEMINI_MODEL=%s, GEMINI_MAX_OUTPUT_TOKENS=%d, GEMINI_TEMPERATURE=%f", generativeModel, tokens, temp)
