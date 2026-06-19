@@ -41,17 +41,28 @@ func (q *QdrantClient) ListInventory() ([]map[string]any, error) {
 	}
 	defer client.Close()
 
-	points, err := client.Scroll(context.Background(), &qdrant.ScrollPoints{
-		CollectionName: "jewelry_inventory",
-		Limit:          qdrant.PtrOf(uint32(100)),
-		WithPayload:    qdrant.NewWithPayload(true),
-	})
-	if err != nil {
-		return nil, err
+	var allPoints []*qdrant.RetrievedPoint
+	var offset *qdrant.PointId
+
+	for {
+		points, nextOffset, err := client.ScrollAndOffset(context.Background(), &qdrant.ScrollPoints{
+			CollectionName: "jewelry_inventory",
+			Limit:          qdrant.PtrOf(uint32(100)),
+			WithPayload:    qdrant.NewWithPayload(true),
+			Offset:         offset,
+		})
+		if err != nil {
+			return nil, err
+		}
+		allPoints = append(allPoints, points...)
+		if nextOffset == nil || len(points) == 0 {
+			break
+		}
+		offset = nextOffset
 	}
 
 	var items []map[string]any
-	for _, p := range points {
+	for _, p := range allPoints {
 		payload := make(map[string]any)
 		for k, v := range p.Payload {
 			payload[k] = v.GetStringValue()
@@ -76,7 +87,7 @@ func (q *QdrantClient) DeleteFromQdrant(idStr string) error {
 	return err
 }
 
-func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls []string, thumbUrls []string, color string, material string, vectors [][]float32) error {
+func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls []string, thumbUrls []string, color string, material string, aiDescription string, vectors [][]float32) error {
 	client, err := q.getClient()
 	if err != nil {
 		return err
@@ -87,10 +98,11 @@ func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls [
 	for i, vector := range vectors {
 		id := uint64(systemID(fmt.Sprintf("%s_%d", name, i)))
 		payload := map[string]any{
-			"name":     name,
-			"sku":      sku,
-			"color":    color,
-			"material": material,
+			"name":           name,
+			"sku":            sku,
+			"color":          color,
+			"material":       material,
+			"ai_description": aiDescription,
 		}
 		if i < len(imageUrls) && imageUrls[i] != "" {
 			payload["imageUrl"] = imageUrls[i]
@@ -133,13 +145,14 @@ func (q *QdrantClient) performVectorSearchWithLimit(vector []float32, limit uint
 			payload[k] = v.GetStringValue()
 		}
 		results = append(results, map[string]any{
-			"name":     payload["name"],
-			"sku":      payload["sku"],
-			"imageUrl": payload["imageUrl"],
-			"thumbUrl": payload["thumbUrl"],
-			"color":    payload["color"],
-			"material": payload["material"],
-			"score":    hit.Score,
+			"name":           payload["name"],
+			"sku":            payload["sku"],
+			"imageUrl":       payload["imageUrl"],
+			"thumbUrl":       payload["thumbUrl"],
+			"color":          payload["color"],
+			"material":       payload["material"],
+			"ai_description": payload["ai_description"],
+			"score":          hit.Score,
 		})
 	}
 	return results, nil
@@ -182,6 +195,12 @@ func (q *QdrantClient) UpdatePayload(idStr string, name string, sku string, colo
 	}
 	if img, ok := oldPayload["imageUrl"]; ok {
 		newPayload["imageUrl"] = img
+	}
+	if thumb, ok := oldPayload["thumbUrl"]; ok {
+		newPayload["thumbUrl"] = thumb
+	}
+	if aiDesc, ok := oldPayload["ai_description"]; ok {
+		newPayload["ai_description"] = aiDesc
 	}
 
 	if oldName == name {

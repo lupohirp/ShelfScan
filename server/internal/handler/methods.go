@@ -200,11 +200,30 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		var savedThumbURLs []string
 
 		var embeddings [][]float32
-		for _, fileHeader := range files {
+		var aiDesc string
+		for i, fileHeader := range files {
 			file, err := fileHeader.Open()
 			if err != nil {
 				http.Error(w, "Error opening file", http.StatusInternalServerError)
 				return
+			}
+
+			if i == 0 {
+				imgBytes, readErr := io.ReadAll(file)
+				if readErr == nil {
+					prompt := "Descrivi brevemente l'articolo di gioielleria o orologio in questa immagine specificando esplicitamente la categoria (es. orologio, collana, anello, bracciale, orecchini), lo stile e i colori rilevanti in italiano."
+					desc, err := h.geminiClient.DescribeImageWithModel(r.Context(), "gemma-4-26b-a4b-it", prompt, imgBytes)
+					if err != nil {
+						log.Printf("Warning: failed to generate AI description with gemma4: %v", err)
+					} else {
+						aiDesc = strings.TrimSpace(desc)
+						log.Printf("Generated AI Description with gemma4: %s", aiDesc)
+					}
+				} else {
+					log.Printf("Warning: failed to read first image bytes for AI description: %v", readErr)
+				}
+				// Reset reader so we can continue processing/saving
+				file.Seek(0, 0)
 			}
 
 			filename := fmt.Sprintf("%d_%s", systemID(name), fileHeader.Filename)
@@ -249,7 +268,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			embeddings = append(embeddings, embedding)
 		}
 
-		err = h.qdrantClient.SaveMultipleToQdrant(name, sku, savedURLs, savedThumbURLs, color, material, embeddings)
+		err = h.qdrantClient.SaveMultipleToQdrant(name, sku, savedURLs, savedThumbURLs, color, material, aiDesc, embeddings)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
 			return
@@ -525,7 +544,9 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								continue
 							}
 
-							if !isCategoryMatch(det.Desc, name) {
+							aiDesc, _ := hit["ai_description"].(string)
+
+							if !isCategoryMatch(det.Desc, name, aiDesc) {
 								continue
 							}
 
@@ -540,7 +561,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								score = float32(s)
 							}
 
-							catMatch := isCategoryMatch(det.Desc, name)
+							catMatch := isCategoryMatch(det.Desc, name, aiDesc)
 							colConflict := hasColorConflict(det.Desc, name, hitColor)
 
 							descLower := strings.ToLower(det.Desc)
@@ -555,7 +576,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 										if i == 0 {
 											weight = float32(0.20)
 										}
-										if strings.Contains(descLower, part) {
+										if findSynonymIndex(descLower, part) != -1 {
 											boost += weight
 										} else {
 											words := strings.Fields(part)
@@ -563,7 +584,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 												w = strings.TrimFunc(w, func(r rune) bool {
 													return r == ':' || r == '(' || r == ')' || r == '[' || r == ']' || r == ',' || r == '/'
 												})
-												if len(w) > 2 && strings.Contains(descLower, w) {
+												if len(w) > 2 && findSynonymIndex(descLower, w) != -1 {
 													boost += weight / 2
 													break
 												}
@@ -578,7 +599,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								for _, part := range parts {
 									part = strings.TrimSpace(strings.ToLower(part))
 									if part != "" {
-										if strings.Contains(descLower, part) {
+										if findSynonymIndex(descLower, part) != -1 {
 											boost += 0.10
 										} else {
 											words := strings.Fields(part)
@@ -586,7 +607,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 												w = strings.TrimFunc(w, func(r rune) bool {
 													return r == ':' || r == '(' || r == ')' || r == '[' || r == ']' || r == ',' || r == '/'
 												})
-												if len(w) > 2 && strings.Contains(descLower, w) {
+												if len(w) > 2 && findSynonymIndex(descLower, w) != -1 {
 													boost += 0.05
 													break
 												}
@@ -624,7 +645,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							}
 
 							// Require a minimum raw visual similarity prima di applicare il boost
-							if score < 0.78 {
+							if score < 0.72 {
 								continue
 							}
 
@@ -638,11 +659,11 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						logMu.Lock()
 						imageLogs[imgIdx].Detections[detIdx].BestMatch = bestMatchName
 						imageLogs[imgIdx].Detections[detIdx].BestMatchScore = bestMatchScore
-						imageLogs[imgIdx].Detections[detIdx].Accepted = (bestMatchScore >= 0.95)
+						imageLogs[imgIdx].Detections[detIdx].Accepted = (bestMatchScore >= 0.82)
 						logMu.Unlock()
 
-						// Require a final confidence score of at least 0.95
-						if bestMatchScore >= 0.95 {
+						// Require a final confidence score of at least 0.82
+						if bestMatchScore >= 0.82 {
 							mainMu.Lock()
 							if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
 								productMaxScores[bestMatchName] = bestMatchScore
@@ -756,9 +777,19 @@ func systemID(name string) int {
 	return h
 }
 
-func isCategoryMatch(detDesc string, productName string) bool {
+func isCategoryMatch(detDesc string, productName string, aiDescription string) bool {
 	detDesc = strings.ToLower(detDesc)
 	productName = strings.ToLower(productName)
+	aiDescription = strings.ToLower(aiDescription)
+
+	// Smartwatch vs Analog watch distinction:
+	// If the detection explicitly describes a smartwatch or digital watch,
+	// it should not match a product that is a classic analog watch (doesn't contain smart/digital).
+	isDetSmart := strings.Contains(detDesc, "smartwatch") || strings.Contains(detDesc, "smart watch") || strings.Contains(detDesc, "digital")
+	isProdSmart := strings.Contains(productName, "smartwatch") || strings.Contains(productName, "smart watch") || strings.Contains(productName, "digital") || strings.Contains(aiDescription, "smartwatch") || strings.Contains(aiDescription, "smart watch") || strings.Contains(aiDescription, "digital")
+	if isDetSmart && !isProdSmart {
+		return false
+	}
 
 	categories := []struct {
 		keywords []string
@@ -789,7 +820,7 @@ func isCategoryMatch(detDesc string, productName string) bool {
 	var prodCatIndex = -1
 	for idx, cat := range categories {
 		for _, n := range cat.names {
-			if strings.Contains(productName, n) {
+			if strings.Contains(productName, n) || (aiDescription != "" && strings.Contains(aiDescription, n)) {
 				prodCatIndex = idx
 				break
 			}
@@ -950,8 +981,6 @@ func parseDetections(responseText string) []subdomain.Detection {
 	}
 
 	// 3. Fallback: parse any completed Detection sub-objects in a possibly truncated/malformed JSON string
-	log.Printf("Warning: Failed to parse raw JSON. Attempting to recover completed items...")
-
 	var recovered []subdomain.Detection
 	type bracePos struct {
 		index int
@@ -991,6 +1020,12 @@ func parseDetections(responseText string) []subdomain.Detection {
 				}
 			}
 		}
+	}
+
+	if len(recovered) > 0 {
+		log.Printf("Notice: Used fallback JSON parser. Recovered %d items.", len(recovered))
+	} else {
+		log.Printf("Warning: Failed to parse JSON and fallback parser found 0 items.")
 	}
 
 	return recovered

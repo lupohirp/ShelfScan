@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/google/generative-ai-go/genai"
@@ -77,7 +78,6 @@ func (g *GeminiClient) GetClientForModel(ctx context.Context, modelName string) 
 func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt string, imgData []byte) (*genai.GenerateContentResponse, string, error) {
 	// Priority list of models to rotate/fall back to
 	baseModels := []string{
-		"models/gemini-3.5-flash",
 		"models/gemini-3.1-flash-lite",
 		"models/gemini-3-flash",
 		"models/gemini-2.5-flash",
@@ -118,3 +118,34 @@ func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt s
 
 	return nil, "", lastErr
 }
+
+// DescribeImageWithModel generates a simple text description of an image using the specified model and prompt.
+// It bypasses the JSON schema constraint applied to the default client model.
+func (g *GeminiClient) DescribeImageWithModel(ctx context.Context, modelName string, prompt string, imgData []byte) (string, error) {
+	g.mu.Lock()
+	if g.client == nil {
+		c, err := genai.NewClient(context.Background(), option.WithAPIKey(g.Apikey))
+		if err != nil {
+			g.mu.Unlock()
+			return "", err
+		}
+		g.client = c
+	}
+	g.mu.Unlock()
+
+	model := g.client.GenerativeModel(modelName)
+	model.SetTemperature(0.2)
+	
+	resp, err := model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Candidates) > 0 && resp.Candidates[0].Content != nil && len(resp.Candidates[0].Content.Parts) > 0 {
+		if txt, ok := resp.Candidates[0].Content.Parts[0].(genai.Text); ok {
+			return string(txt), nil
+		}
+	}
+	return "", fmt.Errorf("no text response generated")
+}
+
