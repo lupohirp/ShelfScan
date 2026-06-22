@@ -1,16 +1,1801 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
-    <title>ShelfScan Admin</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{-webkit-font-smoothing:antialiased;}
+  input{font-family:inherit;}
+  input::placeholder{color:#b4b2ab;}
+  ::-webkit-scrollbar{width:11px;height:11px;}
+  ::-webkit-scrollbar-thumb{background:#dededa;border-radius:20px;border:3px solid #f5f4f2;}
+  ::-webkit-scrollbar-track{background:transparent;}
+</style>
+</helmet>
+
+<div style="font-family:'Hanken Grotesk',system-ui,sans-serif;color:#141414;background:#f5f4f2;min-height:100vh;">
+
+  <!-- ===================== LOGIN ===================== -->
+  <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-wrap:wrap;min-height:100vh;">
+
+    <div style="flex:1 1 460px;background:#141414;color:#fff;padding:48px clamp(40px,5vw,80px);display:flex;flex-direction:column;justify-content:space-between;min-height:340px;position:relative;overflow:hidden;">
+      <div style="position:absolute;right:-120px;top:-120px;width:360px;height:360px;border:1px solid rgba(255,255,255,.07);border-radius:50%;"></div>
+      <div style="position:absolute;right:-40px;top:-40px;width:200px;height:200px;border:1px solid rgba(255,255,255,.07);border-radius:50%;"></div>
+      <img src="assets/liujo-logo-white.png" alt="Liu Jo" style="height:28px;width:auto;align-self:flex-start;position:relative;" />
+      <div style="position:relative;">
+        <div style="font-family:'Jost',sans-serif;font-weight:300;font-size:clamp(30px,3.4vw,46px);line-height:1.12;letter-spacing:-.01em;">{{ t.brandLine1 }}<br><span style="font-weight:500;">{{ t.brandLine2 }}</span></div>
+        <div style="margin-top:22px;max-width:380px;color:rgba(255,255,255,.62);font-size:15px;line-height:1.6;">{{ t.brandSub }}</div>
+      </div>
+      <div style="position:relative;display:flex;gap:34px;color:rgba(255,255,255,.5);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;">
+        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">1.000</span>{{ t.statStores }}</div>
+        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">20</span>{{ t.statRegions }}</div>
+        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">50</span>{{ t.statBest }}</div>
+      </div>
+    </div>
+
+    <div style="flex:1 1 460px;display:flex;align-items:center;justify-content:center;padding:48px 28px;background:#fff;">
+      <div style="width:100%;max-width:368px;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:36px;">
+          <div style="display:flex;border:1px solid #e7e6e2;border-radius:2px;overflow:hidden;font-size:12px;letter-spacing:.12em;">
+            <div onClick="{{ setIt }}" style="{{ langItStyle }}">IT</div>
+            <div onClick="{{ setEn }}" style="{{ langEnStyle }}">EN</div>
+          </div>
+        </div>
+        <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:27px;letter-spacing:-.01em;">{{ t.loginHeading }}</div>
+        <div style="color:#8c8a85;font-size:14.5px;margin-top:8px;line-height:1.55;">{{ t.loginSub }}</div>
+
+        <div style="margin-top:30px;">
+          <label style="display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8c8a85;margin-bottom:8px;">{{ t.emailLabel }}</label>
+          <input type="email" value="{{ email }}" onInput="{{ onEmail }}" placeholder="nome.cognome@liujo.com" style="width:100%;height:48px;border:1px solid #e2e1dc;border-radius:2px;padding:0 14px;font-size:15px;color:#141414;outline:none;background:#fafaf9;" />
+        </div>
+        <div style="margin-top:18px;">
+          <label style="display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8c8a85;margin-bottom:8px;">{{ t.passwordLabel }}</label>
+          <input type="password" value="{{ password }}" onInput="{{ onPassword }}" placeholder="••••••••" style="width:100%;height:48px;border:1px solid #e2e1dc;border-radius:2px;padding:0 14px;font-size:15px;color:#141414;outline:none;background:#fafaf9;" />
+        </div>
+
+        <sc-if value="{{ loginError }}" hint-placeholder-val="">
+          <div style="margin-top:14px;color:#b25540;font-size:13px;display:flex;align-items:center;gap:7px;"><span style="width:5px;height:5px;border-radius:50%;background:#b25540;display:inline-block;"></span>{{ loginError }}</div>
+        </sc-if>
+
+        <button onClick="{{ doLogin }}" style="margin-top:26px;width:100%;height:50px;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:14px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;" style-hover="background:#000;">{{ t.signIn }}</button>
+
+        <div style="margin-top:22px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;color:#8c8a85;cursor:pointer;border-bottom:1px solid #e2e1dc;padding-bottom:1px;">{{ t.forgot }}</span>
+          <span style="font-size:12px;color:#b4b2ab;">{{ t.demoHint }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== APP ===================== -->
+  <sc-if value="{{ isApp }}" hint-placeholder-val="">
+  <div>
+    <!-- top bar -->
+    <div style="position:sticky;top:0;z-index:40;background:#ffffff;border-bottom:1px solid #e7e6e2;">
+      <div style="max-width:1320px;margin:0 auto;padding:0 clamp(20px,4vw,40px);height:66px;display:flex;align-items:center;gap:30px;">
+        <img src="assets/liujo-logo.png" alt="Liu Jo" style="height:18px;width:auto;" />
+        <div style="width:1px;height:26px;background:#e7e6e2;"></div>
+        <div style="font-family:'Jost',sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#8c8a85;">{{ t.appName }}</div>
+
+        <div style="display:flex;gap:4px;margin-left:18px;">
+          <div onClick="{{ goOverview }}" style="{{ navOverviewStyle }}">{{ t.navOverview }}</div>
+          <div onClick="{{ goSearch }}" style="{{ navSearchStyle }}">{{ t.navJewelers }}</div>
+          <div onClick="{{ goInventory }}" style="{{ navInventoryStyle }}">{{ t.navInventory }}</div>
+        </div>
+
+        <div style="margin-left:auto;display:flex;align-items:center;gap:18px;">
+          <div style="display:flex;border:1px solid #e7e6e2;border-radius:2px;overflow:hidden;font-size:11.5px;letter-spacing:.1em;">
+            <div onClick="{{ setIt }}" style="{{ langItStyleSm }}">IT</div>
+            <div onClick="{{ setEn }}" style="{{ langEnStyleSm }}">EN</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:50%;background:#141414;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;">{{ userInitials }}</div>
+            <div style="line-height:1.2;">
+              <div style="font-size:13.5px;font-weight:600;">{{ userName }}</div>
+              <div style="font-size:11.5px;color:#8c8a85;">{{ t.userRole }}</div>
+            </div>
+          </div>
+          <div onClick="{{ doLogout }}" title="{{ t.logout }}" style="cursor:pointer;color:#8c8a85;display:flex;" style-hover="color:#141414;">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ OVERVIEW ============ -->
+    <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width:1320px;margin:0 auto;padding:clamp(26px,4vw,46px) clamp(20px,4vw,40px) 70px;">
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:28px;">
+        <div>
+          <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:clamp(26px,3vw,34px);letter-spacing:-.01em;">{{ t.overviewTitle }}</div>
+          <div style="color:#8c8a85;font-size:14.5px;margin-top:6px;">{{ t.overviewSub }}</div>
+        </div>
+        <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9a7b3f;border:1px solid #ece4d4;background:#f7f2e8;padding:7px 13px;border-radius:2px;">{{ t.updated }}</div>
+      </div>
+
+      <!-- KPI -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;">
+        <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+          <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:22px 22px 20px;">
+            <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">{{ k.label }}</div>
+            <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:34px;letter-spacing:-.01em;margin-top:12px;line-height:1;">{{ k.value }}</div>
+            <div style="margin-top:11px;display:flex;align-items:center;gap:7px;font-size:12.5px;color:#8c8a85;"><span style="width:6px;height:6px;border-radius:50%;background:{{ k.dot }};display:inline-block;"></span>{{ k.sub }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- two columns -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;margin-top:14px;">
+        <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:24px 24px 26px;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+            <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:17px;">{{ t.topProductsTitle }}</div>
+            <div style="font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:#9a7b3f;">{{ t.nationalTag }}</div>
+          </div>
+          <div style="color:#8c8a85;font-size:13px;margin-bottom:20px;">{{ t.topProductsSub }}</div>
+          <sc-for list="{{ topProducts }}" as="p" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:17px;">
+              <div style="font-family:'Jost',sans-serif;font-size:13px;color:#b4b2ab;width:16px;">{{ p.rank }}</div>
+              <div style="width:38px;height:38px;border-radius:2px;background:{{ p.tone }};flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+                <span style="width:13px;height:13px;border:1.5px solid rgba(20,20,20,.32);border-radius:50%;"></span>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;">
+                  <span style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</span>
+                  <span style="font-size:12.5px;color:#8c8a85;flex-shrink:0;font-variant-numeric:tabular-nums;">{{ p.countLabel }}</span>
+                </div>
+                <div style="height:5px;background:#f0efec;border-radius:20px;margin-top:7px;overflow:hidden;">
+                  <div style="height:100%;background:#9a7b3f;border-radius:20px;{{ p.barStyle }}"></div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:24px 24px 26px;">
+          <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:17px;margin-bottom:4px;">{{ t.regionsTitle }}</div>
+          <div style="color:#8c8a85;font-size:13px;margin-bottom:20px;">{{ t.regionsSub }}</div>
+          <sc-for list="{{ regions }}" as="r" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:15px;">
+              <div style="width:90px;font-size:13px;flex-shrink:0;">{{ r.name }}</div>
+              <div style="flex:1;height:6px;background:#f0efec;border-radius:20px;overflow:hidden;">
+                <div style="height:100%;border-radius:20px;background:{{ r.color }};{{ r.barStyle }}"></div>
+              </div>
+              <div style="width:42px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;color:#4a4843;">{{ r.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- recent visits -->
+      <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;margin-top:14px;overflow:hidden;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:24px 24px 16px;">
+          <div>
+            <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:17px;">{{ t.recentTitle }}</div>
+            <div style="color:#8c8a85;font-size:13px;margin-top:3px;">{{ t.recentSub }}</div>
+          </div>
+          <div onClick="{{ goSearch }}" style="font-size:12.5px;letter-spacing:.04em;color:#141414;cursor:pointer;border-bottom:1px solid #141414;padding-bottom:1px;">{{ t.seeAll }}</div>
+        </div>
+        <sc-for list="{{ recent }}" as="v" hint-placeholder-count="5">
+          <div onClick="{{ v.open }}" style="display:grid;grid-template-columns:108px 1.6fr 1fr 1fr auto;gap:16px;align-items:center;padding:14px 24px;border-top:1px solid #f0efec;cursor:pointer;" style-hover="background:#faf9f7;">
+            <span style="font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;color:#9a7b3f;">{{ v.code }}</span>
+            <span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ v.name }}</span>
+            <span style="font-size:13.5px;color:#4a4843;">{{ v.city }}</span>
+            <span style="font-size:13px;color:#8c8a85;">{{ v.agent }}</span>
+            <span style="font-size:12.5px;color:#8c8a85;white-space:nowrap;">{{ v.visitLabel }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ SEARCH ============ -->
+    <sc-if value="{{ isSearch }}" hint-placeholder-val="">
+    <div style="max-width:1320px;margin:0 auto;padding:clamp(26px,4vw,46px) clamp(20px,4vw,40px) 70px;">
+      <div style="margin-bottom:24px;">
+        <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:clamp(26px,3vw,34px);letter-spacing:-.01em;">{{ t.searchTitle }}</div>
+        <div style="color:#8c8a85;font-size:14.5px;margin-top:6px;">{{ t.searchSub }}</div>
+      </div>
+
+      <!-- filters -->
+      <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:20px 22px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;align-items:end;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fCode }}</label>
+            <input value="{{ fCodice }}" onInput="{{ onFCodice }}" placeholder="GJ-0148" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fName }}</label>
+            <input value="{{ fNome }}" onInput="{{ onFNome }}" placeholder="{{ t.fNamePh }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fCity }}</label>
+            <input value="{{ fCitta }}" onInput="{{ onFCitta }}" placeholder="{{ t.fCityPh }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fSku }}</label>
+            <input value="{{ fSku }}" onInput="{{ onFSku }}" placeholder="LJ2891" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button onClick="{{ doReset }}" style="height:44px;padding:0 16px;background:#fff;color:#4a4843;border:1px solid #e2e1dc;border-radius:2px;font-size:13px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;" style-hover="border-color:#141414;color:#141414;">{{ t.reset }}</button>
+            <button onClick="{{ doSearch }}" style="height:44px;flex:1;min-width:120px;padding:0 18px;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;" style-hover="background:#000;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>{{ t.search }}
+            </button>
+          </div>
+        </div>
+        <sc-if value="{{ skuActive }}" hint-placeholder-val="">
+          <div style="margin-top:14px;display:flex;align-items:center;gap:9px;font-size:13px;color:#9a7b3f;background:#f7f2e8;border:1px solid #ece4d4;border-radius:2px;padding:9px 13px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>{{ skuActiveLabel }}
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- result count -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:24px 2px 12px;">
+        <div style="font-size:13px;color:#8c8a85;"><span style="color:#141414;font-weight:600;font-variant-numeric:tabular-nums;">{{ resultCount }}</span> {{ t.resultsWord }}</div>
+        <div style="font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:#b4b2ab;">{{ t.clickRow }}</div>
+      </div>
+
+      <!-- results table -->
+      <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <div style="min-width:760px;">
+            <div style="display:grid;grid-template-columns:112px 2fr 1.1fr 1.2fr 1fr 1fr 1.1fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
+              <span>{{ t.colCode }}</span><span>{{ t.colName }}</span><span>{{ t.colCity }}</span><span>{{ t.colAgent }}</span><span>{{ t.colVisit }}</span><span>{{ t.colCoverage }}</span><span>{{ t.colMissing }}</span>
+            </div>
+            <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ results }}" as="row" hint-placeholder-count="8">
+              <div onClick="{{ row.open }}" style="display:grid;grid-template-columns:112px 2fr 1.1fr 1.2fr 1fr 1fr 1.1fr;gap:14px;padding:15px 22px;border-top:1px solid #f0efec;align-items:center;cursor:pointer;" style-hover="background:#faf9f7;">
+                <span style="font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;color:#9a7b3f;">{{ row.code }}</span>
+                <span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ row.name }}</span>
+                <span style="font-size:13.5px;color:#4a4843;">{{ row.city }}</span>
+                <span style="font-size:13px;color:#8c8a85;">{{ row.agent }}</span>
+                <span style="font-size:12.5px;color:#8c8a85;white-space:nowrap;">{{ row.visitLabel }}</span>
+                <span style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-variant-numeric:tabular-nums;"><span style="width:7px;height:7px;border-radius:50%;background:{{ row.coverageColor }};display:inline-block;flex-shrink:0;"></span>{{ row.coverageLabel }}</span>
+                <span style="font-size:13.5px;font-variant-numeric:tabular-nums;color:{{ row.missingColor }};">{{ row.missingLabel }}</span>
+              </div>
+            </sc-for>
+            </sc-if>
+            <sc-if value="{{ noResults }}" hint-placeholder-val="">
+              <div style="padding:54px 22px;text-align:center;color:#8c8a85;">
+                <div style="font-family:'Jost',sans-serif;font-size:17px;color:#141414;margin-bottom:6px;">{{ t.noResTitle }}</div>
+                <div style="font-size:13.5px;">{{ t.noResSub }}</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ INVENTORY ============ -->
+    <sc-if value="{{ isInventory }}" hint-placeholder-val="">
+    <div style="max-width:1320px;margin:0 auto;padding:clamp(26px,4vw,46px) clamp(20px,4vw,40px) 70px;">
+      <div style="margin-bottom:24px;">
+        <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:clamp(26px,3vw,34px);letter-spacing:-.01em;">{{ t.invTitle }}</div>
+        <div style="color:#8c8a85;font-size:14.5px;margin-top:6px;">{{ t.invSub }}</div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;">
+        
+        <!-- Left: Upload Form (380px wide) -->
+        <div style="flex:0 0 380px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:24px;width:380px;">
+          <div style="font-family:'Jost',sans-serif;font-weight:600;font-size:18px;margin-bottom:20px;color:#141414;border-bottom:1px solid #f0efec;padding-bottom:12px;">
+            <sc-if value="{{ invEditMode }}">
+              {{ t.editTitle }}
+            </sc-if>
+            <sc-if value="{{ !invEditMode }}">
+              {{ t.addTitle }}
+            </sc-if>
+          </div>
+          
+          <sc-if value="{{ invSuccess }}">
+            <div style="background:#f2f9f5;border:1px solid #d4ece0;color:#3d6c52;font-size:13.5px;padding:12px;border-radius:2px;margin-bottom:18px;display:flex;align-items:center;gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              {{ t.addSuccess }}
+            </div>
+          </sc-if>
+          
+          <sc-if value="{{ invError }}">
+            <div style="background:#f7ebe7;border:1px solid #efd9d2;color:#b25540;font-size:13.5px;padding:12px;border-radius:2px;margin-bottom:18px;display:flex;align-items:center;gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              {{ invError }}
+            </div>
+          </sc-if>
+
+          <!-- Form inputs -->
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;">{{ t.addNameLabel }} *</label>
+            <input value="{{ invName }}" onInput="{{ onInvName }}" placeholder="es. Orologio Liu Jo Elegante Oro" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" required />
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;">{{ t.addSkuLabel }} *</label>
+            <input value="{{ invSku }}" onInput="{{ onInvSku }}" placeholder="es. TLJ2642" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" required />
+          </div>
+
+          <div style="margin-bottom:20px;">
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;">{{ t.addCatLabel }}</label>
+            <select value="{{ invCategory }}" onChange="{{ onInvCategory }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;cursor:pointer;">
+              <option value="watch">{{ t.catWatch }}</option>
+              <option value="ring">{{ t.catRing }}</option>
+              <option value="necklace">{{ t.catNecklace }}</option>
+              <option value="bracelet">{{ t.catBracelet }}</option>
+              <option value="earring">{{ t.catEarring }}</option>
+              <option value="other">{{ t.catOther }}</option>
+            </select>
+          </div>
+
+          <!-- Watch custom properties -->
+          <sc-if value="{{ showWatchProps }}">
+            <div style="background:#fafaf9;border:1px solid #e2e1dc;border-radius:2px;padding:14px;margin-bottom:20px;">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a7b3f;margin-bottom:12px;font-weight:600;">Proprietà Orologio</div>
+              
+              <div style="margin-bottom:10px;">
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Colore Cassa/Metallo</label>
+                <input value="{{ invJewelryColor }}" onInput="{{ onInvJewelryColor }}" placeholder="es. Oro" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+
+              <div style="margin-bottom:10px;">
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Forma Cassa/Quadrante</label>
+                <select value="{{ invWatchDialShape }}" onChange="{{ onInvWatchDialShape }}" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;cursor:pointer;">
+                  <option value="">Seleziona Forma...</option>
+                  <option value="round">Rotonda</option>
+                  <option value="square">Quadrata</option>
+                  <option value="rectangular">Rettangolare</option>
+                </select>
+              </div>
+
+              <div style="margin-bottom:10px;">
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Colore Cinturino</label>
+                <input value="{{ invWatchStrapColor }}" onInput="{{ onInvWatchStrapColor }}" placeholder="es. Rosa" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+
+              <div style="margin-bottom:10px;">
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Materiale Cinturino</label>
+                <input value="{{ invWatchStrapMaterial }}" onInput="{{ onInvWatchStrapMaterial }}" placeholder="es. Silicone" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+
+              <div>
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Colore Quadrante</label>
+                <input value="{{ invWatchDialColor }}" onInput="{{ onInvWatchDialColor }}" placeholder="es. Bianco" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Ring custom properties -->
+          <sc-if value="{{ showRingProps }}">
+            <div style="background:#fafaf9;border:1px solid #e2e1dc;border-radius:2px;padding:14px;margin-bottom:20px;">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a7b3f;margin-bottom:12px;font-weight:600;">Proprietà Anello</div>
+
+              <div style="margin-bottom:10px;">
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Colore Metallo</label>
+                <input value="{{ invRingMetal }}" onInput="{{ onInvRingMetal }}" placeholder="es. Oro Giallo" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+
+              <div style="margin-bottom:10px;">
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Tipo di Pietra</label>
+                <input value="{{ invRingStone }}" onInput="{{ onInvRingStone }}" placeholder="es. Diamante" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+
+              <div>
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Colore Pietra</label>
+                <input value="{{ invRingStoneColor }}" onInput="{{ onInvRingStoneColor }}" placeholder="es. Bianco" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Other Jewelry properties -->
+          <sc-if value="{{ showOtherProps }}">
+            <div style="background:#fafaf9;border:1px solid #e2e1dc;border-radius:2px;padding:14px;margin-bottom:20px;">
+              <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9a7b3f;margin-bottom:12px;font-weight:600;">Proprietà Specifiche</div>
+
+              <div style="margin-bottom:10px;">
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Colore Metallo</label>
+                <input value="{{ invJewelryColor }}" onInput="{{ onInvJewelryColor }}" placeholder="es. Argento" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+
+              <div>
+                <label style="display:block;font-size:10px;color:#8c8a85;margin-bottom:4px;">Dettagli Stile</label>
+                <input value="{{ invJewelryMaterial }}" onInput="{{ onInvJewelryMaterial }}" placeholder="es. Catena, Tennis" style="width:100%;height:38px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px;font-size:13.5px;outline:none;background:#fff;" />
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Dropzone -->
+          <div style="margin-bottom:24px;">
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;">
+              {{ t.addFilesLabel }}
+              <sc-if value="{{ !invEditMode }}">
+                *
+              </sc-if>
+            </label>
+            <div onClick="document.getElementById('inventory-file-input').click()" style="border:2px dashed #e2e1dc;border-radius:2px;padding:24px 14px;text-align:center;cursor:pointer;background:#fafaf9;transition:all .15s;" style-hover="border-color:#141414;background:#f5f4f2;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8c8a85" stroke-width="1.6" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <div style="font-size:13px;font-weight:500;color:#141414;">{{ filesLabel }}</div>
+              <div style="font-size:11px;color:#8c8a85;margin-top:4px;">{{ t.addFilesSubtitle }}</div>
+              <input id="inventory-file-input" type="file" multiple accept="image/*" onChange="{{ onInvFilesChange }}" style="display:none;" />
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div style="display:flex;gap:10px;">
+            <button onClick="{{ doUploadItem }}" disabled="{{ invLoading }}" style="flex:1;height:48px;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:13.5px;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;" style-hover="background:#000;">
+              <sc-if value="{{ invLoading }}">
+                ⌛ {{ t.addLoading }}
+              </sc-if>
+              <sc-if value="{{ !invLoading }}">
+                <sc-if value="{{ invEditMode }}">
+                  {{ t.editSubmit }}
+                </sc-if>
+                <sc-if value="{{ !invEditMode }}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                  {{ t.addSubmit }}
+                </sc-if>
+              </sc-if>
+            </button>
+            <sc-if value="{{ invEditMode }}">
+              <button onClick="{{ cancelEdit }}" style="height:48px;padding:0 18px;background:#fff;color:#4a4843;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;cursor:pointer;transition:all .15s;" style-hover="border-color:#141414;color:#141414;">
+                {{ t.cancelBtn }}
+              </button>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- Right: Inventory Listing -->
+        <div style="flex:1;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:24px;display:flex;flex-direction:column;min-width:480px;">
+          
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid #f0efec;padding-bottom:12px;">
+            <div style="font-family:'Jost',sans-serif;font-weight:600;font-size:18px;color:#141414;">{{ t.statBest }} (Qdrant)</div>
+            
+            <!-- Search bar -->
+            <div style="position:relative;width:240px;">
+              <input value="{{ invSearchTerm }}" onInput="{{ onInvSearchTerm }}" placeholder="{{ t.searchInvPh }}" style="width:100%;height:34px;border:1px solid #e2e1dc;border-radius:2px;padding:0 10px 0 28px;font-size:13px;outline:none;background:#fafaf9;color:#141414;" />
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8c8a85" stroke-width="1.8" style="position:absolute;left:9px;top:11px;"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;text-align:left;">
+              <thead>
+                <tr style="border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;height:38px;">
+                  <th style="font-weight:normal;padding:8px 12px;width:70px;">{{ t.colImage }}</th>
+                  <th style="font-weight:normal;padding:8px 12px;width:110px;">{{ t.colCode }}</th>
+                  <th style="font-weight:normal;padding:8px 12px;">{{ t.colName }}</th>
+                  <th style="font-weight:normal;padding:8px 12px;width:110px;">{{ t.addCatLabel }}</th>
+                  <th style="font-weight:normal;padding:8px 12px;width:180px;">Dettagli</th>
+                  <th style="font-weight:normal;padding:8px 12px;width:140px;text-align:right;">{{ t.colActions }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ inventoryList }}" as="item">
+                  <tr style="border-bottom:1px solid #f0efec;" style-hover="background:#faf9f7;">
+                    <td style="padding:10px 12px;">
+                      <div style="width:46px;height:46px;border-radius:2px;background:{{ item.tone }};overflow:hidden;border:1px solid #e7e6e2;display:flex;align-items:center;justify-content:center;position:relative;">
+                        <sc-if value="{{ item.img }}">
+                          <img src="{{ item.img }}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" />
+                        </sc-if>
+                        <sc-if value="{{ !item.img }}">
+                          <span style="font-size:11px;color:#8c8a85;">No Pic</span>
+                        </sc-if>
+                        <span style="position:absolute;bottom:2px;right:2px;background:rgba(20,20,20,.65);color:#fff;font-size:8.5px;padding:1px 3px;border-radius:1px;">{{ item.imagesCount }}</span>
+                      </div>
+                    </td>
+                    <td style="padding:10px 12px;font-family:'Jost',sans-serif;font-size:13.5px;font-weight:600;color:#9a7b3f;">{{ item.sku }}</td>
+                    <td style="padding:10px 12px;font-size:13.5px;font-weight:600;color:#141414;">{{ item.name }}</td>
+                    <td style="padding:10px 12px;font-size:13px;color:#4a4843;">{{ item.cat }}</td>
+                    <td style="padding:10px 12px;font-size:12px;color:#8c8a85;line-height:1.4;">
+                      <sc-if value="{{ item.color }}">
+                        <div><strong>Colore:</strong> {{ item.color }}</div>
+                      </sc-if>
+                      <sc-if value="{{ item.material }}">
+                        <div><strong>Materiale:</strong> {{ item.material }}</div>
+                      </sc-if>
+                    </td>
+                    <td style="padding:10px 12px;text-align:right;white-space:nowrap;">
+                      <button onClick="{{ item.edit }}" style="background:transparent;border:none;color:#9a7b3f;cursor:pointer;padding:4px 8px;font-size:12.5px;font-weight:500;border-radius:2px;transition:all .15s;margin-right:4px;" style-hover="background:#f7f2e8;">
+                        {{ t.editBtn }}
+                      </button>
+                      <button onClick="{{ item.delete }}" style="background:transparent;border:none;color:#b25540;cursor:pointer;padding:4px 8px;font-size:12.5px;font-weight:500;border-radius:2px;transition:all .15s;" style-hover="background:#f7ebe7;">
+                        {{ t.deleteBtn }}
+                      </button>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+
+            <sc-if value="{{ !inventoryList.length }}">
+              <div style="padding:48px;text-align:center;color:#8c8a85;">
+                <div style="font-size:15px;font-weight:500;color:#141414;margin-bottom:6px;">Nessun articolo trovato</div>
+                <div style="font-size:13px;">Nessuna corrispondenza per la ricerca o catalogo vuoto.</div>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ hasMoreInventory }}">
+            <div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid #f0efec;">
+              <button onClick="{{ loadMoreInventory }}" style="height:36px;padding:0 22px;background:#fff;color:#141414;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:12.5px;letter-spacing:.04em;cursor:pointer;transition:all .15s;" style-hover="border-color:#141414;">
+                {{ t.loadMore }}
+              </button>
+            </div>
+          </sc-if>
+
+        </div>
+
+      </div>
+    </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <!-- ===================== DRAWER ===================== -->
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="">
+  <div>
+    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(20,20,20,.34);z-index:60;"></div>
+    <div style="position:fixed;top:0;right:0;height:100vh;width:min(580px,100%);background:#fff;z-index:61;box-shadow:-24px 0 60px rgba(20,20,20,.14);display:flex;flex-direction:column;">
+
+      <!-- header -->
+      <div style="padding:24px 28px 22px;border-bottom:1px solid #e7e6e2;flex-shrink:0;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;">
+          <div>
+            <div style="font-family:'Jost',sans-serif;font-size:12px;letter-spacing:.06em;color:#9a7b3f;">{{ sel.code }}</div>
+            <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:24px;letter-spacing:-.01em;margin-top:3px;">{{ sel.name }}</div>
+            <div style="display:flex;align-items:center;gap:7px;color:#8c8a85;font-size:13.5px;margin-top:6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>{{ sel.address }}, {{ sel.city }}
+            </div>
+          </div>
+          <div onClick="{{ closeDrawer }}" style="cursor:pointer;color:#8c8a85;width:34px;height:34px;border:1px solid #e7e6e2;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" style-hover="border-color:#141414;color:#141414;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- NO VISIT SELECTED: prompt first, then grid -->
+      <sc-if value="{{ sel.noVisit }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;overflow-y:auto;background:#faf9f7;padding:32px 28px 36px;">
+        <div style="text-align:center;max-width:360px;margin:0 auto 28px;">
+          <div style="width:62px;height:62px;border-radius:50%;border:1px solid #e7e6e2;background:#fff;display:flex;align-items:center;justify-content:center;color:#c9b896;margin:0 auto;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="1.4" fill="currentColor" stroke="none"/></svg>
+          </div>
+          <div style="font-family:'Jost',sans-serif;font-size:18px;color:#141414;margin-top:18px;">{{ t.pickVisitTitle }}</div>
+          <div style="font-size:13.5px;color:#8c8a85;margin-top:8px;line-height:1.55;">{{ t.pickVisitSub }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8c8a85" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">{{ t.visitsLabel }}</div>
+          <div style="font-size:11px;color:#b4b2ab;">· {{ sel.visitCountLabel }}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">
+          <sc-for list="{{ sel.visits }}" as="vis" hint-placeholder-count="6">
+            <div onClick="{{ vis.click }}" style="{{ vis.cardStyle }}" style-hover="border-color:#141414;">
+              <div style="font-family:'Jost',sans-serif;font-size:15px;color:#141414;">{{ vis.dateLabel }}</div>
+              <div style="font-size:11.5px;color:#8c8a85;margin-top:4px;">{{ vis.agent }}</div>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:10px;font-size:11.5px;font-variant-numeric:tabular-nums;">
+                <span style="display:flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:{{ vis.coverageColor }};display:inline-block;"></span>{{ vis.coverageLabel }}</span>
+                <span style="color:{{ vis.missingColor }};">{{ vis.missingLabel }} {{ t.missingShort }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- VISIT SELECTED -->
+      <sc-if value="{{ sel.hasVisit }}" hint-placeholder-val="">
+      <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
+
+        <!-- back to visit list -->
+        <div onClick="{{ deselectVisit }}" style="display:flex;align-items:center;gap:8px;padding:12px 28px;border-bottom:1px solid #e7e6e2;flex-shrink:0;cursor:pointer;color:#8c8a85;font-size:12.5px;letter-spacing:.04em;background:#faf9f7;" style-hover="color:#141414;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>{{ t.allVisits }}
+        </div>
+
+        <!-- meta row for selected visit -->
+        <div style="display:flex;gap:26px;padding:16px 28px;border-bottom:1px solid #e7e6e2;flex-shrink:0;">
+          <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dVisit }}</div><div style="font-size:13.5px;margin-top:4px;color:#141414;font-weight:600;">{{ sel.vDateLabel }}</div></div>
+          <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dAgent }}</div><div style="font-size:13.5px;margin-top:4px;color:#4a4843;">{{ sel.vAgent }}</div></div>
+          <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dCoverage }}</div><div style="font-size:13.5px;margin-top:4px;display:flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;border-radius:50%;background:{{ sel.vCoverageColor }};display:inline-block;"></span>{{ sel.vCoverageLabel }}</div></div>
+          <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dMissing }}</div><div style="font-size:13.5px;margin-top:4px;color:#b25540;">{{ sel.vMissingLabel }}</div></div>
+        </div>
+
+        <!-- tabs -->
+        <div style="display:flex;gap:2px;padding:0 28px;border-bottom:1px solid #e7e6e2;flex-shrink:0;">
+          <div onClick="{{ tabPhotosClick }}" style="{{ tabPhotosStyle }}">{{ t.tabPhotos }}</div>
+          <div onClick="{{ tabMissingClick }}" style="{{ tabMissingStyle }}">{{ t.tabMissing }}</div>
+          <div onClick="{{ tabExposedClick }}" style="{{ tabExposedStyle }}">{{ t.tabExposed }}</div>
+        </div>
+
+        <!-- body -->
+        <div style="flex:1;overflow-y:auto;padding:24px 28px 36px;background:#faf9f7;">
+
+          <!-- PHOTOS -->
+          <sc-if value="{{ isTabPhotos }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="color:#8c8a85;font-size:13px;margin-bottom:16px;">{{ t.photosSub }}</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;">
+              <sc-for list="{{ sel.photos }}" as="ph" hint-placeholder-count="4">
+                <div style="border-radius:3px;overflow:hidden;border:1px solid #e7e6e2;background:#fff;position:relative;">
+                  <div style="aspect-ratio:4/3;background:{{ ph.tone }};position:relative;display:flex;align-items:center;justify-content:center;">
+                    <sc-if value="{{ ph.url }}">
+                      <img src="{{ ph.url }}" style="width:100%;height:100%;object-fit:cover;" />
+                    </sc-if>
+                    <sc-if value="{{ !ph.url }}">
+                      <sc-if value="{{ ph.loading }}">
+                        <span style="font-size:18px;color:#8c8a85;">⌛</span>
+                      </sc-if>
+                      <sc-if value="{{ !ph.loading }}">
+                        <span style="width:30px;height:30px;border:1.5px solid rgba(20,20,20,.22);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(20,20,20,.3)" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        </span>
+                      </sc-if>
+                    </sc-if>
+                    <span style="position:absolute;top:8px;left:8px;background:rgba(255,255,255,.85);font-size:10px;letter-spacing:.06em;color:#4a4843;padding:3px 7px;border-radius:2px;">{{ ph.tag }}</span>
+                    <input type="file" onChange="{{ ph.upload }}" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:10;" />
+                  </div>
+                  <div style="padding:9px 11px;">
+                    <div style="font-size:12.5px;font-weight:600;">{{ ph.label }}</div>
+                    <div style="font-size:11.5px;color:#8c8a85;margin-top:2px;">{{ sel.vDateLabel }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:16px;font-size:11.5px;color:#b4b2ab;display:flex;align-items:center;gap:7px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>{{ t.photoNote }}</div>
+          </div>
+          </sc-if>
+
+          <!-- MISSING -->
+          <sc-if value="{{ isTabMissing }}" hint-placeholder-val="">
+          <div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;">
+              <div style="color:#8c8a85;font-size:13px;max-width:320px;">{{ t.missingSub }}</div>
+              <div style="text-align:right;flex-shrink:0;"><div style="font-family:'Jost',sans-serif;font-size:26px;color:#b25540;line-height:1;">{{ sel.vMissingLabel }}</div><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b4b2ab;margin-top:4px;">{{ t.onBest }}</div></div>
+            </div>
+            <sc-for list="{{ sel.missing }}" as="m" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:12px 14px;margin-bottom:9px;">
+                <div style="width:48px;height:48px;border-radius:2px;background:{{ m.tone }};flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="width:15px;height:15px;border:1.5px solid rgba(20,20,20,.3);border-radius:50%;"></span></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:600;">{{ m.name }}</div>
+                  <div style="font-size:12px;color:#8c8a85;margin-top:2px;">{{ m.cat }} · {{ m.sku }}</div>
+                </div>
+                <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#b25540;background:#f7ebe7;border:1px solid #efd9d2;padding:5px 10px;border-radius:2px;white-space:nowrap;">{{ t.missingTag }}</div>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+
+          <!-- EXPOSED (presence list) -->
+          <sc-if value="{{ isTabExposed }}" hint-placeholder-val="">
+          <div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;">
+              <div style="color:#8c8a85;font-size:13px;max-width:320px;">{{ t.exposedSub }}</div>
+              <div style="text-align:right;flex-shrink:0;"><div style="font-family:'Jost',sans-serif;font-size:26px;color:#9a7b3f;line-height:1;">{{ sel.exposedCount }}</div><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b4b2ab;margin-top:4px;">{{ t.exposedUnit }}</div></div>
+            </div>
+            <sc-for list="{{ sel.exposed }}" as="e" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:12px 14px;margin-bottom:9px;">
+                <div style="width:48px;height:48px;border-radius:2px;background:{{ e.tone }};flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="width:15px;height:15px;border:1.5px solid rgba(20,20,20,.3);border-radius:50%;"></span></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:600;">{{ e.name }}</div>
+                  <div style="font-size:12px;color:#8c8a85;margin-top:2px;">{{ e.cat }} · {{ e.sku }}</div>
+                </div>
+                <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9a7b3f;background:#f7f2e8;border:1px solid #ece4d4;padding:5px 10px;border-radius:2px;white-space:nowrap;">{{ t.exposedTag }}</div>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    screen: 'login', view: 'overview', lang: 'it',
+    email: '', password: '', loginError: '',
+    fCodice: '', fNome: '', fCitta: '', fSku: '',
+    selectedId: null, selectedVisit: null, tab: 'photos',
+    searchTick: 0,
+    invName: '', invSku: '', invCategory: 'watch',
+    invJewelryColor: '', invWatchDialShape: '',
+    invWatchStrapColor: '', invWatchStrapMaterial: '',
+    invWatchDialColor: '', invRingMetal: '',
+    invRingStone: '', invRingStoneColor: '',
+    invJewelryMaterial: '', invFiles: null,
+    invLoading: false, invSuccess: false, invError: '',
+    invSearchTerm: '', invPage: 1,
+    invEditMode: false, invEditIds: []
+  };
+
+  componentWillMount() { this.build(); }
+  constructor(props){ super(props); this.build(); }
+
+  componentDidMount() {
+    this.fetchInventory();
+  }
+
+  cleanImgUrl(url) {
+    if (!url) return '';
+    const idx = url.indexOf('/uploads/');
+    if (idx !== -1) {
+      return '/api' + url.substring(idx);
+    }
+    return url;
+  }
+
+  async fetchInventory() {
+    try {
+      let response;
+      try {
+        response = await fetch('/api/inventory');
+      } catch (err) {
+        response = await fetch('http://localhost:8080/inventory');
+      }
+      if (!response || !response.ok) {
+        response = await fetch('http://localhost:8080/inventory');
+      }
+      if (!response.ok) {
+        throw new Error('Failed to fetch inventory');
+      }
+      const items = await response.json();
+      
+      const products = [];
+      const skus = new Set();
+      const tones = ['#eaeaef','#e7e7ee','#ecebf0','#e6e8ee','#edeaed','#e9e9ef'];
+      const groupedMap = {};
+      
+      items.forEach((item, index) => {
+        const payload = item.payload || item;
+        const sku = payload.sku || '';
+        const name = payload.name || '';
+        const id = item.id || '';
+        
+        if (sku) {
+          if (!groupedMap[sku]) {
+            let category = 'Altro';
+            const nameLower = name.toLowerCase();
+            const skuLower = sku.toLowerCase();
+            
+            if (nameLower.includes('orologio') || nameLower.includes('watch') || nameLower.includes('cronografo') || nameLower.includes('smartwatch')) {
+              category = 'Orologi';
+            } else if (nameLower.includes('collana') || nameLower.includes('necklace') || nameLower.includes('girocollo') || nameLower.includes('ciondolo')) {
+              category = 'Collane';
+            } else if (nameLower.includes('orecchin') || nameLower.includes('earring')) {
+              category = 'Orecchini';
+            } else if (nameLower.includes('braccial') || nameLower.includes('bracelet')) {
+              category = 'Bracciali';
+            } else if (nameLower.includes('anell') || nameLower.includes('ring')) {
+              category = 'Anelli';
+            } else if (skuLower.startsWith('tlj')) {
+              category = 'Orologi';
+            } else if (skuLower.startsWith('lj')) {
+              category = 'Gioielli';
+            }
+
+            groupedMap[sku] = {
+              sku: sku,
+              name: name,
+              cat: category,
+              color: payload.color || '',
+              material: payload.material || '',
+              imageUrls: [],
+              thumbUrls: [],
+              ids: [],
+              tone: tones[index % tones.length]
+            };
+          }
+
+          const imgUrl = this.cleanImgUrl(payload.imageUrl || payload.image_url || '');
+          if (imgUrl && !groupedMap[sku].imageUrls.includes(imgUrl)) {
+            groupedMap[sku].imageUrls.push(imgUrl);
+          }
+          const thumbUrl = this.cleanImgUrl(payload.thumbUrl || payload.thumb_url || imgUrl);
+          if (thumbUrl && !groupedMap[sku].thumbUrls.includes(thumbUrl)) {
+            groupedMap[sku].thumbUrls.push(thumbUrl);
+          }
+          if (id && !groupedMap[sku].ids.includes(id)) {
+            groupedMap[sku].ids.push(id);
+          }
+        }
+
+        if (sku && !skus.has(sku)) {
+          skus.add(sku);
+          
+          let category = 'Altro';
+          const nameLower = name.toLowerCase();
+          const skuLower = sku.toLowerCase();
+          
+          if (nameLower.includes('orologio') || nameLower.includes('watch') || nameLower.includes('cronografo') || nameLower.includes('smartwatch')) {
+            category = 'Orologi';
+          } else if (nameLower.includes('collana') || nameLower.includes('necklace') || nameLower.includes('girocollo') || nameLower.includes('ciondolo')) {
+            category = 'Collane';
+          } else if (nameLower.includes('orecchin') || nameLower.includes('earring')) {
+            category = 'Orecchini';
+          } else if (nameLower.includes('braccial') || nameLower.includes('bracelet')) {
+            category = 'Bracciali';
+          } else if (nameLower.includes('anell') || nameLower.includes('ring')) {
+            category = 'Anelli';
+          } else if (skuLower.startsWith('tlj')) {
+            category = 'Orologi';
+          } else if (skuLower.startsWith('lj')) {
+            category = 'Gioielli';
+          }
+
+          products.push({
+            sku: sku,
+            name: name,
+            cat: category,
+            tone: tones[index % tones.length]
+          });
+        }
+      });
+
+      this.inventoryItems = Object.values(groupedMap);
+
+      if (products.length > 0) {
+        this.products = products;
+        this.rebuildStats();
+      }
+      this.setState({ searchTick: this.state.searchTick + 1 });
+    } catch (err) {
+      console.error('Error fetching inventory:', err);
+    }
+  }
+
+  async doUploadItem() {
+    const s = this.state;
+    if (s.invEditMode) {
+      await this.doSaveEdit();
+      return;
+    }
+    if (!s.invFiles || s.invFiles.length === 0 || !s.invName || !s.invSku) {
+      this.setState({ invError: s.lang === 'en' ? 'Please complete all required fields.' : 'Completa tutti i campi obbligatori.' });
+      return;
+    }
+
+    this.setState({ invLoading: true, invError: '', invSuccess: false });
+    const formData = new FormData();
+    for (let i = 0; i < s.invFiles.length; i++) {
+      formData.append('images', s.invFiles[i]);
+    }
+    formData.append('name', s.invName);
+    formData.append('sku', s.invSku);
+
+    let finalColor = '';
+    let finalMaterial = '';
+
+    if (s.invCategory === 'watch') {
+      finalColor = s.invJewelryColor || 'Gold';
+      if (s.invWatchStrapColor) finalColor += `, strap: ${s.invWatchStrapColor}`;
+      if (s.invWatchDialColor) finalColor += `, dial: ${s.invWatchDialColor}`;
+
+      finalMaterial = s.invWatchStrapMaterial || 'Digital';
+      if (s.invWatchDialShape) finalMaterial += ` (${s.invWatchDialShape} case)`;
+    } else if (s.invCategory === 'ring') {
+      finalColor = s.invRingMetal || s.invJewelryColor || 'Gold';
+      if (s.invRingStoneColor) finalColor += `, stone: ${s.invRingStoneColor}`;
+
+      finalMaterial = s.invRingStone || 'Metal';
+      if (s.invJewelryMaterial) finalMaterial += `, ${s.invJewelryMaterial}`;
+    } else {
+      finalColor = s.invJewelryColor || '';
+      finalMaterial = s.invJewelryMaterial || '';
+    }
+
+    formData.append('color', finalColor);
+    formData.append('material', finalMaterial);
+
+    try {
+      let response;
+      try {
+        response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+      } catch (err) {
+        response = await fetch('http://localhost:8080/upload', {
+          method: 'POST',
+          body: formData
+        });
+      }
+
+      if (!response || !response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      this.setState({
+        invSuccess: true,
+        invName: '',
+        invSku: '',
+        invJewelryColor: '',
+        invWatchDialShape: '',
+        invWatchStrapColor: '',
+        invWatchStrapMaterial: '',
+        invWatchDialColor: '',
+        invRingMetal: '',
+        invRingStone: '',
+        invRingStoneColor: '',
+        invJewelryMaterial: '',
+        invFiles: null,
+        invError: ''
+      });
+
+      await this.fetchInventory();
+      setTimeout(() => {
+        this.setState({ invSuccess: false });
+      }, 3000);
+    } catch (err) {
+      console.error('Upload error:', err);
+      this.setState({ invError: s.lang === 'en' ? 'Upload failed. Please try again.' : 'Caricamento fallito. Riprova.' });
+    } finally {
+      this.setState({ invLoading: false });
+    }
+  }
+
+  async doDeleteItem(ids) {
+    const s = this.state;
+    const it = this.dict();
+    if (!confirm(it.confirmDelete || 'Sei sicuro di voler eliminare questo articolo?')) return;
+
+    this.setState({ invLoading: true });
+    try {
+      for (const id of ids) {
+        let response;
+        try {
+          response = await fetch(`/api/inventory?id=${id}`, {
+            method: 'DELETE'
+          });
+        } catch (err) {
+          response = await fetch(`http://localhost:8080/inventory?id=${id}`, {
+            method: 'DELETE'
+          });
+        }
+        if (!response || !response.ok) {
+          console.error(`Failed to delete point ID: ${id}`);
+        }
+      }
+      await this.fetchInventory();
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert(s.lang === 'en' ? 'Failed to delete item. Please try again.' : 'Impossibile eliminare l\'articolo. Riprova.');
+    } finally {
+      this.setState({ invLoading: false });
+    }
+  }
+
+    }
+  }
+
+  onStartEdit(item) {
+    let category = 'other';
+    const catLower = (item.cat || '').toLowerCase();
+    if (catLower.includes('orologi') || catLower.includes('watch')) category = 'watch';
+    else if (catLower.includes('anell') || catLower.includes('ring')) category = 'ring';
+    else if (catLower.includes('collane') || catLower.includes('necklace')) category = 'necklace';
+    else if (catLower.includes('braccial') || catLower.includes('bracelet')) category = 'bracelet';
+    else if (catLower.includes('orecchin') || catLower.includes('earring')) category = 'earring';
+
+    this.setState({
+      invEditMode: true,
+      invEditIds: item.ids,
+      invName: item.name || '',
+      invSku: item.sku || '',
+      invCategory: category,
+      invError: '',
+      invSuccess: false
+    });
+
+    const colorStr = item.color || '';
+    const matStr = item.material || '';
+
+    if (category === 'watch') {
+      const { caseColor, strapColor, dialColor } = this.parseWatchColor(colorStr);
+      const { strapMaterial, dialShape } = this.parseWatchMaterial(matStr);
+      this.setState({
+        invJewelryColor: caseColor,
+        invWatchStrapColor: strapColor,
+        invWatchDialColor: dialColor,
+        invWatchStrapMaterial: strapMaterial,
+        invWatchDialShape: dialShape
+      });
+    } else if (category === 'ring') {
+      const { metal, stoneColor } = this.parseRingColor(colorStr);
+      const { stone, style } = this.parseRingMaterial(matStr);
+      this.setState({
+        invRingMetal: metal,
+        invRingStoneColor: stoneColor,
+        invRingStone: stone,
+        invJewelryMaterial: style
+      });
+    } else {
+      this.setState({
+        invJewelryColor: colorStr,
+        invJewelryMaterial: matStr
+      });
+    }
+  }
+
+  async doSaveEdit() {
+    const s = this.state;
+    if (!s.invName || !s.invSku) {
+      this.setState({ invError: s.lang === 'en' ? 'Please complete all required fields.' : 'Completa tutti i campi obbligatori.' });
+      return;
+    }
+
+    this.setState({ invLoading: true, invError: '', invSuccess: false });
+
+    let finalColor = '';
+    let finalMaterial = '';
+
+    if (s.invCategory === 'watch') {
+      finalColor = s.invJewelryColor || 'Gold';
+      if (s.invWatchStrapColor) finalColor += `, strap: ${s.invWatchStrapColor}`;
+      if (s.invWatchDialColor) finalColor += `, dial: ${s.invWatchDialColor}`;
+
+      finalMaterial = s.invWatchStrapMaterial || 'Digital';
+      if (s.invWatchDialShape) finalMaterial += ` (${s.invWatchDialShape} case)`;
+    } else if (s.invCategory === 'ring') {
+      finalColor = s.invRingMetal || s.invJewelryColor || 'Gold';
+      if (s.invRingStoneColor) finalColor += `, stone: ${s.invRingStoneColor}`;
+
+      finalMaterial = s.invRingStone || 'Metal';
+      if (s.invJewelryMaterial) finalMaterial += `, ${s.invJewelryMaterial}`;
+    } else {
+      finalColor = s.invJewelryColor || '';
+      finalMaterial = s.invJewelryMaterial || '';
+    }
+
+    try {
+      const ids = s.invEditIds || [];
+      for (const id of ids) {
+        const formData = new FormData();
+        formData.append('name', s.invName);
+        formData.append('sku', s.invSku);
+        formData.append('color', finalColor);
+        formData.append('material', finalMaterial);
+        
+        if (s.invFiles && s.invFiles.length > 0) {
+          for (let i = 0; i < s.invFiles.length; i++) {
+            formData.append('images', s.invFiles[i]);
+          }
+        }
+
+        let response;
+        try {
+          response = await fetch(`/api/inventory?id=${id}`, {
+            method: 'PUT',
+            body: formData
+          });
+        } catch (err) {
+          response = await fetch(`http://localhost:8080/inventory?id=${id}`, {
+            method: 'PUT',
+            body: formData
+          });
+        }
+
+        if (!response || !response.ok) {
+          throw new Error('Edit failed');
+        }
+      }
+
+      this.setState({
+        invSuccess: true
+      });
+      this.resetInvForm();
+      await this.fetchInventory();
+
+      setTimeout(() => {
+        this.setState({ invSuccess: false });
+      }, 3000);
+    } catch (err) {
+      console.error('Edit error:', err);
+      this.setState({ invError: s.lang === 'en' ? 'Edit failed. Please try again.' : 'Modifica fallita. Riprova.' });
+    } finally {
+      this.setState({ invLoading: false });
+    }
+  }
+
+  resetInvForm() {
+    this.setState({
+      invEditMode: false,
+      invEditIds: [],
+      invName: '',
+      invSku: '',
+      invJewelryColor: '',
+      invWatchDialShape: '',
+      invWatchStrapColor: '',
+      invWatchStrapMaterial: '',
+      invWatchDialColor: '',
+      invRingMetal: '',
+      invRingStone: '',
+      invRingStoneColor: '',
+      invJewelryMaterial: '',
+      invFiles: null,
+      invError: ''
+    });
+  }
+
+  parseWatchColor(colorStr) {
+    const parts = colorStr.split(',').map(p => p.trim());
+    let caseColor = parts[0] || '';
+    let strapColor = '';
+    let dialColor = '';
+
+    parts.forEach(part => {
+      if (part.startsWith('strap:')) {
+        strapColor = part.replace('strap:', '').trim();
+      } else if (part.startsWith('dial:')) {
+        dialColor = part.replace('dial:', '').trim();
+      }
+    });
+
+    if (caseColor.startsWith('strap:') || caseColor.startsWith('dial:')) {
+      caseColor = '';
+    }
+    return { caseColor, strapColor, dialColor };
+  }
+
+  parseWatchMaterial(matStr) {
+    let strapMaterial = matStr || '';
+    let dialShape = '';
+
+    const match = matStr.match(/\((.*?)\s+case\)/);
+    if (match) {
+      dialShape = match[1].trim();
+      strapMaterial = matStr.replace(match[0], '').trim();
+    }
+    return { strapMaterial, dialShape };
+  }
+
+  parseRingColor(colorStr) {
+    const parts = colorStr.split(',').map(p => p.trim());
+    let metal = parts[0] || '';
+    let stoneColor = '';
+
+    parts.forEach(part => {
+      if (part.startsWith('stone:')) {
+        stoneColor = part.replace('stone:', '').trim();
+      }
+    });
+
+    if (metal.startsWith('stone:')) {
+      metal = '';
+    }
+    return { metal, stoneColor };
+  }
+
+  parseRingMaterial(matStr) {
+    const parts = matStr.split(',').map(p => p.trim());
+    let stone = parts[0] || '';
+    let style = parts.slice(1).join(', ') || '';
+    return { stone, style };
+  }
+
+  rebuildStats() {
+    const presence = {};
+    this.jewelers.forEach((j) => {
+      j.visits.forEach((v) => {
+        const validExposed = [];
+        v.exposed.forEach(exp => {
+          const match = this.products.find(p => p.sku === exp.sku);
+          if (match) {
+            validExposed.push(match);
+          } else if (this.products.length > 0) {
+            let hash = 0;
+            for (let c = 0; c < exp.sku.length; c++) {
+              hash = (hash << 5) - hash + exp.sku.charCodeAt(c);
+            }
+            const idx = Math.abs(hash) % this.products.length;
+            validExposed.push(this.products[idx]);
+          }
+        });
+        v.exposed = validExposed;
+
+        const exSet = new Set(validExposed.map(p => p.sku));
+        v.missing = this.products.filter(p => !exSet.has(p.sku)).slice(0, 6);
+        v.missingCount = v.missing.length;
+        
+        if (this.products.length > 0) {
+          v.coverage = Math.round((v.exposed.length / Math.min(this.products.length, 50)) * 100);
+          if (v.coverage > 100) v.coverage = 100;
+        }
+      });
+
+      const latest = j.visits[0];
+      j.coverage = latest.coverage;
+      j.missingCount = latest.missingCount;
+
+      latest.exposed.forEach(p => {
+        presence[p.sku] = (presence[p.sku] || 0) + 1;
+      });
+    });
+
+    this.topNational = Object.keys(presence).map(sku => ({
+      sku,
+      count: presence[sku],
+      p: this.products.find(x => x.sku === sku)
+    })).filter(x => x.p).sort((a, b) => b.count - a.count).slice(0, 5);
+    
+    if (this.topNational.length > 0) {
+      this.maxNational = this.topNational[0].count;
+    } else {
+      this.maxNational = 1;
+    }
+
+    const map = {};
+    this.jewelers.forEach(j => {
+      (map[j.region] = map[j.region] || []).push(j.coverage);
+    });
+    this.regionsData = Object.keys(map).map(name => ({
+      name,
+      cov: Math.round(map[name].reduce((a, b) => a + b, 0) / map[name].length)
+    })).sort((a, b) => b.cov - a.cov).slice(0, 6);
+
+    this.avgCoverage = Math.round(this.jewelers.reduce((a, j) => a + j.coverage, 0) / this.jewelers.length);
+    this.avgMissing = Math.round(this.jewelers.reduce((a, j) => a + j.missingCount, 0) / this.jewelers.length);
+  }
+
+  async handlePhotoUpload(e, jewelerId, visitIdx, photoIdx) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const jeweler = this.jewelers.find(x => x.id === jewelerId);
+    if (!jeweler) return;
+    const visit = jeweler.visits[visitIdx];
+    if (!visit) return;
+
+    visit.photos[photoIdx] = { ...visit.photos[photoIdx], loading: true, url: '' };
+    this.setState({ searchTick: this.state.searchTick + 1 });
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      let response;
+      try {
+        response = await fetch('/api/analyze', {
+          method: 'POST',
+          body: formData
+        });
+      } catch (err) {
+        response = await fetch('http://localhost:8080/analyze', {
+          method: 'POST',
+          body: formData
+        });
+      }
+
+      if (!response || !response.ok) {
+        throw new Error('Analysis failed');
+      }
+
+      const result = await response.json();
+      const tones = ['#eaeaef','#e7e7ee','#ecebf0','#e6e8ee','#edeaed','#e9e9ef'];
+
+      const mappedFound = (result.found || []).map((p, idx) => ({
+        sku: p.sku || '',
+        name: p.name || '',
+        cat: p.sku?.toLowerCase().startsWith('tlj') ? 'Orologi' : 'Gioielli',
+        tone: tones[idx % tones.length]
+      }));
+
+      const mappedMissing = (result.missing || []).map((p, idx) => ({
+        sku: p.sku || '',
+        name: p.name || '',
+        cat: p.sku?.toLowerCase().startsWith('tlj') ? 'Orologi' : 'Gioielli',
+        tone: tones[idx % tones.length]
+      }));
+
+      visit.exposed = mappedFound;
+      visit.missing = mappedMissing;
+      visit.missingCount = mappedMissing.length;
+      visit.coverage = result.coverage || 0;
+
+      const objectUrl = URL.createObjectURL(file);
+      visit.photos[photoIdx] = { ...visit.photos[photoIdx], loading: false, url: objectUrl };
+
+      this.rebuildStats();
+      this.setState({ searchTick: this.state.searchTick + 1 });
+    } catch (err) {
+      console.error('Error analyzing image:', err);
+      visit.photos[photoIdx] = { ...visit.photos[photoIdx], loading: false, url: '' };
+      this.setState({ searchTick: this.state.searchTick + 1 });
+      alert(this.state.lang === 'en' ? 'Error performing visual analysis. Please retry.' : 'Errore durante l\'analisi visiva. Riprova.');
+    }
+  }
+
+  rng(seed){ let a = seed >>> 0; return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+  build(){
+    if (this._built) return; this._built = true;
+    this.inventoryItems = [];
+    const tones = ['#eaeaef','#e7e7ee','#ecebf0','#e6e8ee','#edeaed','#e9e9ef'];
+    this.products = [
+      ['LJ2891','Collana rigida multifilo','Collane'],
+      ['LJ2864','Collana regolabile con perle','Collane'],
+      ['LJ3012','Bracciale rigido logo','Bracciali'],
+      ['LJ3105','Bracciale tennis zirconi','Bracciali'],
+      ['LJ2740','Orecchini cerchio logo','Orecchini'],
+      ['LJ2755','Orecchini pendenti perla','Orecchini'],
+      ['LJ3320','Anello logo regolabile','Anelli'],
+      ['LJ3344','Anello zircone solitario','Anelli'],
+      ['LJ2902','Collana cuore Brilliant','Collane'],
+      ['LJ3160','Bracciale catena grumetta','Bracciali'],
+      ['LJ2718','Orecchini lobo zircone','Orecchini'],
+      ['LJ3375','Anello fascia martellata','Anelli'],
+      ['LJ2950','Collana girocollo perline','Collane'],
+      ['LJ3201','Bracciale bangle oro','Bracciali'],
+      ['LJ2783','Orecchini ear cuff','Orecchini'],
+      ['LJ3410','Charm pendente stella','Charm']
+    ].map((p,i)=>({ sku:p[0], name:p[1], cat:p[2], tone:tones[i%tones.length] }));
+
+    const raw = [
+      ['Rossi Gioielli','Milano','Lombardia','Via Montenapoleone 12','Marco Ferraro'],
+      ['Gioielleria Aurora','Torino','Piemonte','Via Roma 45','Elena Bianchi'],
+      ['Preziosi Bellini','Firenze','Toscana',"Via de' Tornabuoni 8",'Marco Ferraro'],
+      ['Gioielleria Sole','Roma','Lazio','Via del Corso 210','Sofia Greco'],
+      ['Cristallo Gioielli','Napoli','Campania','Via Toledo 158','Antonio Russo'],
+      ['Gioielleria Lux','Bologna','Emilia-Romagna','Via Indipendenza 30','Giulia Conti'],
+      ["Tempo d'Oro",'Venezia','Veneto','Calle Larga XXII Marzo 2','Luca Moretti'],
+      ['Gioielleria Diamante','Verona','Veneto','Corso Porta Borsari 18','Luca Moretti'],
+      ['Perla Blu','Genova','Liguria','Via XX Settembre 64','Elena Bianchi'],
+      ['Gioielleria Reale','Palermo','Sicilia','Via della Libertà 92','Antonio Russo'],
+      ['Carat Gioielli','Bari','Puglia','Via Sparano 40','Sofia Greco'],
+      ['Gioielleria Moderna','Padova','Veneto','Via San Fermo 22','Luca Moretti'],
+      ["Stella d'Argento",'Bergamo','Lombardia','Via XX Settembre 15','Marco Ferraro'],
+      ['Gioielleria Fontana','Cagliari','Sardegna','Via Garibaldi 70','Giulia Conti'],
+      ['Oro & Co.','Verona','Veneto','Via Mazzini 56','Luca Moretti'],
+      ['Gioielleria Eden','Roma','Lazio','Via Veneto 88','Sofia Greco']
+    ];
+    const ref = new Date(2026, 5, 10);
+    const codes = [148,231,317,402,489,556,633,701,778,845,912,977,1024,1103,1188,1256];
+
+    this.jewelers = raw.map((r,i)=>{
+      const rand = this.rng(i*7 + 13);
+      const nVisits = 5 + Math.floor(rand()*7); // 5-11 visits (~monthly)
+      const baseCov = Math.round(60 + rand()*32); // latest coverage 60-92
+      const lastDays = Math.floor(rand()*28) + 2;
+
+      const visits = [];
+      let curDays = lastDays;
+      for (let v=0; v<nVisits; v++){
+        const vr = this.rng(i*97 + v*31 + 7);
+        if (v>0) curDays += 34 + Math.floor(vr()*30);
+        const date = new Date(ref); date.setDate(ref.getDate() - curDays);
+        // coverage tends to decline going back in time
+        let coverage = baseCov - v*Math.round(5 + vr()*7) + Math.round((vr()-0.5)*6);
+        coverage = Math.max(46, Math.min(98, coverage));
+        const missingCount = Math.max(2, Math.round(50 * (1 - coverage/100)));
+        const order = this.products.map((p,idx)=>({ p, k:this.rng(i*131 + v*53 + idx*13 + 3)() }))
+          .sort((a,b)=>b.k-a.k).map(o=>o.p);
+        const expCount = Math.max(5, Math.min(12, Math.round(coverage/100*13)));
+        const exposed = order.slice(0, expCount);
+        const exSet = new Set(exposed.map(p=>p.sku));
+        const missing = order.filter(p=>!exSet.has(p.sku)).slice(0,6);
+        const nPhotos = 2 + Math.floor(vr()*3); // 2-4
+        const photos = [];
+        for (let k=0;k<nPhotos;k++) photos.push({ tone: tones[(i+v+k)%tones.length] });
+        visits.push({ date, agent:r[4], coverage, missingCount, exposed, missing, photos });
+      }
+      const latest = visits[0];
+      return {
+        id:'j'+i, code:'GJ-'+String(codes[i]).padStart(4,'0'),
+        name:r[0], city:r[1], region:r[2], address:r[3], agent:r[4],
+        visits, coverage:latest.coverage, missingCount:latest.missingCount, lastVisit:latest.date
+      };
+    });
+
+    // national aggregates — based on latest visit
+    const presence = {};
+    this.jewelers.forEach(j=> j.visits[0].exposed.forEach(p=>{ presence[p.sku]=(presence[p.sku]||0)+1; }));
+    this.topNational = Object.keys(presence).map(sku=>({ sku, count:presence[sku], p:this.products.find(x=>x.sku===sku) }))
+      .sort((a,b)=>b.count-a.count).slice(0,5);
+    this.maxNational = this.topNational[0].count;
+
+    this.regionsData = (()=>{
+      const map = {};
+      this.jewelers.forEach(j=>{ (map[j.region]=map[j.region]||[]).push(j.coverage); });
+      return Object.keys(map).map(name=>({ name, cov: Math.round(map[name].reduce((a,b)=>a+b,0)/map[name].length) }))
+        .sort((a,b)=>b.cov-a.cov).slice(0,6);
+    })();
+
+    this.avgCoverage = Math.round(this.jewelers.reduce((a,j)=>a+j.coverage,0)/this.jewelers.length);
+    this.avgMissing = Math.round(this.jewelers.reduce((a,j)=>a+j.missingCount,0)/this.jewelers.length);
+  }
+
+  dict(){
+    const it = {
+      brandLine1:'Visual', brandLine2:'Management',
+      brandSub:'Il controllo nazionale delle vetrine e dell\u2019esposizione gioielli Liu Jo. Foto degli agenti, prodotti mancanti e referenze esposte, visita per visita.',
+      statStores:'Gioiellerie', statRegions:'Regioni', statBest:'Best seller',
+      loginHeading:'Accedi alla dashboard', loginSub:'Riservato ad area manager e direzione vendite Liu Jo.',
+      emailLabel:'Email aziendale', passwordLabel:'Password', signIn:'Accedi',
+      forgot:'Password dimenticata?', demoHint:'Demo: accesso libero',
+      appName:'Visual Management', navOverview:'Panoramica', navJewelers:'Gioiellerie',
+      logout:'Esci', userRole:'Area Manager',
+      overviewTitle:'Panoramica nazionale', overviewSub:'Stato della rete di 1.000 gioiellerie Liu Jo in Italia.',
+      updated:'Aggiornato oggi',
+      kpiVisits:'Visite ultimi 30 giorni', kpiVisitsSub:'agenti sul territorio',
+      kpiCoverage:'Copertura media best seller', kpiCoverageSub:'sui 50 best seller',
+      kpiMissing:'Prodotti mancanti (media)', kpiMissingSub:'per gioielleria',
+      kpiTop:'Best seller pi\u00f9 esposto', kpiTopSub:'in vetrina a livello nazionale',
+      topProductsTitle:'Best seller pi\u00f9 esposti', topProductsSub:'Referenze presenti nel maggior numero di vetrine.',
+      nationalTag:'Rete nazionale',
+      regionsTitle:'Copertura per area', regionsSub:'Media best seller esposti per regione.',
+      recentTitle:'Visite recenti degli agenti', recentSub:'Ultime vetrine fotografate sul territorio.',
+      seeAll:'Vedi tutte',
+      searchTitle:'Ricerca gioiellerie', searchSub:'Filtra per codice, nome, citt\u00e0 o SKU prodotto.',
+      fCode:'Codice gioielleria', fName:'Nome', fNamePh:'es. Rossi Gioielli', fCity:'Citt\u00e0', fCityPh:'es. Milano', fSku:'SKU prodotto',
+      reset:'Azzera', search:'Cerca', resultsWord:'gioiellerie trovate', clickRow:'Clicca una riga per i dettagli',
+      colCode:'Codice', colName:'Gioielleria', colCity:'Citt\u00e0', colAgent:'Agente', colVisit:'Ultima visita', colCoverage:'Copertura', colMissing:'Mancanti',
+      noResTitle:'Nessun risultato', noResSub:'Modifica i filtri e riprova.',
+      skuPrefix:'Gioiellerie che espongono',
+      visitsLabel:'Visite', visitsCount:'visite registrate', missingShort:'manc.', allVisits:'Tutte le visite',
+      pickVisitTitle:'Seleziona una data di visita',
+      pickVisitSub:'L\u2019agente ha visitato questa gioielleria pi\u00f9 volte. Scegli una visita per consultare foto, prodotti mancanti e referenze esposte rilevati in quella data.',
+      dAgent:'Agente', dVisit:'Data visita', dCoverage:'Copertura', dMissing:'Mancanti',
+      tabPhotos:'Foto vetrine', tabMissing:'Prodotti mancanti', tabExposed:'Prodotti esposti',
+      photosSub:'Scatti della vetrina raccolti dall\u2019agente in questa visita.',
+      photoLabel:'Scatto vetrina', photoNote:'Trascina qui le foto reali dell\u2019agente per sostituire i segnaposto.',
+      missingSub:'Best seller assenti rispetto ai 50 prodotti di punta Liu Jo, alla data della visita.', onBest:'sui 50 best seller',
+      missingTag:'Mancante',
+      exposedSub:'Referenze Liu Jo presenti in vetrina alla data della visita (una referenza per prodotto).',
+      exposedUnit:'referenze esposte', exposedTag:'Esposto',
+      windows:'vetrine',
+      navInventory:'Gestione Inventario',
+      invTitle:'Gestione Inventario',
+      invSub:'Gestione del catalogo dei prodotti e indicizzazione visiva su Qdrant.',
+      addTitle:'Indicizza Nuovo Articolo',
+      addNameLabel:'Nome Prodotto',
+      addSkuLabel:'SKU (Codice Modello)',
+      addCatLabel:'Categoria',
+      addFilesLabel:'Foto del Gioiello (Seleziona più angolazioni)',
+      addFilesSubtitle:'Trascina o clicca per selezionare le immagini (JPG, PNG, WebP)',
+      addSubmit:'Indicizza tutte le viste',
+      addLoading:'Indicizzazione in corso...',
+      addSuccess:'Articolo indicizzato con successo!',
+      addError:'Errore durante l\'indicizzazione.',
+      colImage:'Foto',
+      colActions:'Azioni',
+      confirmDelete:'Sei sicuro di voler eliminare questo articolo (incluse tutte le sue viste)?',
+      searchInvPh:'Cerca SKU o nome...',
+      deleteBtn:'Elimina',
+      loadMore:'Mostra Altri',
+      editTitle:'Modifica Articolo',
+      editSubmit:'Salva Modifiche',
+      cancelBtn:'Annulla',
+      editSuccess:'Articolo modificato con successo!',
+      editError:'Errore durante la modifica.',
+      editBtn:'Modifica',
+      catWatch:'Orologio',
+      catRing:'Anello',
+      catNecklace:'Collana',
+      catBracelet:'Bracciale',
+      catEarring:'Orecchino',
+      catOther:'Altro'
+    };
+    const en = {
+      brandLine1:'Visual', brandLine2:'Management',
+      brandSub:'National control of Liu Jo jewelry windows and in-store display. Agent photos, missing products and displayed references, visit by visit.',
+      statStores:'Stores', statRegions:'Regions', statBest:'Best sellers',
+      loginHeading:'Sign in to the dashboard', loginSub:'Reserved for Liu Jo area managers and sales management.',
+      emailLabel:'Company email', passwordLabel:'Password', signIn:'Sign in',
+      forgot:'Forgot password?', demoHint:'Demo: open access',
+      appName:'Visual Management', navOverview:'Overview', navJewelers:'Stores',
+      logout:'Sign out', userRole:'Area Manager',
+      overviewTitle:'National overview', overviewSub:'Status of the network of 1,000 Liu Jo jewelry stores in Italy.',
+      updated:'Updated today',
+      kpiVisits:'Visits last 30 days', kpiVisitsSub:'agents in the field',
+      kpiCoverage:'Avg. best-seller coverage', kpiCoverageSub:'of the 50 best sellers',
+      kpiMissing:'Missing products (avg.)', kpiMissingSub:'per store',
+      kpiTop:'Most-displayed best seller', kpiTopSub:'in windows nationwide',
+      topProductsTitle:'Most-displayed best sellers', topProductsSub:'References present in the largest number of windows.',
+      nationalTag:'National network',
+      regionsTitle:'Coverage by area', regionsSub:'Avg. best sellers displayed by region.',
+      recentTitle:'Recent agent visits', recentSub:'Latest windows photographed in the field.',
+      seeAll:'See all',
+      searchTitle:'Store search', searchSub:'Filter by store code, name, city or product SKU.',
+      fCode:'Store code', fName:'Name', fNamePh:'e.g. Rossi Gioielli', fCity:'City', fCityPh:'e.g. Milano', fSku:'Product SKU',
+      reset:'Reset', search:'Search', resultsWord:'stores found', clickRow:'Click a row for details',
+      colCode:'Code', colName:'Store', colCity:'City', colAgent:'Agent', colVisit:'Last visit', colCoverage:'Coverage', colMissing:'Missing',
+      noResTitle:'No results', noResSub:'Adjust the filters and try again.',
+      skuPrefix:'Stores displaying',
+      visitsLabel:'Visits', visitsCount:'recorded visits', missingShort:'miss.', allVisits:'All visits',
+      pickVisitTitle:'Select a visit date',
+      pickVisitSub:'The agent visited this store several times. Pick a visit to consult the photos, missing products and displayed references recorded on that date.',
+      dAgent:'Agent', dVisit:'Visit date', dCoverage:'Coverage', dMissing:'Missing',
+      tabPhotos:'Window photos', tabMissing:'Missing products', tabExposed:'Displayed products',
+      photosSub:'Window shots collected by the agent on this visit.',
+      photoLabel:'Window shot', photoNote:'Drop the real agent photos here to replace the placeholders.',
+      missingSub:'Best sellers absent versus the 50 Liu Jo flagship products, on the visit date.', onBest:'of 50 best sellers',
+      missingTag:'Missing',
+      exposedSub:'Liu Jo references present in the window on the visit date (one reference per product).',
+      exposedUnit:'displayed refs', exposedTag:'Displayed',
+      windows:'windows',
+      navInventory:'Inventory',
+      invTitle:'Inventory Management',
+      invSub:'Management of the product catalog and visual indexing on Qdrant.',
+      addTitle:'Index New Item',
+      addNameLabel:'Product Name',
+      addSkuLabel:'SKU (Model Code)',
+      addCatLabel:'Category',
+      addFilesLabel:'Jewelry Photos (Select multiple angles)',
+      addFilesSubtitle:'Drag or click to select images (JPG, PNG, WebP)',
+      addSubmit:'Index all views',
+      addLoading:'Indexing views...',
+      addSuccess:'Item indexed successfully!',
+      addError:'Error indexing item.',
+      colImage:'Photo',
+      colActions:'Actions',
+      confirmDelete:'Are you sure you want to delete this item (including all its views)?',
+      searchInvPh:'Search SKU or name...',
+      deleteBtn:'Delete',
+      loadMore:'Load More',
+      editTitle:'Edit Item',
+      editSubmit:'Save Changes',
+      cancelBtn:'Cancel',
+      editSuccess:'Item updated successfully!',
+      editError:'Error updating item.',
+      editBtn:'Edit',
+      catWatch:'Watch',
+      catRing:'Ring',
+      catNecklace:'Necklace',
+      catBracelet:'Bracelet',
+      catEarring:'Earring',
+      catOther:'Other'
+    };
+    return this.state.lang==='en' ? en : it;
+  }
+
+  fmtDate(d){
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    return dd+'/'+mm+'/'+d.getFullYear();
+  }
+  relDate(d){
+    const ref = new Date(2026,5,10);
+    const days = Math.round((ref - d)/86400000);
+    const t = this.state.lang==='en';
+    if (days<=0) return t?'today':'oggi';
+    if (days===1) return t?'1 day ago':'1 giorno fa';
+    return days + (t?' days ago':' giorni fa');
+  }
+  covColor(c){ return c>=85 ? '#4e7a5e' : (c>=72 ? '#b8893f' : '#b25540'); }
+
+  filtered(){
+    const s = this.state;
+    const code = s.fCodice.trim().toLowerCase();
+    const nome = s.fNome.trim().toLowerCase();
+    const citta = s.fCitta.trim().toLowerCase();
+    const sku = s.fSku.trim().toLowerCase();
+    return this.jewelers.filter(j=>{
+      if (code && !j.code.toLowerCase().includes(code)) return false;
+      if (nome && !j.name.toLowerCase().includes(nome)) return false;
+      if (citta && !j.city.toLowerCase().includes(citta)) return false;
+      if (sku && !j.visits[0].exposed.some(p=>p.sku.toLowerCase().includes(sku))) return false;
+      return true;
+    });
+  }
+
+  setField(k){ return (e)=> this.setState({ [k]: e.target.value }); }
+  openStore(id){ this.setState({ selectedId:id, selectedVisit:null, tab:'photos' }); }
+
+  renderVals(){
+    const t = this.dict();
+    const s = this.state;
+    const navBase = "font-family:'Jost',sans-serif;font-size:13.5px;letter-spacing:.04em;padding:8px 15px;border-radius:2px;cursor:pointer;transition:all .15s;";
+    const navOn = navBase + "background:#141414;color:#fff;";
+    const navOff = navBase + "background:transparent;color:#8c8a85;";
+    const langSeg = (on)=> "padding:7px 13px;cursor:pointer;letter-spacing:.12em;"+(on?"background:#141414;color:#fff;":"background:#fff;color:#8c8a85;");
+    const langSegSm = (on)=> "padding:5px 11px;cursor:pointer;letter-spacing:.1em;"+(on?"background:#141414;color:#fff;":"background:#fff;color:#8c8a85;");
+    const tabBase = "font-family:'Jost',sans-serif;font-size:13.5px;padding:14px 4px;margin-right:22px;cursor:pointer;border-bottom:2px solid transparent;color:#8c8a85;";
+    const tabOn = "font-family:'Jost',sans-serif;font-size:13.5px;padding:14px 4px;margin-right:22px;cursor:pointer;border-bottom:2px solid #141414;color:#141414;";
+    const visitCard = (on)=> "width:100%;padding:13px 15px;border-radius:3px;cursor:pointer;transition:all .15s;"+(on?"border:1.5px solid #141414;background:#fff;box-shadow:0 4px 14px rgba(20,20,20,.06);":"border:1px solid #e7e6e2;background:#fff;");
+
+    // overview
+    const kpis = [
+      { label:t.kpiVisits, value:'318', sub:t.kpiVisitsSub, dot:'#4e7a5e' },
+      { label:t.kpiCoverage, value:this.avgCoverage+'%', sub:t.kpiCoverageSub, dot:this.covColor(this.avgCoverage) },
+      { label:t.kpiMissing, value:String(this.avgMissing), sub:t.kpiMissingSub, dot:'#b8893f' },
+      { label:t.kpiTop, value:this.topNational[0].p.name.split(' ').slice(0,2).join(' '), sub:t.kpiTopSub, dot:'#9a7b3f' }
+    ];
+    const topProducts = this.topNational.map((x,i)=>({
+      rank:String(i+1), name:x.p.name, tone:x.p.tone,
+      countLabel:x.count+' '+t.windows,
+      barStyle:'width:'+Math.round(x.count/this.maxNational*100)+'%;'
+    }));
+    const regions = this.regionsData.map(r=>({
+      name:r.name, label:r.cov+'%', color:this.covColor(r.cov),
+      barStyle:'width:'+Math.round(r.cov)+'%;'
+    }));
+    const recent = this.jewelers.slice().sort((a,b)=>b.lastVisit-a.lastVisit).slice(0,5).map(j=>({
+      code:j.code, name:j.name, city:j.city, agent:j.agent,
+      visitLabel:this.relDate(j.lastVisit),
+      open:()=> this.openStore(j.id)
+    }));
+
+    // search
+    const list = this.filtered();
+    const results = list.map(j=>({
+      code:j.code, name:j.name, city:j.city, agent:j.agent,
+      visitLabel:this.fmtDate(j.lastVisit),
+      coverageLabel:j.coverage+'%', coverageColor:this.covColor(j.coverage),
+      missingLabel:String(j.missingCount), missingColor: j.missingCount>14?'#b25540':'#4a4843',
+      open:()=> this.openStore(j.id)
+    }));
+    const skuActive = !!s.fSku.trim();
+
+    // drawer
+    const j = this.jewelers.find(x=>x.id===s.selectedId);
+    let sel = null;
+    if (j){
+      const vSel = s.selectedVisit;
+      const hasVisit = vSel != null && j.visits[vSel];
+      const visits = j.visits.map((v,idx)=>({
+        idx, dateLabel:this.fmtDate(v.date), agent:v.agent,
+        coverageLabel:v.coverage+'%', coverageColor:this.covColor(v.coverage),
+        missingLabel:String(v.missingCount), missingColor: v.missingCount>14?'#b25540':'#8c8a85',
+        isSelected: idx===vSel, cardStyle: visitCard(idx===vSel),
+        click:()=> this.setState({ selectedVisit:idx })
+      }));
+      sel = {
+        code:j.code, name:j.name, city:j.city, region:j.region, address:j.address,
+        visits, visitCountLabel: j.visits.length+' '+t.visitsCount,
+        noVisit: !hasVisit, hasVisit: !!hasVisit
+      };
+      if (hasVisit){
+        const v = j.visits[vSel];
+        sel.vDateLabel = this.fmtDate(v.date);
+        sel.vAgent = v.agent;
+        sel.vCoverageLabel = v.coverage+'%';
+        sel.vCoverageColor = this.covColor(v.coverage);
+        sel.vMissingLabel = String(v.missingCount);
+        sel.photos = v.photos.map((p,i)=>({
+          tone: p.tone,
+          url: p.url || '',
+          loading: !!p.loading,
+          label: t.photoLabel+' '+(i+1),
+          tag: (i===0?(s.lang==='en'?'Front':'Frontale'):''),
+          upload: (e) => this.handlePhotoUpload(e, s.selectedId, s.selectedVisit, i)
+        }));
+        sel.missing = v.missing.map(p=>({ name:p.name, cat:p.cat, sku:p.sku, tone:p.tone }));
+        sel.exposed = v.exposed.map(p=>({ name:p.name, cat:p.cat, sku:p.sku, tone:p.tone }));
+        sel.exposedCount = String(v.exposed.length);
+      }
+    }
+
+    const invTerm = (s.invSearchTerm || '').trim().toLowerCase();
+    const allInvItems = this.inventoryItems || [];
+    const filteredInv = allInvItems.filter(item => {
+      if (!invTerm) return true;
+      return (item.name || '').toLowerCase().includes(invTerm) || (item.sku || '').toLowerCase().includes(invTerm);
+    });
+
+    const pageSize = 15;
+    const invLimit = (s.invPage || 1) * pageSize;
+    const paginatedInv = filteredInv.slice(0, invLimit);
+
+    const inventoryList = paginatedInv.map(item => {
+      const mainImg = (item.thumbUrls && item.thumbUrls[0]) || item.imageUrls[0] || '';
+      return {
+        sku: item.sku,
+        name: item.name,
+        cat: item.cat,
+        color: item.color,
+        material: item.material,
+        img: mainImg,
+        tone: item.tone,
+        imagesCount: String(item.imageUrls.length),
+        ids: item.ids,
+        edit: () => this.onStartEdit(item),
+        delete: () => this.doDeleteItem(item.ids)
+      };
+    });
+
+    const hasMoreInventory = filteredInv.length > invLimit;
+
+    const isInventory = s.view === 'inventory';
+    const navInventoryStyle = s.view === 'inventory' ? navOn : navOff;
+    const filesLabel = s.invFiles ? (s.invFiles.length === 1 ? '1 file selezionato' : s.invFiles.length + ' file selezionati') : (s.lang === 'en' ? 'Click to select files' : 'Clicca per selezionare i file');
+
+    return {
+      t,
+      isLogin: s.screen==='login', isApp: s.screen==='app',
+      isOverview: s.view==='overview', isSearch: s.view==='search',
+      email:s.email, password:s.password, loginError:s.loginError,
+      onEmail:this.setField('email'), onPassword:this.setField('password'),
+      doLogin:()=>{ if(!s.email.trim()||!s.password.trim()){ this.setState({loginError: s.lang==='en'?'Enter email and password to continue.':'Inserisci email e password per continuare.'}); return;} this.setState({screen:'app', loginError:''}); },
+      setIt:()=> this.setState({lang:'it'}), setEn:()=> this.setState({lang:'en'}),
+      langItStyle: langSeg(s.lang==='it'), langEnStyle: langSeg(s.lang==='en'),
+      langItStyleSm: langSegSm(s.lang==='it'), langEnStyleSm: langSegSm(s.lang==='en'),
+      goOverview:()=> this.setState({view:'overview'}), goSearch:()=> this.setState({view:'search'}),
+      goInventory:()=> this.setState({view:'inventory'}),
+      navOverviewStyle: s.view==='overview'?navOn:navOff,
+      navSearchStyle: s.view==='search'?navOn:navOff,
+      navInventoryStyle,
+      doLogout:()=> this.setState({screen:'login', password:''}),
+      userName:'Chiara Bellini', userInitials:'CB',
+      kpis, topProducts, regions, recent,
+      fCodice:s.fCodice, fNome:s.fNome, fCitta:s.fCitta, fSku:s.fSku,
+      onFCodice:this.setField('fCodice'), onFNome:this.setField('fNome'),
+      onFCitta:this.setField('fCitta'), onFSku:this.setField('fSku'),
+      doSearch:()=> this.setState({searchTick:s.searchTick+1}),
+      doReset:()=> this.setState({fCodice:'',fNome:'',fCitta:'',fSku:''}),
+      results, resultCount:results.length, hasResults:results.length>0, noResults:results.length===0,
+      skuActive, skuActiveLabel: t.skuPrefix+' \u201C'+s.fSku.trim().toUpperCase()+'\u201D',
+      drawerOpen: !!sel, sel: sel||{},
+      closeDrawer:()=> this.setState({selectedId:null, selectedVisit:null}),
+      deselectVisit:()=> this.setState({selectedVisit:null}),
+      tabPhotosClick:()=> this.setState({tab:'photos'}),
+      tabMissingClick:()=> this.setState({tab:'missing'}),
+      tabExposedClick:()=> this.setState({tab:'exposed'}),
+      isTabPhotos:s.tab==='photos', isTabMissing:s.tab==='missing', isTabExposed:s.tab==='exposed',
+      tabPhotosStyle: s.tab==='photos'?tabOn:tabBase,
+      tabMissingStyle: s.tab==='missing'?tabOn:tabBase,
+      tabExposedStyle: s.tab==='exposed'?tabOn:tabBase,
+      
+      // inventory specific views/variables
+      isInventory,
+      filesLabel,
+      showWatchProps: s.invCategory === 'watch',
+      showRingProps: s.invCategory === 'ring',
+      showOtherProps: s.invCategory !== 'watch' && s.invCategory !== 'ring',
+      invName: s.invName,
+      invSku: s.invSku,
+      invCategory: s.invCategory,
+      invJewelryColor: s.invJewelryColor,
+      invWatchDialShape: s.invWatchDialShape,
+      invWatchStrapColor: s.invWatchStrapColor,
+      invWatchStrapMaterial: s.invWatchStrapMaterial,
+      invWatchDialColor: s.invWatchDialColor,
+      invRingMetal: s.invRingMetal,
+      invRingStone: s.invRingStone,
+      invRingStoneColor: s.invRingStoneColor,
+      invJewelryMaterial: s.invJewelryMaterial,
+      invSearchTerm: s.invSearchTerm,
+      invSuccess: s.invSuccess,
+      invError: s.invError,
+      invLoading: s.invLoading,
+      inventoryList,
+      hasMoreInventory,
+      loadMoreInventory: () => this.setState({ invPage: (s.invPage || 1) + 1 }),
+      invEditMode: s.invEditMode,
+      cancelEdit: () => this.resetInvForm(),
+      
+      onInvName: this.setField('invName'),
+      onInvSku: this.setField('invSku'),
+      onInvCategory: this.setField('invCategory'),
+      onInvJewelryColor: this.setField('invJewelryColor'),
+      onInvWatchDialShape: this.setField('invWatchDialShape'),
+      onInvWatchStrapColor: this.setField('invWatchStrapColor'),
+      onInvWatchStrapMaterial: this.setField('invWatchStrapMaterial'),
+      onInvWatchDialColor: this.setField('invWatchDialColor'),
+      onInvRingMetal: this.setField('invRingMetal'),
+      onInvRingStone: this.setField('invRingStone'),
+      onInvRingStoneColor: this.setField('invRingStoneColor'),
+      onInvJewelryMaterial: this.setField('invJewelryMaterial'),
+      onInvSearchTerm: (e) => this.setState({ invSearchTerm: e.target.value, invPage: 1 }),
+      onInvFilesChange: (e) => this.setState({ invFiles: e.target.files }),
+      doUploadItem: () => this.doUploadItem()
+    };
+  }
+}
+</script>
+</body>
 </html>
