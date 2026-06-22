@@ -303,7 +303,7 @@
           <sc-if value="{{ invSuccess }}">
             <div style="background:#f2f9f5;border:1px solid #d4ece0;color:#3d6c52;font-size:13.5px;padding:12px;border-radius:2px;margin-bottom:18px;display:flex;align-items:center;gap:8px;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              {{ t.addSuccess }}
+              {{ invSuccessMsg }}
             </div>
           </sc-if>
           
@@ -424,7 +424,14 @@
             <div onClick="document.getElementById('inventory-file-input').click()" style="border:2px dashed #e2e1dc;border-radius:2px;padding:24px 14px;text-align:center;cursor:pointer;background:#fafaf9;transition:all .15s;" style-hover="border-color:#141414;background:#f5f4f2;">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8c8a85" stroke-width="1.6" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <div style="font-size:13px;font-weight:500;color:#141414;">{{ filesLabel }}</div>
-              <div style="font-size:11px;color:#8c8a85;margin-top:4px;">{{ t.addFilesSubtitle }}</div>
+              <div style="font-size:11px;color:#8c8a85;margin-top:4px;">
+                <sc-if value="{{ invEditMode }}">
+                  {{ t.editFilesSubtitle }}
+                </sc-if>
+                <sc-if value="{{ !invEditMode }}">
+                  {{ t.addFilesSubtitle }}
+                </sc-if>
+              </div>
               <input id="inventory-file-input" type="file" multiple accept="image/*" onChange="{{ onInvFilesChange }}" style="display:none;" />
             </div>
           </div>
@@ -719,7 +726,7 @@ class Component extends DCLogic {
     invWatchDialColor: '', invRingMetal: '',
     invRingStone: '', invRingStoneColor: '',
     invJewelryMaterial: '', invFiles: null,
-    invLoading: false, invSuccess: false, invError: '',
+    invLoading: false, invSuccess: false, invSuccessMsg: '', invError: '',
     invSearchTerm: '', invPage: 1,
     invEditMode: false, invEditIds: []
   };
@@ -922,6 +929,7 @@ class Component extends DCLogic {
 
       this.setState({
         invSuccess: true,
+        invSuccessMsg: s.lang === 'en' ? 'Item indexed successfully!' : 'Articolo indicizzato con successo!',
         invName: '',
         invSku: '',
         invJewelryColor: '',
@@ -939,7 +947,7 @@ class Component extends DCLogic {
 
       await this.fetchInventory();
       setTimeout(() => {
-        this.setState({ invSuccess: false });
+        this.setState({ invSuccess: false, invSuccessMsg: '' });
       }, 3000);
     } catch (err) {
       console.error('Upload error:', err);
@@ -1064,45 +1072,82 @@ class Component extends DCLogic {
 
     try {
       const ids = s.invEditIds || [];
-      for (const id of ids) {
+      if (s.invFiles && s.invFiles.length > 0) {
+        // Delete all old points of this item, then index the new images as a new upload
+        for (const id of ids) {
+          try {
+            await fetch(`/api/inventory?id=${id}`, {
+              method: 'DELETE'
+            });
+          } catch (err) {
+            await fetch(`http://localhost:8080/inventory?id=${id}`, {
+              method: 'DELETE'
+            });
+          }
+        }
+
         const formData = new FormData();
+        for (let i = 0; i < s.invFiles.length; i++) {
+          formData.append('images', s.invFiles[i]);
+        }
         formData.append('name', s.invName);
         formData.append('sku', s.invSku);
         formData.append('color', finalColor);
         formData.append('material', finalMaterial);
-        
-        if (s.invFiles && s.invFiles.length > 0) {
-          for (let i = 0; i < s.invFiles.length; i++) {
-            formData.append('images', s.invFiles[i]);
-          }
-        }
 
         let response;
         try {
-          response = await fetch(`/api/inventory?id=${id}`, {
-            method: 'PUT',
+          response = await fetch('/api/upload', {
+            method: 'POST',
             body: formData
           });
         } catch (err) {
-          response = await fetch(`http://localhost:8080/inventory?id=${id}`, {
-            method: 'PUT',
+          response = await fetch('http://localhost:8080/upload', {
+            method: 'POST',
             body: formData
           });
         }
 
         if (!response || !response.ok) {
-          throw new Error('Edit failed');
+          throw new Error('Edit upload failed');
+        }
+      } else {
+        // No new images, just update metadata on all existing points
+        for (const id of ids) {
+          const formData = new FormData();
+          formData.append('name', s.invName);
+          formData.append('sku', s.invSku);
+          formData.append('color', finalColor);
+          formData.append('material', finalMaterial);
+
+          let response;
+          try {
+            response = await fetch(`/api/inventory?id=${id}`, {
+              method: 'PUT',
+              body: formData
+            });
+          } catch (err) {
+            response = await fetch(`http://localhost:8080/inventory?id=${id}`, {
+              method: 'PUT',
+              body: formData
+            });
+          }
+
+          if (!response || !response.ok) {
+            throw new Error('Edit failed');
+          }
         }
       }
 
       this.setState({
-        invSuccess: true
+        invSuccess: true,
+        invSuccessMsg: s.lang === 'en' ? 'Item updated successfully!' : 'Articolo modificato con successo!'
       });
       this.resetInvForm();
       await this.fetchInventory();
 
       setTimeout(() => {
-        this.setState({ invSuccess: false });
+        this.setState({ invSuccess: false, invSuccessMsg: '' });
       }, 3000);
     } catch (err) {
       console.error('Edit error:', err);
@@ -1467,6 +1512,7 @@ class Component extends DCLogic {
       addCatLabel:'Categoria',
       addFilesLabel:'Foto del Gioiello (Seleziona più angolazioni)',
       addFilesSubtitle:'Trascina o clicca per selezionare le immagini (JPG, PNG, WebP)',
+      editFilesSubtitle:'Opzionale: seleziona per sostituire le immagini attuali (JPG, PNG, WebP)',
       addSubmit:'Indicizza tutte le viste',
       addLoading:'Indicizzazione in corso...',
       addSuccess:'Articolo indicizzato con successo!',
@@ -1537,6 +1583,7 @@ class Component extends DCLogic {
       addCatLabel:'Category',
       addFilesLabel:'Jewelry Photos (Select multiple angles)',
       addFilesSubtitle:'Drag or click to select images (JPG, PNG, WebP)',
+      editFilesSubtitle:'Optional: select to replace current images (JPG, PNG, WebP)',
       addSubmit:'Index all views',
       addLoading:'Indexing views...',
       addSuccess:'Item indexed successfully!',
@@ -1712,7 +1759,7 @@ class Component extends DCLogic {
 
     const isInventory = s.view === 'inventory';
     const navInventoryStyle = s.view === 'inventory' ? navOn : navOff;
-    const filesLabel = s.invFiles ? (s.invFiles.length === 1 ? '1 file selezionato' : s.invFiles.length + ' file selezionati') : (s.lang === 'en' ? 'Click to select files' : 'Clicca per selezionare i file');
+    const filesLabel = s.invFiles ? (s.invFiles.length === 1 ? '1 file selezionato' : s.invFiles.length + ' file selezionati') : (s.invEditMode ? (s.lang === 'en' ? 'Click to replace files (optional)' : 'Clicca per sostituire i file (opzionale)') : (s.lang === 'en' ? 'Click to select files' : 'Clicca per selezionare i file'));
 
     return {
       t,
@@ -1770,6 +1817,7 @@ class Component extends DCLogic {
       invJewelryMaterial: s.invJewelryMaterial,
       invSearchTerm: s.invSearchTerm,
       invSuccess: s.invSuccess,
+      invSuccessMsg: s.invSuccessMsg,
       invError: s.invError,
       invLoading: s.invLoading,
       inventoryList,
