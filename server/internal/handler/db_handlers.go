@@ -1,0 +1,1039 @@
+package handler
+
+import (
+	"database/sql"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"shelfscan-api/internal/db"
+	"strconv"
+	"strings"
+	"time"
+)
+
+type VisitPayload struct {
+	ID              string `json:"id"`
+	Store           struct {
+		ID string `json:"id"`
+	} `json:"store"`
+	Status          string `json:"status"`
+	Coverage        int    `json:"coverage"`
+	CreatedAt       string `json:"createdAt"`
+	FinalizedAt     string `json:"finalizedAt"`
+	FoundProducts   []struct {
+		SKU      string `json:"sku"`
+		Name     string `json:"name"`
+		Category string `json:"category"`
+	} `json:"foundProducts"`
+	MissingProducts []struct {
+		SKU      string `json:"sku"`
+		Name     string `json:"name"`
+		Category string `json:"category"`
+	} `json:"missingProducts"`
+	AnalyzedImages []struct {
+		CapturedImage string `json:"capturedImage"` // base64 data URL or upload path
+	} `json:"analyzedImages"`
+}
+
+func (h *Handler) StoresHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			type StorePayload struct {
+				Code         string `json:"code"`
+				Name         string `json:"name"`
+				Province     string `json:"province"`
+				ProvinceName string `json:"province_name"`
+				Address      string `json:"address"`
+				Region       string `json:"region"`
+				RegionCode   string `json:"region_code"`
+				City         string `json:"city"`
+				AgentName    string `json:"agent_name"`
+			}
+
+			var p StorePayload
+			if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+				http.Error(w, "Invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			if p.Code == "" || p.Name == "" || p.Province == "" || p.ProvinceName == "" || p.City == "" {
+				http.Error(w, "Missing required fields (code, name, province, province_name, city)", http.StatusBadRequest)
+				return
+			}
+
+			if p.Region == "" {
+				p.Region = "Lombardia"
+			}
+			if p.RegionCode == "" {
+				p.RegionCode = "LOM"
+			}
+			if p.AgentName == "" {
+				p.AgentName = "Marco Ferraro"
+			}
+
+			cleanedName := db.CleanStoreName(p.Name)
+			cleanedProvince := strings.ToUpper(strings.TrimSpace(p.Province))
+			cleanedProvinceName := strings.ToUpper(strings.TrimSpace(p.ProvinceName))
+			cleanedAddress := strings.ToUpper(strings.TrimSpace(p.Address))
+			cleanedRegion := strings.ToUpper(strings.TrimSpace(p.Region))
+			cleanedRegionCode := strings.ToUpper(strings.TrimSpace(p.RegionCode))
+			cleanedCity := strings.ToUpper(strings.TrimSpace(p.City))
+			cleanedAgentName := strings.ToUpper(strings.TrimSpace(p.AgentName))
+
+			res, err := h.db.Exec(`
+				INSERT INTO stores (code, name, province, province_name, address, region, region_code, city, agent_name)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, p.Code, cleanedName, cleanedProvince, cleanedProvinceName, cleanedAddress, cleanedRegion, cleanedRegionCode, cleanedCity, cleanedAgentName)
+			if err != nil {
+				log.Printf("Error inserting store: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			lastID, _ := res.LastInsertId()
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]any{
+				"id":            strconv.FormatInt(lastID, 10),
+				"code":          p.Code,
+				"name":          cleanedName,
+				"province":      cleanedProvince,
+				"province_name": cleanedProvinceName,
+				"address":       cleanedAddress,
+				"region":        cleanedRegion,
+				"region_code":   cleanedRegionCode,
+				"city":          cleanedCity,
+				"agent_name":    cleanedAgentName,
+				"status":        "created",
+			})
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		q := r.URL.Query().Get("q")
+		region := r.URL.Query().Get("region")
+		province := r.URL.Query().Get("province")
+		city := r.URL.Query().Get("city")
+		agent := r.URL.Query().Get("agent")
+
+		queryStr := "SELECT id, code, name, province, province_name, address, region, region_code, city, agent_name FROM stores WHERE 1=1"
+		var args []any
+
+		if q != "" {
+			queryStr += " AND (name LIKE ? OR city LIKE ? OR province_name LIKE ? OR code LIKE ?)"
+			likeQ := "%" + q + "%"
+			args = append(args, likeQ, likeQ, likeQ, likeQ)
+		}
+		if region != "" {
+			queryStr += " AND (region = ? OR region_code = ?)"
+			args = append(args, region, region)
+		}
+		if province != "" {
+			if len(province) == 2 {
+				queryStr += " AND province = ?"
+				args = append(args, strings.ToUpper(province))
+			} else {
+				queryStr += " AND province_name LIKE ?"
+				args = append(args, "%"+province+"%")
+			}
+		}
+		if city != "" {
+			queryStr += " AND city LIKE ?"
+			args = append(args, "%"+city+"%")
+		}
+		if agent != "" {
+			queryStr += " AND agent_name = ?"
+			args = append(args, agent)
+		}
+
+		queryStr += " ORDER BY name ASC LIMIT 100"
+
+		rows, err := h.db.Query(queryStr, args...)
+		if err != nil {
+			log.Printf("Error querying stores: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		type StoreJSON struct {
+			ID           string `json:"id"`
+			Code         string `json:"code"`
+			Name         string `json:"name"`
+			Province     string `json:"province"`
+			ProvinceName string `json:"province_name"`
+			Address      string `json:"address"`
+			Region       string `json:"region"`
+			RegionCode   string `json:"region_code"`
+			City         string `json:"city"`
+			AgentName    string `json:"agent_name"`
+		}
+
+		stores := []StoreJSON{}
+		for rows.Next() {
+			var s StoreJSON
+			var id int
+			err := rows.Scan(&id, &s.Code, &s.Name, &s.Province, &s.ProvinceName, &s.Address, &s.Region, &s.RegionCode, &s.City, &s.AgentName)
+			if err != nil {
+				log.Printf("Error scanning store: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			s.ID = strconv.Itoa(id)
+			stores = append(stores, s)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stores)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) StoresDetailHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			parts := strings.Split(r.URL.Path, "/")
+			if len(parts) < 3 || parts[2] == "" {
+				http.Error(w, "Invalid store ID", http.StatusBadRequest)
+				return
+			}
+			storeIDStr := parts[2]
+			storeID, err := strconv.Atoi(storeIDStr)
+			if err != nil {
+				http.Error(w, "Invalid store ID", http.StatusBadRequest)
+				return
+			}
+
+			tx, err := h.db.Begin()
+			if err != nil {
+				log.Printf("Error starting delete transaction: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer tx.Rollback()
+
+			_, err = tx.Exec(`
+				DELETE FROM visit_products 
+				WHERE visit_id IN (SELECT id FROM visits WHERE store_id = ?)
+			`, storeID)
+			if err != nil {
+				log.Printf("Error deleting store visit products: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			_, err = tx.Exec(`
+				DELETE FROM visit_scans 
+				WHERE visit_id IN (SELECT id FROM visits WHERE store_id = ?)
+			`, storeID)
+			if err != nil {
+				log.Printf("Error deleting store visit scans: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			_, err = tx.Exec("DELETE FROM visits WHERE store_id = ?", storeID)
+			if err != nil {
+				log.Printf("Error deleting store visits: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			res, err := tx.Exec("DELETE FROM stores WHERE id = ?", storeID)
+			if err != nil {
+				log.Printf("Error deleting store: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			rowsAffected, _ := res.RowsAffected()
+			if rowsAffected == 0 {
+				http.Error(w, "Store not found", http.StatusNotFound)
+				return
+			}
+
+			if err := tx.Commit(); err != nil {
+				log.Printf("Error committing delete transaction: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Extract ID from URL path (e.g. /stores/123)
+		parts := strings.Split(r.URL.Path, "/")
+		if len(parts) < 3 || parts[2] == "" {
+			http.Error(w, "Invalid store ID", http.StatusBadRequest)
+			return
+		}
+		storeIDStr := parts[2]
+		storeID, err := strconv.Atoi(storeIDStr)
+		if err != nil {
+			http.Error(w, "Invalid store ID", http.StatusBadRequest)
+			return
+		}
+
+		// Query store
+		var s struct {
+			ID         string `json:"id"`
+			Code       string `json:"code"`
+			Name       string `json:"name"`
+			Province   string `json:"province"`
+			Address    string `json:"address"`
+			Region     string `json:"region"`
+			RegionCode string `json:"region_code"`
+			City       string `json:"city"`
+			AgentName  string `json:"agent_name"`
+		}
+		var id int
+		err = h.db.QueryRow("SELECT id, code, name, province, address, region, region_code, city, agent_name FROM stores WHERE id = ?", storeID).
+			Scan(&id, &s.Code, &s.Name, &s.Province, &s.Address, &s.Region, &s.RegionCode, &s.City, &s.AgentName)
+		if err == sql.ErrNoRows {
+			http.Error(w, "Store not found", http.StatusNotFound)
+			return
+		} else if err != nil {
+			log.Printf("Error querying store details: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		s.ID = strconv.Itoa(id)
+
+		// Query visits history
+		rows, err := h.db.Query(`
+			SELECT id, status, coverage, missing_count, agent, created_at, finalized_at
+			FROM visits
+			WHERE store_id = ?
+			ORDER BY created_at DESC
+		`, storeID)
+		if err != nil {
+			log.Printf("Error querying store visits: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		type VisitJSON struct {
+			ID          string     `json:"id"`
+			Status      string     `json:"status"`
+			Coverage    int        `json:"coverage"`
+			Missing     int        `json:"missing_count"`
+			Agent       string     `json:"agent"`
+			CreatedAt   time.Time  `json:"created_at"`
+			FinalizedAt *time.Time `json:"finalized_at,omitempty"`
+		}
+
+		visits := []VisitJSON{}
+		for rows.Next() {
+			var v VisitJSON
+			err := rows.Scan(&v.ID, &v.Status, &v.Coverage, &v.Missing, &v.Agent, &v.CreatedAt, &v.FinalizedAt)
+			if err != nil {
+				log.Printf("Error scanning visit: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			visits = append(visits, v)
+		}
+
+		response := map[string]any{
+			"store":  s,
+			"visits": visits,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var payload VisitPayload
+		err := json.NewDecoder(r.Body).Decode(&payload)
+		if err != nil {
+			log.Printf("Error decoding visit payload: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		storeID, err := strconv.Atoi(payload.Store.ID)
+		if err != nil {
+			log.Printf("Invalid store ID: %v", err)
+			http.Error(w, "Invalid store ID", http.StatusBadRequest)
+			return
+		}
+
+		// Parse times
+		createdAt, err := time.Parse(time.RFC3339, payload.CreatedAt)
+		if err != nil {
+			createdAt = time.Now()
+		}
+		var finalizedAt *time.Time
+		if payload.FinalizedAt != "" {
+			t, err := time.Parse(time.RFC3339, payload.FinalizedAt)
+			if err == nil {
+				finalizedAt = &t
+			}
+		}
+		if finalizedAt == nil && payload.Status == "finalized" {
+			t := time.Now()
+			finalizedAt = &t
+		}
+
+		// Retrieve agent name from store
+		var agentName string
+		err = h.db.QueryRow("SELECT agent_name FROM stores WHERE id = ?", storeID).Scan(&agentName)
+		if err != nil {
+			agentName = "Unknown Agent"
+		}
+
+		tx, err := h.db.Begin()
+		if err != nil {
+			log.Printf("Error starting transaction: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback()
+
+		// 1. Insert or Replace visit
+		missingCount := len(payload.MissingProducts)
+		_, err = tx.Exec(`
+			INSERT OR REPLACE INTO visits (id, store_id, status, coverage, missing_count, agent, created_at, finalized_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, payload.ID, storeID, payload.Status, payload.Coverage, missingCount, agentName, createdAt, finalizedAt)
+		if err != nil {
+			log.Printf("Error inserting visit: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// 2. Clear existing scans and products for this visit
+		_, err = tx.Exec("DELETE FROM visit_scans WHERE visit_id = ?", payload.ID)
+		if err != nil {
+			log.Printf("Error deleting existing scans: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		_, err = tx.Exec("DELETE FROM visit_products WHERE visit_id = ?", payload.ID)
+		if err != nil {
+			log.Printf("Error deleting existing products: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// 3. Process and Insert scans
+		_ = os.MkdirAll("uploads", 0755)
+		for idx, img := range payload.AnalyzedImages {
+			photoURL := ""
+			if strings.HasPrefix(img.CapturedImage, "data:image/") {
+				// Base64 Data URL, decode and save to file
+				commaIdx := strings.Index(img.CapturedImage, ",")
+				if commaIdx != -1 {
+					b64Data := img.CapturedImage[commaIdx+1:]
+					dec, err := base64.StdEncoding.DecodeString(b64Data)
+					if err == nil {
+						filename := fmt.Sprintf("visit_%s_%d.jpg", payload.ID, idx)
+						filepath := "uploads/" + filename
+						err = os.WriteFile(filepath, dec, 0644)
+						if err == nil {
+							photoURL = "/uploads/" + filename
+						} else {
+							log.Printf("Error saving scan image: %v", err)
+						}
+					} else {
+						log.Printf("Error decoding base64 image: %v", err)
+					}
+				}
+			} else {
+				photoURL = img.CapturedImage
+			}
+
+			if photoURL != "" {
+				scanID := fmt.Sprintf("%s_%d", payload.ID, idx)
+				_, err = tx.Exec(`
+					INSERT INTO visit_scans (id, visit_id, photo_url, photo_tone)
+					VALUES (?, ?, ?, ?)
+				`, scanID, payload.ID, photoURL, "neutral")
+				if err != nil {
+					log.Printf("Error inserting visit scan: %v", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+			}
+		}
+
+		// 4. Insert found products
+		for _, prod := range payload.FoundProducts {
+			_, err = tx.Exec(`
+				INSERT INTO visit_products (visit_id, sku, name, category, is_exposed)
+				VALUES (?, ?, ?, ?, ?)
+			`, payload.ID, prod.SKU, prod.Name, prod.Category, true)
+			if err != nil {
+				log.Printf("Error inserting found product: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		// 5. Insert missing products
+		for _, prod := range payload.MissingProducts {
+			_, err = tx.Exec(`
+				INSERT INTO visit_products (visit_id, sku, name, category, is_exposed)
+				VALUES (?, ?, ?, ?, ?)
+			`, payload.ID, prod.SKU, prod.Name, prod.Category, false)
+			if err != nil {
+				log.Printf("Error inserting missing product: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			log.Printf("Error committing transaction: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "success", "visit_id": payload.ID})
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) StatsOverviewHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var totalVisits int
+		err := h.db.QueryRow("SELECT COUNT(*) FROM visits WHERE status = 'finalized'").Scan(&totalVisits)
+		if err != nil {
+			log.Printf("Error query totalVisits: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var totalStores int
+		err = h.db.QueryRow("SELECT COUNT(*) FROM stores").Scan(&totalStores)
+		if err != nil {
+			log.Printf("Error query totalStores: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var visitedStores int
+		err = h.db.QueryRow("SELECT COUNT(DISTINCT store_id) FROM visits WHERE status = 'finalized'").Scan(&visitedStores)
+		if err != nil {
+			log.Printf("Error query visitedStores: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var avgCoverage float64
+		err = h.db.QueryRow("SELECT COALESCE(AVG(coverage), 0.0) FROM visits WHERE status = 'finalized'").Scan(&avgCoverage)
+		if err != nil {
+			log.Printf("Error query avgCoverage: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response := map[string]any{
+			"total_visits":   totalVisits,
+			"total_stores":   totalStores,
+			"visited_stores": visitedStores,
+			"avg_coverage":   avgCoverage,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) StatsRegionsHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		rows, err := h.db.Query(`
+			SELECT
+				s.region,
+				s.region_code,
+				COUNT(DISTINCT s.id) AS total_stores,
+				COUNT(DISTINCT v.id) AS visit_count,
+				COALESCE(AVG(v.coverage), 0.0) AS avg_coverage
+			FROM stores s
+			LEFT JOIN visits v ON s.id = v.store_id AND v.status = 'finalized'
+			GROUP BY s.region, s.region_code
+			ORDER BY avg_coverage DESC
+		`)
+		if err != nil {
+			log.Printf("Error querying region stats: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		type RegionStat struct {
+			Region      string  `json:"region"`
+			RegionCode  string  `json:"region_code"`
+			TotalStores int     `json:"total_stores"`
+			VisitCount  int     `json:"visit_count"`
+			AvgCoverage float64 `json:"avg_coverage"`
+		}
+
+		stats := []RegionStat{}
+		for rows.Next() {
+			var rs RegionStat
+			err := rows.Scan(&rs.Region, &rs.RegionCode, &rs.TotalStores, &rs.VisitCount, &rs.AvgCoverage)
+			if err != nil {
+				log.Printf("Error scanning region stat: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			stats = append(stats, rs)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stats)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) StatsTopProductsHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		rows, err := h.db.Query(`
+			SELECT
+				sku,
+				name,
+				SUM(CASE WHEN is_exposed = 1 THEN 1 ELSE 0 END) AS exposed_count,
+				COUNT(DISTINCT visit_id) AS total_visits,
+				(CAST(SUM(CASE WHEN is_exposed = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(DISTINCT visit_id)) * 100 AS presence_rate
+			FROM visit_products vp
+			JOIN visits v ON vp.visit_id = v.id
+			WHERE v.status = 'finalized'
+			GROUP BY sku, name
+			ORDER BY presence_rate DESC, exposed_count DESC
+			LIMIT 10
+		`)
+		if err != nil {
+			log.Printf("Error querying top products: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		type TopProductStat struct {
+			SKU          string  `json:"sku"`
+			Name         string  `json:"name"`
+			ExposedCount int     `json:"exposed_count"`
+			TotalVisits  int     `json:"total_visits"`
+			PresenceRate float64 `json:"presence_rate"`
+		}
+
+		stats := []TopProductStat{}
+		for rows.Next() {
+			var tp TopProductStat
+			err := rows.Scan(&tp.SKU, &tp.Name, &tp.ExposedCount, &tp.TotalVisits, &tp.PresenceRate)
+			if err != nil {
+				log.Printf("Error scanning top product: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			stats = append(stats, tp)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stats)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) StatsRecentVisitsHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		rows, err := h.db.Query(`
+			SELECT
+				v.id,
+				s.name AS store_name,
+				s.city,
+				s.region,
+				v.coverage,
+				v.finalized_at,
+				v.agent
+			FROM visits v
+			JOIN stores s ON v.store_id = s.id
+			WHERE v.status = 'finalized'
+			ORDER BY v.finalized_at DESC
+			LIMIT 10
+		`)
+		if err != nil {
+			log.Printf("Error querying recent visits: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		type RecentVisit struct {
+			ID          string    `json:"id"`
+			StoreName   string    `json:"store_name"`
+			City        string    `json:"city"`
+			Region      string    `json:"region"`
+			Coverage    int       `json:"coverage"`
+			FinalizedAt time.Time `json:"finalized_at"`
+			Agent       string    `json:"agent"`
+		}
+
+		visits := []RecentVisit{}
+		for rows.Next() {
+			var rv RecentVisit
+			err := rows.Scan(&rv.ID, &rv.StoreName, &rv.City, &rv.Region, &rv.Coverage, &rv.FinalizedAt, &rv.Agent)
+			if err != nil {
+				log.Printf("Error scanning recent visit: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			visits = append(visits, rv)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(visits)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) StatsStoresHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		rows, err := h.db.Query(`
+			SELECT
+				s.id,
+				s.code,
+				s.name,
+				s.province,
+				s.province_name,
+				s.address,
+				s.region,
+				s.region_code,
+				s.city,
+				s.agent_name,
+				v.id,
+				v.coverage,
+				v.missing_count,
+				v.finalized_at
+			FROM stores s
+			LEFT JOIN (
+				SELECT store_id, id, coverage, missing_count, finalized_at,
+				       ROW_NUMBER() OVER (PARTITION BY store_id ORDER BY finalized_at DESC) as rn
+				FROM visits
+				WHERE status = 'finalized'
+			) v ON s.id = v.store_id AND v.rn = 1
+			ORDER BY s.name ASC
+		`)
+		if err != nil {
+			log.Printf("Error querying stores stats: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		type StoreStat struct {
+			ID           string  `json:"id"`
+			Code         string  `json:"code"`
+			Name         string  `json:"name"`
+			Province     string  `json:"province"`
+			ProvinceName string  `json:"province_name"`
+			Address      string  `json:"address"`
+			Region       string  `json:"region"`
+			RegionCode   string  `json:"region_code"`
+			City         string  `json:"city"`
+			AgentName    string  `json:"agent_name"`
+			VisitID      *string `json:"visit_id,omitempty"`
+			Coverage     *int    `json:"coverage,omitempty"`
+			MissingCount *int    `json:"missing_count,omitempty"`
+			FinalizedAt  *string `json:"finalized_at,omitempty"`
+		}
+
+		stores := []StoreStat{}
+		for rows.Next() {
+			var s StoreStat
+			var id int
+			var visitID sql.NullString
+			var coverage sql.NullInt64
+			var missingCount sql.NullInt64
+			var finalizedAt sql.NullString
+
+			err := rows.Scan(&id, &s.Code, &s.Name, &s.Province, &s.ProvinceName, &s.Address, &s.Region, &s.RegionCode, &s.City, &s.AgentName,
+				&visitID, &coverage, &missingCount, &finalizedAt)
+			if err != nil {
+				log.Printf("Error scanning store stat: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			s.ID = strconv.Itoa(id)
+
+			if visitID.Valid {
+				s.VisitID = &visitID.String
+			}
+			if coverage.Valid {
+				cov := int(coverage.Int64)
+				s.Coverage = &cov
+			}
+			if missingCount.Valid {
+				mc := int(missingCount.Int64)
+				s.MissingCount = &mc
+			}
+			if finalizedAt.Valid {
+				s.FinalizedAt = &finalizedAt.String
+			}
+
+			stores = append(stores, s)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(stores)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) AgentsHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			type AgentPayload struct {
+				Zona          string `json:"zona"`
+				Agente        string `json:"agente"`
+				Note          string `json:"note"`
+				Tel           string `json:"tel"`
+				Email         string `json:"email"`
+				EmailPersonal string `json:"email_personal"`
+			}
+
+			var p AgentPayload
+			if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+				http.Error(w, "Invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			if p.Agente == "" || p.Zona == "" {
+				http.Error(w, "Missing required fields (agente, zona)", http.StatusBadRequest)
+				return
+			}
+
+			cleanedZona := strings.ToUpper(strings.TrimSpace(p.Zona))
+			cleanedAgente := strings.ToUpper(strings.TrimSpace(p.Agente))
+
+			res, err := h.db.Exec(`
+				INSERT INTO agents (zona, agente, note, tel, email, email_personal)
+				VALUES (?, ?, ?, ?, ?, ?)
+			`, cleanedZona, cleanedAgente, p.Note, p.Tel, p.Email, p.EmailPersonal)
+			if err != nil {
+				log.Printf("Error inserting agent: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			lastID, _ := res.LastInsertId()
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]any{
+				"id":             strconv.FormatInt(lastID, 10),
+				"zona":           cleanedZona,
+				"agente":         cleanedAgente,
+				"note":           p.Note,
+				"tel":            p.Tel,
+				"email":          p.Email,
+				"email_personal": p.EmailPersonal,
+				"status":         "created",
+			})
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		q := r.URL.Query().Get("q")
+		zona := r.URL.Query().Get("zona")
+
+		queryStr := "SELECT id, zona, agente, note, tel, email, email_personal FROM agents WHERE 1=1"
+		var args []any
+
+		if q != "" {
+			queryStr += " AND (agente LIKE ? OR zona LIKE ? OR email_personal LIKE ?)"
+			likeQ := "%" + q + "%"
+			args = append(args, likeQ, likeQ, likeQ)
+		}
+		if zona != "" {
+			queryStr += " AND zona LIKE ?"
+			args = append(args, "%" + zona + "%")
+		}
+
+		queryStr += " ORDER BY agente ASC"
+
+		rows, err := h.db.Query(queryStr, args...)
+		if err != nil {
+			log.Printf("Error querying agents: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		type AgentJSON struct {
+			ID            string `json:"id"`
+			Zona          string `json:"zona"`
+			Agente        string `json:"agente"`
+			Note          string `json:"note"`
+			Tel           string `json:"tel"`
+			Email         string `json:"email"`
+			EmailPersonal string `json:"email_personal"`
+		}
+
+		agents := []AgentJSON{}
+		for rows.Next() {
+			var id int
+			var a AgentJSON
+			err := rows.Scan(&id, &a.Zona, &a.Agente, &a.Note, &a.Tel, &a.Email, &a.EmailPersonal)
+			if err != nil {
+				log.Printf("Error scanning agent: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			a.ID = strconv.Itoa(id)
+			agents = append(agents, a)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(agents)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			parts := strings.Split(r.URL.Path, "/")
+			if len(parts) < 3 || parts[2] == "" {
+				http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+				return
+			}
+			agentIDStr := parts[2]
+			agentID, err := strconv.Atoi(agentIDStr)
+			if err != nil {
+				http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+				return
+			}
+
+			res, err := h.db.Exec("DELETE FROM agents WHERE id = ?", agentID)
+			if err != nil {
+				log.Printf("Error deleting agent: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			rowsAffected, _ := res.RowsAffected()
+			if rowsAffected == 0 {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]any{
+				"status": "deleted",
+			})
+			return
+		}
+
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+

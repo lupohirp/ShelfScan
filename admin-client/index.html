@@ -92,6 +92,7 @@
         <div style="display:flex;gap:4px;margin-left:18px;">
           <div onClick="{{ goOverview }}" style="{{ navOverviewStyle }}">{{ t.navOverview }}</div>
           <div onClick="{{ goSearch }}" style="{{ navSearchStyle }}">{{ t.navJewelers }}</div>
+          <div onClick="{{ goAgents }}" style="{{ navAgentsStyle }}">{{ t.navAgents }}</div>
           <div onClick="{{ goInventory }}" style="{{ navInventoryStyle }}">{{ t.navInventory }}</div>
         </div>
 
@@ -203,35 +204,47 @@
     <!-- ============ SEARCH ============ -->
     <sc-if value="{{ isSearch }}" hint-placeholder-val="">
     <div style="max-width:1320px;margin:0 auto;padding:clamp(26px,4vw,46px) clamp(20px,4vw,40px) 70px;">
-      <div style="margin-bottom:24px;">
-        <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:clamp(26px,3vw,34px);letter-spacing:-.01em;">{{ t.searchTitle }}</div>
-        <div style="color:#8c8a85;font-size:14.5px;margin-top:6px;">{{ t.searchSub }}</div>
+      <div style="margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;">
+        <div>
+          <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:clamp(26px,3vw,34px);letter-spacing:-.01em;">{{ t.searchTitle }}</div>
+          <div style="color:#8c8a85;font-size:14.5px;margin-top:6px;">{{ t.searchSub }}</div>
+        </div>
+        <button onClick="{{ openAddStoreModal }}" style="height:44px;padding:0 20px;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:8px;" style-hover="background:#3a3834;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          {{ t.addStoreBtn }}
+        </button>
       </div>
 
       <!-- filters -->
       <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:20px 22px;">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;align-items:end;">
-          <div>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:end;">
+          <div style="flex:1 1 140px;min-width:120px;">
             <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fCode }}</label>
             <input value="{{ fCodice }}" onInput="{{ onFCodice }}" placeholder="GJ-0148" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
           </div>
-          <div>
+          <div style="flex:2 1 200px;min-width:180px;">
             <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fName }}</label>
             <input value="{{ fNome }}" onInput="{{ onFNome }}" placeholder="{{ t.fNamePh }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
           </div>
-          <div>
+          <div style="flex:0.8 1 100px;min-width:80px;">
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fProvince }}</label>
+            <input value="{{ fProvincia }}" onInput="{{ onFProvincia }}" placeholder="{{ t.fProvincePh }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
+          </div>
+          <div style="flex:1.5 1 160px;min-width:130px;">
             <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fCity }}</label>
             <input value="{{ fCitta }}" onInput="{{ onFCitta }}" placeholder="{{ t.fCityPh }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
           </div>
-          <div>
+          <div style="flex:1.2 1 150px;min-width:120px;">
             <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fSku }}</label>
             <input value="{{ fSku }}" onInput="{{ onFSku }}" placeholder="LJ2891" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
           </div>
-          <div style="display:flex;gap:10px;">
-            <button onClick="{{ doReset }}" style="height:44px;padding:0 16px;background:#fff;color:#4a4843;border:1px solid #e2e1dc;border-radius:2px;font-size:13px;letter-spacing:.04em;cursor:pointer;white-space:nowrap;" style-hover="border-color:#141414;color:#141414;">{{ t.reset }}</button>
-            <button onClick="{{ doSearch }}" style="height:44px;flex:1;min-width:120px;padding:0 18px;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;" style-hover="background:#000;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>{{ t.search }}
-            </button>
+          <div style="flex:0 0 auto;margin-left:auto;">
+            <div style="display:flex;gap:10px;">
+              <button onClick="{{ doReset }}" style="height:44px;padding:0 16px;background:#fff;color:#4a4843;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;white-space:nowrap;" style-hover="border-color:#141414;color:#141414;">{{ t.reset }}</button>
+              <button onClick="{{ doSearch }}" style="height:44px;width:130px;padding:0 18px;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;" style-hover="background:#000;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>{{ t.search }}
+              </button>
+            </div>
           </div>
         </div>
         <sc-if value="{{ skuActive }}" hint-placeholder-val="">
@@ -251,23 +264,99 @@
       <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;overflow:hidden;">
         <div style="overflow-x:auto;">
           <div style="min-width:760px;">
-            <div style="display:grid;grid-template-columns:112px 2fr 1.1fr 1.2fr 1fr 1fr 1.1fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
-              <span>{{ t.colCode }}</span><span>{{ t.colName }}</span><span>{{ t.colCity }}</span><span>{{ t.colAgent }}</span><span>{{ t.colVisit }}</span><span>{{ t.colCoverage }}</span><span>{{ t.colMissing }}</span>
+            <div style="display:grid;grid-template-columns:112px 2fr 1.1fr 1.2fr 1fr 1.1fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
+              <span>{{ t.colCode }}</span><span>{{ t.colName }}</span><span>{{ t.colCity }}</span><span>{{ t.colAgent }}</span><span>{{ t.colVisit }}</span><span>{{ t.colMissing }}</span>
             </div>
             <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ true }}">
             <sc-for list="{{ results }}" as="row" hint-placeholder-count="8">
-              <div onClick="{{ row.open }}" style="display:grid;grid-template-columns:112px 2fr 1.1fr 1.2fr 1fr 1fr 1.1fr;gap:14px;padding:15px 22px;border-top:1px solid #f0efec;align-items:center;cursor:pointer;" style-hover="background:#faf9f7;">
+              <div onClick="{{ row.open }}" style="display:grid;grid-template-columns:112px 2fr 1.1fr 1.2fr 1fr 1.1fr;gap:14px;padding:15px 22px;border-top:1px solid #f0efec;align-items:center;cursor:pointer;" style-hover="background:#faf9f7;">
                 <span style="font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;color:#9a7b3f;">{{ row.code }}</span>
                 <span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ row.name }}</span>
                 <span style="font-size:13.5px;color:#4a4843;">{{ row.city }}</span>
                 <span style="font-size:13px;color:#8c8a85;">{{ row.agent }}</span>
                 <span style="font-size:12.5px;color:#8c8a85;white-space:nowrap;">{{ row.visitLabel }}</span>
-                <span style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-variant-numeric:tabular-nums;"><span style="width:7px;height:7px;border-radius:50%;background:{{ row.coverageColor }};display:inline-block;flex-shrink:0;"></span>{{ row.coverageLabel }}</span>
                 <span style="font-size:13.5px;font-variant-numeric:tabular-nums;color:{{ row.missingColor }};">{{ row.missingLabel }}</span>
               </div>
             </sc-for>
             </sc-if>
             <sc-if value="{{ noResults }}" hint-placeholder-val="">
+              <div style="padding:54px 22px;text-align:center;color:#8c8a85;">
+                <div style="font-family:'Jost',sans-serif;font-size:17px;color:#141414;margin-bottom:6px;">{{ t.noResTitle }}</div>
+                <div style="font-size:13.5px;">{{ t.noResSub }}</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ AGENTS ============ -->
+    <sc-if value="{{ isAgents }}" hint-placeholder-val="">
+    <div style="max-width:1320px;margin:0 auto;padding:clamp(26px,4vw,46px) clamp(20px,4vw,40px) 70px;">
+      <div style="margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;">
+        <div>
+          <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:clamp(26px,3vw,34px);letter-spacing:-.01em;">{{ t.agentsTitle }}</div>
+          <div style="color:#8c8a85;font-size:14.5px;margin-top:6px;">{{ t.agentsSub }}</div>
+        </div>
+        <button onClick="{{ openAddAgentModal }}" style="height:44px;padding:0 20px;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:8px;" style-hover="background:#3a3834;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          {{ t.addAgentBtn }}
+        </button>
+      </div>
+
+      <!-- filters -->
+      <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:20px 22px;margin-bottom:24px;">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:end;">
+          <div style="flex:2 1 240px;min-width:180px;">
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fAgentQueryLabel }}</label>
+            <input value="{{ fAgentQuery }}" onInput="{{ onFAgentQuery }}" placeholder="{{ t.fAgentQueryPh }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
+          </div>
+          <div style="flex:1 1 180px;min-width:140px;">
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fAgentZonaLabel }}</label>
+            <input value="{{ fAgentZona }}" onInput="{{ onFAgentZona }}" placeholder="{{ t.fAgentZonaPh }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
+          </div>
+          <div style="flex:0 0 auto;margin-left:auto;">
+            <div style="display:flex;gap:10px;">
+              <button onClick="{{ doResetAgents }}" style="height:44px;padding:0 16px;background:#fff;color:#4a4843;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;white-space:nowrap;" style-hover="border-color:#141414;color:#141414;">{{ t.reset }}</button>
+              <button onClick="{{ doSearchAgents }}" style="height:44px;width:130px;padding:0 18px;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;" style-hover="background:#000;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>{{ t.search }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- result count -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:24px 2px 12px;">
+        <div style="font-size:13px;color:#8c8a85;"><span style="color:#141414;font-weight:600;font-variant-numeric:tabular-nums;">{{ agentsCount }}</span> {{ t.agentsFound }}</div>
+      </div>
+
+      <!-- results table -->
+      <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <div style="min-width:760px;">
+            <div style="display:grid;grid-template-columns:1.3fr 1.4fr 1.2fr 1.8fr 1.8fr 2.2fr .8fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
+              <span>{{ t.colZona }}</span><span>{{ t.colAgente }}</span><span>{{ t.colTel }}</span><span>{{ t.colEmail }}</span><span>{{ t.colEmailPersonal }}</span><span>{{ t.colNote }}</span><span style="text-align:right;">{{ t.colActions }}</span>
+            </div>
+            <sc-if value="{{ hasAgentsResults }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ agentsResults }}" as="row" hint-placeholder-count="8">
+              <div style="display:grid;grid-template-columns:1.3fr 1.4fr 1.2fr 1.8fr 1.8fr 2.2fr .8fr;gap:14px;padding:15px 22px;border-top:1px solid #f0efec;align-items:center;" style-hover="background:#faf9f7;">
+                <span style="font-size:13.5px;font-weight:500;color:#141414;">{{ row.zona }}</span>
+                <span style="font-family:'Jost',sans-serif;font-size:14px;font-weight:600;color:#9a7b3f;">{{ row.agente }}</span>
+                <span style="font-size:13.5px;color:#4a4843;white-space:nowrap;">{{ row.tel }}</span>
+                <span style="font-size:13px;color:#8c8a85;word-break:break-all;">{{ row.email }}</span>
+                <span style="font-size:13px;color:#8c8a85;word-break:break-all;">{{ row.emailPersonal }}</span>
+                <span style="font-size:13px;color:#8c8a85;">{{ row.note }}</span>
+                <div style="display:flex;justify-content:flex-end;">
+                  <button onClick="{{ row.delete }}" style="cursor:pointer;background:transparent;border:1px solid #efd9d2;color:#b25540;padding:6px;border-radius:2px;display:flex;align-items:center;justify-content:center;transition:all .15s;" style-hover="background:#f7ebe7;border-color:#b25540;" title="{{ t.deleteBtn }}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  </button>
+                </div>
+              </div>
+            </sc-for>
+            </sc-if>
+            <sc-if value="{{ noAgentsResults }}" hint-placeholder-val="">
               <div style="padding:54px 22px;text-align:center;color:#8c8a85;">
                 <div style="font-family:'Jost',sans-serif;font-size:17px;color:#141414;margin-bottom:6px;">{{ t.noResTitle }}</div>
                 <div style="font-size:13.5px;">{{ t.noResSub }}</div>
@@ -453,7 +542,7 @@
               </sc-if>
             </button>
             <sc-if value="{{ invEditMode }}">
-              <button onClick="{{ cancelEdit }}" style="height:48px;padding:0 18px;background:#fff;color:#4a4843;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;cursor:pointer;transition:all .15s;" style-hover="border-color:#141414;color:#141414;">
+              <button onClick="{{ cancelEdit }}" style="height:48px;padding:0 18px;background:#fff;color:#4a4843;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:all .15s;" style-hover="border-color:#141414;color:#141414;">
                 {{ t.cancelBtn }}
               </button>
             </sc-if>
@@ -534,7 +623,7 @@
 
           <sc-if value="{{ hasMoreInventory }}">
             <div style="text-align:center;margin-top:16px;padding-top:14px;border-top:1px solid #f0efec;">
-              <button onClick="{{ loadMoreInventory }}" style="height:36px;padding:0 22px;background:#fff;color:#141414;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:12.5px;letter-spacing:.04em;cursor:pointer;transition:all .15s;" style-hover="border-color:#141414;">
+              <button onClick="{{ loadMoreInventory }}" style="height:36px;padding:0 22px;background:#fff;color:#141414;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;transition:all .15s;" style-hover="border-color:#141414;">
                 {{ t.loadMore }}
               </button>
             </div>
@@ -564,8 +653,14 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>{{ sel.address }}, {{ sel.city }}
             </div>
           </div>
-          <div onClick="{{ closeDrawer }}" style="cursor:pointer;color:#8c8a85;width:34px;height:34px;border:1px solid #e7e6e2;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;" style-hover="border-color:#141414;color:#141414;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+            <button onClick="{{ sel.deleteStore }}" style="cursor:pointer;background:transparent;border:1px solid #efd9d2;color:#b25540;padding:6px 12px;font-family:'Jost',sans-serif;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;border-radius:2px;display:flex;align-items:center;gap:6px;transition:all .15s;" style-hover="background:#f7ebe7;border-color:#b25540;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              {{ t.deleteBtn }}
+            </button>
+            <div onClick="{{ closeDrawer }}" style="cursor:pointer;color:#8c8a85;width:34px;height:34px;border:1px solid #e7e6e2;border-radius:2px;display:flex;align-items:center;justify-content:center;" style-hover="border-color:#141414;color:#141414;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
           </div>
         </div>
       </div>
@@ -710,6 +805,164 @@
   </div>
   </sc-if>
 
+  <!-- ===================== ADD STORE MODAL ===================== -->
+  <sc-if value="{{ addStoreModalOpen }}" hint-placeholder-val="">
+  <div>
+    <!-- Backdrop -->
+    <div onClick="{{ closeAddStoreModal }}" style="position:fixed;inset:0;background:rgba(20,20,20,.34);z-index:100;backdrop-filter:blur(2px);"></div>
+    
+    <!-- Modal content container -->
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(600px, 90vw);max-height:90vh;background:#fff;z-index:101;box-shadow:0 24px 60px rgba(20,20,20,.2);display:flex;flex-direction:column;border-radius:4px;overflow:hidden;border:1px solid #e7e6e2;">
+      <!-- Modal Header -->
+      <div style="padding:20px 24px;border-bottom:1px solid #e7e6e2;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+        <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:20px;letter-spacing:-.01em;color:#141414;">{{ t.addStoreTitle }}</div>
+        <div onClick="{{ closeAddStoreModal }}" style="cursor:pointer;color:#8c8a85;width:28px;height:28px;border:1px solid #e7e6e2;border-radius:2px;display:flex;align-items:center;justify-content:center;" style-hover="border-color:#141414;color:#141414;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      
+      <!-- Modal Body -->
+      <div style="padding:24px;overflow-y:auto;flex-grow:1;background:#faf9f7;">
+        <sc-if value="{{ addStoreError }}" hint-placeholder-val="">
+          <div style="background:#f7ebe7;border:1px solid #efd9d2;color:#b25540;font-size:13.5px;padding:12px;border-radius:2px;margin-bottom:18px;display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {{ addStoreError }}
+          </div>
+        </sc-if>
+        
+        <!-- Form grid for 2-column inputs -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeCode }} *</label>
+            <input value="{{ newStoreCode }}" onInput="{{ onNewStoreCode }}" placeholder="es. GJ-0001" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeName }} *</label>
+            <input value="{{ newStoreName }}" onInput="{{ onNewStoreName }}" placeholder="es. Rossi Gioielli" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeProvince }} *</label>
+            <input value="{{ newStoreProvince }}" onInput="{{ onNewStoreProvince }}" placeholder="es. MI" maxlength="2" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeProvinceName }} *</label>
+            <input value="{{ newStoreProvinceName }}" onInput="{{ onNewStoreProvinceName }}" placeholder="es. Milano" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeCity }} *</label>
+            <input value="{{ newStoreCity }}" onInput="{{ onNewStoreCity }}" placeholder="es. Milano" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeAddress }} *</label>
+            <input value="{{ newStoreAddress }}" onInput="{{ onNewStoreAddress }}" placeholder="es. Via Torino 15" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeRegion }} *</label>
+            <input value="{{ newStoreRegion }}" onInput="{{ onNewStoreRegion }}" placeholder="es. Lombardia" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeRegionCode }} *</label>
+            <input value="{{ newStoreRegionCode }}" onInput="{{ onNewStoreRegionCode }}" placeholder="es. LOM" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.storeAgent }} *</label>
+          <select value="{{ newStoreAgentName }}" onChange="{{ onNewStoreAgentName }}" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;">
+            <option value="">{{ t.selectAgent }}</option>
+            <sc-for list="{{ availableAgentsSelect }}" as="agt">
+              <option value="{{ agt.name }}">{{ agt.label }}</option>
+            </sc-for>
+          </select>
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div style="padding:16px 24px;border-top:1px solid #e7e6e2;display:flex;justify-content:flex-end;gap:12px;flex-shrink:0;">
+        <button onClick="{{ closeAddStoreModal }}" style="cursor:pointer;background:transparent;border:1px solid #e7e6e2;color:#8c8a85;padding:8px 16px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;border-radius:2px;transition:all .15s;" style-hover="border-color:#141414;color:#141414;">{{ t.cancelBtn }}</button>
+        <button onClick="{{ submitAddStore }}" style="cursor:pointer;background:#141414;border:1px solid #141414;color:#fff;padding:8px 20px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;border-radius:2px;transition:all .15s;" style-hover="background:#3a3834;border-color:#3a3834;">{{ t.confirmBtn }}</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== ADD AGENT MODAL ===================== -->
+  <sc-if value="{{ addAgentModalOpen }}" hint-placeholder-val="">
+  <div>
+    <!-- Backdrop -->
+    <div onClick="{{ closeAddAgentModal }}" style="position:fixed;inset:0;background:rgba(20,20,20,.34);z-index:100;backdrop-filter:blur(2px);"></div>
+    
+    <!-- Modal content container -->
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(600px, 90vw);max-height:90vh;background:#fff;z-index:101;box-shadow:0 24px 60px rgba(20,20,20,.2);display:flex;flex-direction:column;border-radius:4px;overflow:hidden;border:1px solid #e7e6e2;">
+      <!-- Modal Header -->
+      <div style="padding:20px 24px;border-bottom:1px solid #e7e6e2;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+        <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:20px;letter-spacing:-.01em;color:#141414;">{{ t.addAgentTitle }}</div>
+        <div onClick="{{ closeAddAgentModal }}" style="cursor:pointer;color:#8c8a85;width:28px;height:28px;border:1px solid #e7e6e2;border-radius:2px;display:flex;align-items:center;justify-content:center;" style-hover="border-color:#141414;color:#141414;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      
+      <!-- Modal Body -->
+      <div style="padding:24px;overflow-y:auto;flex-grow:1;background:#faf9f7;">
+        <sc-if value="{{ addAgentError }}" hint-placeholder-val="">
+          <div style="background:#f7ebe7;border:1px solid #efd9d2;color:#b25540;font-size:13.5px;padding:12px;border-radius:2px;margin-bottom:18px;display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {{ addAgentError }}
+          </div>
+        </sc-if>
+        
+        <!-- Form fields -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colAgente }} *</label>
+            <input value="{{ newAgentName }}" onInput="{{ onNewAgentName }}" placeholder="es. Marco Ferraro" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colZona }} *</label>
+            <input value="{{ newAgentZona }}" onInput="{{ onNewAgentZona }}" placeholder="es. Lombardia" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colTel }}</label>
+            <input value="{{ newAgentTel }}" onInput="{{ onNewAgentTel }}" placeholder="es. +39 333 1234567" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colEmail }}</label>
+            <input value="{{ newAgentEmail }}" onInput="{{ onNewAgentEmail }}" placeholder="es. marco.ferraro@liujo.it" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colEmailPersonal }}</label>
+          <input value="{{ newAgentEmailPersonal }}" onInput="{{ onNewAgentEmailPersonal }}" placeholder="es. m.ferraro@gmail.com" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colNote }}</label>
+          <input value="{{ newAgentNote }}" onInput="{{ onNewAgentNote }}" placeholder="es. Agente principale per il nord Italia" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div style="padding:16px 24px;border-top:1px solid #e7e6e2;display:flex;justify-content:flex-end;gap:12px;flex-shrink:0;">
+        <button onClick="{{ closeAddAgentModal }}" style="cursor:pointer;background:transparent;border:1px solid #e7e6e2;color:#8c8a85;padding:8px 16px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;border-radius:2px;transition:all .15s;" style-hover="border-color:#141414;color:#141414;">{{ t.cancelBtn }}</button>
+        <button onClick="{{ submitAddAgent }}" style="cursor:pointer;background:#141414;border:1px solid #141414;color:#fff;padding:8px 20px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;border-radius:2px;transition:all .15s;" style-hover="background:#3a3834;border-color:#3a3834;">{{ t.confirmBtn }}</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -717,7 +970,27 @@ class Component extends DCLogic {
   state = {
     screen: 'login', view: 'overview', lang: 'it',
     email: '', password: '', loginError: '',
-    fCodice: '', fNome: '', fCitta: '', fSku: '',
+    fCodice: '', fNome: '', fProvincia: '', fCitta: '', fSku: '',
+    fAgentQuery: '', fAgentZona: '',
+    addStoreModalOpen: false,
+    addStoreError: '',
+    newStoreCode: '',
+    newStoreName: '',
+    newStoreProvince: '',
+    newStoreProvinceName: '',
+    newStoreCity: '',
+    newStoreAddress: '',
+    newStoreRegion: '',
+    newStoreRegionCode: '',
+    newStoreAgentName: '',
+    addAgentModalOpen: false,
+    addAgentError: '',
+    newAgentName: '',
+    newAgentZona: '',
+    newAgentTel: '',
+    newAgentEmail: '',
+    newAgentEmailPersonal: '',
+    newAgentNote: '',
     selectedId: null, selectedVisit: null, tab: 'photos',
     searchTick: 0,
     invName: '', invSku: '', invCategory: 'watch',
@@ -734,8 +1007,10 @@ class Component extends DCLogic {
   componentWillMount() { this.build(); }
   constructor(props){ super(props); this.build(); }
 
-  componentDidMount() {
-    this.fetchInventory();
+  async componentDidMount() {
+    await this.fetchInventory();
+    await this.fetchDashboardData();
+    await this.fetchAgentsData();
   }
 
   cleanImgUrl(url) {
@@ -745,6 +1020,14 @@ class Component extends DCLogic {
       return '/api' + url.substring(idx);
     }
     return url;
+  }
+
+  getUrl(path) {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+      return `http://${hostname}:8080${path}`;
+    }
+    return `/api${path}`;
   }
 
   async fetchInventory() {
@@ -1230,6 +1513,146 @@ class Component extends DCLogic {
     return { stone, style };
   }
 
+  async doAddAgent() {
+    const s = this.state;
+    const agente = (s.newAgentName || '').trim();
+    const zona = (s.newAgentZona || '').trim();
+    const note = (s.newAgentNote || '').trim();
+    const tel = (s.newAgentTel || '').trim();
+    const email = (s.newAgentEmail || '').trim();
+    const email_personal = (s.newAgentEmailPersonal || '').trim();
+
+    if (!agente || !zona) {
+      this.setState({ addAgentError: s.lang === 'en' ? 'Please fill in name and zone.' : 'Compila nome e zona.' });
+      return;
+    }
+
+    try {
+      const payload = {
+        agente, zona, note, tel, email, email_personal
+      };
+
+      const res = await fetch(this.getUrl('/agents'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res && (res.status === 200 || res.status === 201)) {
+        this.setState({
+          addAgentModalOpen: false,
+          addAgentError: '',
+          newAgentName: '',
+          newAgentZona: '',
+          newAgentTel: '',
+          newAgentEmail: '',
+          newAgentEmailPersonal: '',
+          newAgentNote: ''
+        });
+        await this.fetchAgentsData();
+      } else {
+        const text = await res.text();
+        this.setState({ addAgentError: (s.lang === 'en' ? 'Failed to create agent: ' : 'Impossibile creare l\'agente: ') + text });
+      }
+    } catch(err) {
+      console.error('Error creating agent:', err);
+      this.setState({ addAgentError: 'Error: ' + err.message });
+    }
+  }
+
+  async doDeleteAgent(id) {
+    const msg = this.state.lang === 'en' 
+      ? 'Are you sure you want to delete this agent?' 
+      : 'Sei sicuro di voler eliminare questo agente?';
+    if (!confirm(msg)) return;
+
+    try {
+      const res = await fetch(this.getUrl(`/agents/${id}`), { method: 'DELETE' });
+      if (res && res.ok) {
+        await this.fetchAgentsData();
+      } else {
+        alert(this.state.lang === 'en' ? 'Failed to delete agent' : 'Impossibile eliminare l\'agente');
+      }
+    } catch(err) {
+      console.error('Error deleting agent:', err);
+      alert('Error: ' + err.message);
+    }
+  }
+
+  async doDeleteStore(id) {
+    const msg = this.state.lang === 'en' 
+      ? 'Are you sure you want to delete this store and all its visits?' 
+      : 'Sei sicuro di voler eliminare questa gioielleria e tutte le sue visite?';
+    if (!confirm(msg)) return;
+
+    try {
+      const res = await fetch(this.getUrl(`/stores/${id}`), { method: 'DELETE' });
+      if (res && res.ok) {
+        this.setState({ selectedId: null, selectedVisit: null });
+        await this.fetchDashboardData();
+      } else {
+        alert(this.state.lang === 'en' ? 'Failed to delete store' : 'Impossibile eliminare la gioielleria');
+      }
+    } catch(err) {
+      console.error('Error deleting store:', err);
+      alert('Error: ' + err.message);
+    }
+  }
+
+  async doAddStore() {
+    const s = this.state;
+    const code = (s.newStoreCode || '').trim();
+    const name = (s.newStoreName || '').trim();
+    const province = (s.newStoreProvince || '').trim().toUpperCase();
+    const provinceName = (s.newStoreProvinceName || '').trim();
+    const city = (s.newStoreCity || '').trim();
+    const address = (s.newStoreAddress || '').trim();
+    const region = (s.newStoreRegion || '').trim();
+    const regionCode = (s.newStoreRegionCode || '').trim().toUpperCase();
+    const agentName = s.newStoreAgentName;
+
+    if (!code || !name || !province || !provinceName || !city || !address || !region || !regionCode || !agentName) {
+      this.setState({ addStoreError: s.lang === 'en' ? 'Please fill in all required fields.' : 'Compila tutti i campi obbligatori.' });
+      return;
+    }
+
+    try {
+      const payload = {
+        code, name, province, province_name: provinceName,
+        address, region, region_code: regionCode, city, agent_name: agentName
+      };
+
+      const res = await fetch(this.getUrl('/stores'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res && (res.status === 200 || res.status === 201)) {
+        this.setState({
+          addStoreModalOpen: false,
+          addStoreError: '',
+          newStoreCode: '',
+          newStoreName: '',
+          newStoreProvince: '',
+          newStoreProvinceName: '',
+          newStoreCity: '',
+          newStoreAddress: '',
+          newStoreRegion: '',
+          newStoreRegionCode: '',
+          newStoreAgentName: ''
+        });
+        await this.fetchDashboardData();
+      } else {
+        const text = await res.text();
+        this.setState({ addStoreError: (s.lang === 'en' ? 'Failed to create store: ' : 'Impossibile creare la gioielleria: ') + text });
+      }
+    } catch(err) {
+      console.error('Error creating store:', err);
+      this.setState({ addStoreError: 'Error: ' + err.message });
+    }
+  }
+
   rebuildStats() {
     const presence = {};
     this.jewelers.forEach((j) => {
@@ -1260,13 +1683,19 @@ class Component extends DCLogic {
         }
       });
 
-      const latest = j.visits[0];
-      j.coverage = latest.coverage;
-      j.missingCount = latest.missingCount;
-
-      latest.exposed.forEach(p => {
-        presence[p.sku] = (presence[p.sku] || 0) + 1;
-      });
+      const latest = j.visits && j.visits.length > 0 ? j.visits[0] : null;
+      if (latest) {
+        j.coverage = latest.coverage;
+        j.missingCount = latest.missingCount;
+        if (latest.exposed) {
+          latest.exposed.forEach(p => {
+            presence[p.sku] = (presence[p.sku] || 0) + 1;
+          });
+        }
+      } else {
+        j.coverage = j.coverage || 0;
+        j.missingCount = j.missingCount || 0;
+      }
     });
 
     this.topNational = Object.keys(presence).map(sku => ({
@@ -1283,16 +1712,151 @@ class Component extends DCLogic {
 
     const map = {};
     this.jewelers.forEach(j => {
-      (map[j.region] = map[j.region] || []).push(j.coverage);
+      if (j.region) {
+        (map[j.region] = map[j.region] || []).push(j.coverage);
+      }
     });
     this.regionsData = Object.keys(map).map(name => ({
       name,
       cov: Math.round(map[name].reduce((a, b) => a + b, 0) / map[name].length)
     })).sort((a, b) => b.cov - a.cov).slice(0, 6);
 
-    this.avgCoverage = Math.round(this.jewelers.reduce((a, j) => a + j.coverage, 0) / this.jewelers.length);
-    this.avgMissing = Math.round(this.jewelers.reduce((a, j) => a + j.missingCount, 0) / this.jewelers.length);
+    if (this.jewelers.length > 0) {
+      this.avgCoverage = Math.round(this.jewelers.reduce((a, j) => a + j.coverage, 0) / this.jewelers.length);
+      this.avgMissing = Math.round(this.jewelers.reduce((a, j) => a + j.missingCount, 0) / this.jewelers.length);
+    } else {
+      this.avgCoverage = 0;
+      this.avgMissing = 0;
+    }
   }
+
+  async fetchDashboardData() {
+    try {
+      const getUrl = (path) => this.getUrl(path);
+
+      // 1. Fetch overview
+      let overviewRes;
+      try {
+        overviewRes = await fetch(getUrl('/stats/overview'));
+      } catch(e) {
+        overviewRes = await fetch(`http://localhost:8080/stats/overview`);
+      }
+      if (overviewRes && overviewRes.ok) {
+        const overview = await overviewRes.json();
+        this.avgCoverage = Math.round(overview.avg_coverage);
+      }
+
+      // 2. Fetch regions
+      let regionsRes;
+      try {
+        regionsRes = await fetch(getUrl('/stats/regions'));
+      } catch(e) {
+        regionsRes = await fetch(`http://localhost:8080/stats/regions`);
+      }
+      if (regionsRes && regionsRes.ok) {
+        const regions = await regionsRes.json();
+        this.regionsData = regions.map(r => ({ name: r.region, cov: Math.round(r.avg_coverage) }));
+      }
+
+      // 3. Fetch top products
+      let topRes;
+      try {
+        topRes = await fetch(getUrl('/stats/top-products'));
+      } catch(e) {
+        topRes = await fetch(`http://localhost:8080/stats/top-products`);
+      }
+      if (topRes && topRes.ok) {
+        const topProd = await topRes.json();
+        this.topNational = topProd.map(tp => ({
+          sku: tp.sku,
+          count: tp.exposed_count,
+          p: this.products.find(x => x.sku === tp.sku) || { sku: tp.sku, name: tp.name, cat: 'Altro' }
+        }));
+        this.maxNational = this.topNational.length > 0 ? this.topNational[0].count : 1;
+      }
+
+      // 4. Fetch stores and latest visits
+      let storesRes;
+      try {
+        storesRes = await fetch(getUrl('/stats/stores'));
+      } catch(e) {
+        storesRes = await fetch(`http://localhost:8080/stats/stores`);
+      }
+      if (storesRes && storesRes.ok) {
+        const stores = await storesRes.json();
+        this.jewelers = stores.map((s, idx) => {
+          const visits = [];
+          if (s.finalized_at) {
+            visits.push({
+              date: new Date(s.finalized_at),
+              agent: s.agent_name,
+              coverage: s.coverage || 0,
+              missingCount: s.missing_count || 0,
+              exposed: [], // empty by default
+              missing: [],
+              photos: []
+            });
+          }
+          return {
+            id: s.id,
+            code: s.code,
+            name: s.name,
+            city: s.city,
+            region: s.region,
+            address: s.address,
+            agent: s.agent_name,
+            province: s.province,
+            province_name: s.province_name,
+            visits: visits,
+            coverage: s.coverage !== undefined && s.coverage !== null ? s.coverage : 0,
+            missingCount: s.missing_count !== undefined && s.missing_count !== null ? s.missing_count : 0,
+            lastVisit: s.finalized_at ? new Date(s.finalized_at) : null
+          };
+        });
+
+        const visitedJewelers = this.jewelers.filter(j => j.lastVisit);
+        if (visitedJewelers.length > 0) {
+          this.avgMissing = Math.round(visitedJewelers.reduce((a, j) => a + j.missingCount, 0) / visitedJewelers.length);
+        } else {
+          this.avgMissing = 0;
+        }
+      }
+
+      this.setState({ searchTick: this.state.searchTick + 1 });
+    } catch(err) {
+      console.error('Error fetching dashboard data:', err);
+    }
+  }
+
+  async fetchAgentsData() {
+    try {
+      let res;
+      try {
+        res = await fetch(this.getUrl('/agents'));
+      } catch(e) {
+        res = await fetch('http://localhost:8080/agents');
+      }
+      if (res && res.ok) {
+        this.agents = await res.json();
+      }
+      this.setState({ searchTick: this.state.searchTick + 1 });
+    } catch(err) {
+      console.error('Error fetching agents data:', err);
+    }
+  }
+
+  filteredAgents() {
+    const s = this.state;
+    const q = (s.fAgentQuery || '').trim().toLowerCase();
+    const zona = (s.fAgentZona || '').trim().toLowerCase();
+    return (this.agents || []).filter(a => {
+      if (!a) return false;
+      if (q && !(a.agente || '').toLowerCase().includes(q) && !(a.email_personal || '').toLowerCase().includes(q) && !(a.tel || '').toLowerCase().includes(q)) return false;
+      if (zona && !(a.zona || '').toLowerCase().includes(zona)) return false;
+      return true;
+    });
+  }
+
 
   async handlePhotoUpload(e, jewelerId, visitIdx, photoIdx) {
     const file = e.target.files?.[0];
@@ -1367,6 +1931,7 @@ class Component extends DCLogic {
   build(){
     if (this._built) return; this._built = true;
     this.inventoryItems = [];
+    this.agents = [];
     const tones = ['#eaeaef','#e7e7ee','#ecebf0','#e6e8ee','#edeaed','#e9e9ef'];
     this.products = [
       ['LJ2891','Collana rigida multifilo','Collane'],
@@ -1483,7 +2048,7 @@ class Component extends DCLogic {
       recentTitle:'Visite recenti degli agenti', recentSub:'Ultime vetrine fotografate sul territorio.',
       seeAll:'Vedi tutte',
       searchTitle:'Ricerca gioiellerie', searchSub:'Filtra per codice, nome, citt\u00e0 o SKU prodotto.',
-      fCode:'Codice gioielleria', fName:'Nome', fNamePh:'es. Rossi Gioielli', fCity:'Citt\u00e0', fCityPh:'es. Milano', fSku:'SKU prodotto',
+      fCode:'Codice gioielleria', fName:'Nome', fNamePh:'es. Rossi Gioielli', fProvince:'Provincia', fProvincePh:'es. AV o Avellino', fCity:'Città', fCityPh:'es. Ariano Irpino', fSku:'SKU prodotto',
       reset:'Azzera', search:'Cerca', resultsWord:'gioiellerie trovate', clickRow:'Clicca una riga per i dettagli',
       colCode:'Codice', colName:'Gioielleria', colCity:'Citt\u00e0', colAgent:'Agente', colVisit:'Ultima visita', colCoverage:'Copertura', colMissing:'Mancanti',
       noResTitle:'Nessun risultato', noResSub:'Modifica i filtri e riprova.',
@@ -1519,6 +2084,19 @@ class Component extends DCLogic {
       confirmDelete:'Sei sicuro di voler eliminare questo articolo (incluse tutte le sue viste)?',
       searchInvPh:'Cerca SKU o nome...',
       deleteBtn:'Elimina',
+      addStoreBtn: 'Aggiungi gioielleria',
+      addStoreTitle: 'Nuova gioielleria',
+      confirmBtn: 'Conferma',
+      storeCode: 'Codice Cliente',
+      storeName: 'Nome Gioielleria',
+      storeProvince: 'Provincia (2 Lettere)',
+      storeProvinceName: 'Nome Provincia',
+      storeCity: 'Città',
+      storeAddress: 'Indirizzo',
+      storeRegion: 'Regione',
+      storeRegionCode: 'Codice Regione',
+      storeAgent: 'Agente Commerciale',
+      selectAgent: 'Seleziona un agente...',
       loadMore:'Mostra Altri',
       editTitle:'Modifica Articolo',
       editSubmit:'Salva Modifiche',
@@ -1531,7 +2109,23 @@ class Component extends DCLogic {
       catNecklace:'Collana',
       catBracelet:'Bracciale',
       catEarring:'Orecchino',
-      catOther:'Altro'
+      catOther:'Altro',
+      navAgents:'Agenti',
+      agentsTitle:'Anagrafica agenti',
+      agentsSub:'Elenco e contatti degli agenti commerciali Liu Jo sul territorio.',
+      fAgentQueryLabel:'Ricerca agente',
+      fAgentQueryPh:'es. Marco Melis',
+      fAgentZonaLabel:'Regione / Zona',
+      fAgentZonaPh:'es. Piemonte',
+      agentsFound:'agenti trovati',
+      colZona:'Zona',
+      colAgente:'Agente',
+      colTel:'Telefono',
+      colEmail:'Email aziendale',
+      colEmailPersonal:'Email personale',
+      colNote:'Note di copertura',
+      addAgentBtn: 'Aggiungi agente',
+      addAgentTitle: 'Nuovo agente commerciale'
     };
     const en = {
       brandLine1:'Visual', brandLine2:'Management',
@@ -1554,7 +2148,7 @@ class Component extends DCLogic {
       recentTitle:'Recent agent visits', recentSub:'Latest windows photographed in the field.',
       seeAll:'See all',
       searchTitle:'Store search', searchSub:'Filter by store code, name, city or product SKU.',
-      fCode:'Store code', fName:'Name', fNamePh:'e.g. Rossi Gioielli', fCity:'City', fCityPh:'e.g. Milano', fSku:'Product SKU',
+      fCode:'Store code', fName:'Name', fNamePh:'e.g. Rossi Gioielli', fProvince:'Province', fProvincePh:'e.g. AV or Avellino', fCity:'City', fCityPh:'e.g. Milano', fSku:'Product SKU',
       reset:'Reset', search:'Search', resultsWord:'stores found', clickRow:'Click a row for details',
       colCode:'Code', colName:'Store', colCity:'City', colAgent:'Agent', colVisit:'Last visit', colCoverage:'Coverage', colMissing:'Missing',
       noResTitle:'No results', noResSub:'Adjust the filters and try again.',
@@ -1590,6 +2184,19 @@ class Component extends DCLogic {
       confirmDelete:'Are you sure you want to delete this item (including all its views)?',
       searchInvPh:'Search SKU or name...',
       deleteBtn:'Delete',
+      addStoreBtn: 'Add jewelry store',
+      addStoreTitle: 'New jewelry store',
+      confirmBtn: 'Confirm',
+      storeCode: 'Client Code',
+      storeName: 'Jewelry Store Name',
+      storeProvince: 'Province (2 Letters)',
+      storeProvinceName: 'Province Name',
+      storeCity: 'City',
+      storeAddress: 'Address',
+      storeRegion: 'Region',
+      storeRegionCode: 'Region Code',
+      storeAgent: 'Commercial Agent',
+      selectAgent: 'Select an agent...',
       loadMore:'Load More',
       editTitle:'Edit Item',
       editSubmit:'Save Changes',
@@ -1602,17 +2209,35 @@ class Component extends DCLogic {
       catNecklace:'Necklace',
       catBracelet:'Bracelet',
       catEarring:'Earring',
-      catOther:'Other'
+      catOther:'Other',
+      navAgents:'Agents',
+      agentsTitle:'Agents Registry',
+      agentsSub:'List and contacts of Liu Jo commercial agents in the field.',
+      fAgentQueryLabel:'Search agent',
+      fAgentQueryPh:'e.g. Marco Melis',
+      fAgentZonaLabel:'Region / Zone',
+      fAgentZonaPh:'e.g. Piemonte',
+      agentsFound:'agents found',
+      colZona:'Zone',
+      colAgente:'Agent',
+      colTel:'Phone',
+      colEmail:'Company email',
+      colEmailPersonal:'Personal email',
+      colNote:'Coverage notes',
+      addAgentBtn: 'Add agent',
+      addAgentTitle: 'New commercial agent'
     };
     return this.state.lang==='en' ? en : it;
   }
 
   fmtDate(d){
+    if (!d || !(d instanceof Date) || isNaN(d.getTime())) return this.state.lang==='en'?'Never':'Mai';
     const dd = String(d.getDate()).padStart(2,'0');
     const mm = String(d.getMonth()+1).padStart(2,'0');
     return dd+'/'+mm+'/'+d.getFullYear();
   }
   relDate(d){
+    if (!d || !(d instanceof Date) || isNaN(d.getTime())) return this.state.lang==='en'?'Never':'Mai';
     const ref = new Date(2026,5,10);
     const days = Math.round((ref - d)/86400000);
     const t = this.state.lang==='en';
@@ -1624,15 +2249,21 @@ class Component extends DCLogic {
 
   filtered(){
     const s = this.state;
-    const code = s.fCodice.trim().toLowerCase();
-    const nome = s.fNome.trim().toLowerCase();
-    const citta = s.fCitta.trim().toLowerCase();
-    const sku = s.fSku.trim().toLowerCase();
-    return this.jewelers.filter(j=>{
-      if (code && !j.code.toLowerCase().includes(code)) return false;
-      if (nome && !j.name.toLowerCase().includes(nome)) return false;
-      if (citta && !j.city.toLowerCase().includes(citta)) return false;
-      if (sku && !j.visits[0].exposed.some(p=>p.sku.toLowerCase().includes(sku))) return false;
+    const code = (s.fCodice || '').trim().toLowerCase();
+    const nome = (s.fNome || '').trim().toLowerCase();
+    const provincia = (s.fProvincia || '').trim().toLowerCase();
+    const citta = (s.fCitta || '').trim().toLowerCase();
+    const sku = (s.fSku || '').trim().toLowerCase();
+    return (this.jewelers || []).filter(j=>{
+      if (!j) return false;
+      if (code && !(j.code || '').toLowerCase().includes(code)) return false;
+      if (nome && !(j.name || '').toLowerCase().includes(nome)) return false;
+      if (provincia && !(j.province || '').toLowerCase().includes(provincia) && !(j.province_name || '').toLowerCase().includes(provincia)) return false;
+      if (citta && !(j.city || '').toLowerCase().includes(citta)) return false;
+      if (sku) {
+        if (!j.visits || !j.visits[0] || !j.visits[0].exposed) return false;
+        return j.visits[0].exposed.some(p => p && (p.sku || '').toLowerCase().includes(sku));
+      }
       return true;
     });
   }
@@ -1653,14 +2284,15 @@ class Component extends DCLogic {
     const visitCard = (on)=> "width:100%;padding:13px 15px;border-radius:3px;cursor:pointer;transition:all .15s;"+(on?"border:1.5px solid #141414;background:#fff;box-shadow:0 4px 14px rgba(20,20,20,.06);":"border:1px solid #e7e6e2;background:#fff;");
 
     // overview
+    const totalVisits = this.jewelers.reduce((a, j) => a + (j.visits ? j.visits.length : 0), 0);
     const kpis = [
-      { label:t.kpiVisits, value:'318', sub:t.kpiVisitsSub, dot:'#4e7a5e' },
+      { label:t.kpiVisits, value:String(totalVisits || 0), sub:t.kpiVisitsSub, dot:'#4e7a5e' },
       { label:t.kpiCoverage, value:this.avgCoverage+'%', sub:t.kpiCoverageSub, dot:this.covColor(this.avgCoverage) },
       { label:t.kpiMissing, value:String(this.avgMissing), sub:t.kpiMissingSub, dot:'#b8893f' },
-      { label:t.kpiTop, value:this.topNational[0].p.name.split(' ').slice(0,2).join(' '), sub:t.kpiTopSub, dot:'#9a7b3f' }
+      { label:t.kpiTop, value:this.topNational.length > 0 && this.topNational[0].p ? this.topNational[0].p.name.split(' ').slice(0,2).join(' ') : 'N/A', sub:t.kpiTopSub, dot:'#9a7b3f' }
     ];
     const topProducts = this.topNational.map((x,i)=>({
-      rank:String(i+1), name:x.p.name, tone:x.p.tone,
+      rank:String(i+1), name:x.p ? x.p.name : 'N/A', tone:x.p ? x.p.tone : '#eaeaef',
       countLabel:x.count+' '+t.windows,
       barStyle:'width:'+Math.round(x.count/this.maxNational*100)+'%;'
     }));
@@ -1668,11 +2300,16 @@ class Component extends DCLogic {
       name:r.name, label:r.cov+'%', color:this.covColor(r.cov),
       barStyle:'width:'+Math.round(r.cov)+'%;'
     }));
-    const recent = this.jewelers.slice().sort((a,b)=>b.lastVisit-a.lastVisit).slice(0,5).map(j=>({
+    const recent = this.jewelers.filter(j => j.lastVisit).slice().sort((a,b)=>b.lastVisit-a.lastVisit).slice(0,5).map(j=>({
       code:j.code, name:j.name, city:j.city, agent:j.agent,
       visitLabel:this.relDate(j.lastVisit),
       open:()=> this.openStore(j.id)
     }));
+
+    const availableAgentsSelect = (this.agents || []).map(a => ({
+      name: a.agente,
+      label: a.agente + (a.zona ? ' (' + a.zona + ')' : '')
+    })).sort((x, y) => x.name.localeCompare(y.name));
 
     // search
     const list = this.filtered();
@@ -1701,7 +2338,8 @@ class Component extends DCLogic {
       sel = {
         code:j.code, name:j.name, city:j.city, region:j.region, address:j.address,
         visits, visitCountLabel: j.visits.length+' '+t.visitsCount,
-        noVisit: !hasVisit, hasVisit: !!hasVisit
+        noVisit: !hasVisit, hasVisit: !!hasVisit,
+        deleteStore: () => this.doDeleteStore(j.id)
       };
       if (hasVisit){
         const v = j.visits[vSel];
@@ -1758,29 +2396,44 @@ class Component extends DCLogic {
     const navInventoryStyle = s.view === 'inventory' ? navOn : navOff;
     const filesLabel = s.invFiles ? (s.invFiles.length === 1 ? '1 file selezionato' : s.invFiles.length + ' file selezionati') : (s.invEditMode ? (s.lang === 'en' ? 'Click to replace files (optional)' : 'Clicca per sostituire i file (opzionale)') : (s.lang === 'en' ? 'Click to select files' : 'Clicca per selezionare i file'));
 
+    const isAgents = s.view === 'agents';
+    const navAgentsStyle = s.view === 'agents' ? navOn : navOff;
+    const agentsList = this.filteredAgents();
+    const agentsResults = agentsList.map(a => ({
+      id: a.id,
+      zona: a.zona || 'N/A',
+      agente: a.agente,
+      note: a.note || '-',
+      tel: a.tel || '-',
+      email: a.email || '-',
+      emailPersonal: a.email_personal || '-',
+      delete: () => this.doDeleteAgent(a.id)
+    }));
+
     return {
       t,
       isLogin: s.screen==='login', isApp: s.screen==='app',
-      isOverview: s.view==='overview', isSearch: s.view==='search',
+      isOverview: s.view==='overview', isSearch: s.view==='search', isAgents,
       email:s.email, password:s.password, loginError:s.loginError,
       onEmail:this.setField('email'), onPassword:this.setField('password'),
       doLogin:()=>{ if(!s.email.trim()||!s.password.trim()){ this.setState({loginError: s.lang==='en'?'Enter email and password to continue.':'Inserisci email e password per continuare.'}); return;} this.setState({screen:'app', loginError:''}); },
       setIt:()=> this.setState({lang:'it'}), setEn:()=> this.setState({lang:'en'}),
       langItStyle: langSeg(s.lang==='it'), langEnStyle: langSeg(s.lang==='en'),
       langItStyleSm: langSegSm(s.lang==='it'), langEnStyleSm: langSegSm(s.lang==='en'),
-      goOverview:()=> this.setState({view:'overview'}), goSearch:()=> this.setState({view:'search'}),
+      goOverview:()=> this.setState({view:'overview'}), goSearch:()=> this.setState({view:'search'}), goAgents:()=> this.setState({view:'agents'}),
       goInventory:()=> this.setState({view:'inventory'}),
       navOverviewStyle: s.view==='overview'?navOn:navOff,
       navSearchStyle: s.view==='search'?navOn:navOff,
+      navAgentsStyle,
       navInventoryStyle,
       doLogout:()=> this.setState({screen:'login', password:''}),
       userName:'Chiara Bellini', userInitials:'CB',
       kpis, topProducts, regions, recent,
-      fCodice:s.fCodice, fNome:s.fNome, fCitta:s.fCitta, fSku:s.fSku,
+      fCodice:s.fCodice, fNome:s.fNome, fProvincia:s.fProvincia, fCitta:s.fCitta, fSku:s.fSku,
       onFCodice:this.setField('fCodice'), onFNome:this.setField('fNome'),
-      onFCitta:this.setField('fCitta'), onFSku:this.setField('fSku'),
+      onFProvincia:this.setField('fProvincia'), onFCitta:this.setField('fCitta'), onFSku:this.setField('fSku'),
       doSearch:()=> this.setState({searchTick:s.searchTick+1}),
-      doReset:()=> this.setState({fCodice:'',fNome:'',fCitta:'',fSku:''}),
+      doReset:()=> this.setState({fCodice:'',fNome:'',fProvincia:'',fCitta:'',fSku:''}),
       results, resultCount:results.length, hasResults:results.length>0, noResults:results.length===0,
       skuActive, skuActiveLabel: t.skuPrefix+' \u201C'+s.fSku.trim().toUpperCase()+'\u201D',
       drawerOpen: !!sel, sel: sel||{},
@@ -1793,6 +2446,81 @@ class Component extends DCLogic {
       tabPhotosStyle: s.tab==='photos'?tabOn:tabBase,
       tabMissingStyle: s.tab==='missing'?tabOn:tabBase,
       tabExposedStyle: s.tab==='exposed'?tabOn:tabBase,
+
+      fAgentQuery: s.fAgentQuery, fAgentZona: s.fAgentZona,
+      onFAgentQuery: this.setField('fAgentQuery'), onFAgentZona: this.setField('fAgentZona'),
+      doSearchAgents:()=> this.setState({searchTick:s.searchTick+1}),
+      doResetAgents:()=> this.setState({fAgentQuery:'', fAgentZona:''}),
+      agentsResults, agentsCount: agentsResults.length,
+      hasAgentsResults: agentsResults.length > 0, noAgentsResults: agentsResults.length === 0,
+      
+      availableAgentsSelect,
+      addStoreModalOpen: s.addStoreModalOpen,
+      addStoreError: s.addStoreError,
+      newStoreCode: s.newStoreCode,
+      newStoreName: s.newStoreName,
+      newStoreProvince: s.newStoreProvince,
+      newStoreProvinceName: s.newStoreProvinceName,
+      newStoreCity: s.newStoreCity,
+      newStoreAddress: s.newStoreAddress,
+      newStoreRegion: s.newStoreRegion,
+      newStoreRegionCode: s.newStoreRegionCode,
+      newStoreAgentName: s.newStoreAgentName,
+
+      onNewStoreCode: this.setField('newStoreCode'),
+      onNewStoreName: this.setField('newStoreName'),
+      onNewStoreProvince: this.setField('newStoreProvince'),
+      onNewStoreProvinceName: this.setField('newStoreProvinceName'),
+      onNewStoreCity: this.setField('newStoreCity'),
+      onNewStoreAddress: this.setField('newStoreAddress'),
+      onNewStoreRegion: this.setField('newStoreRegion'),
+      onNewStoreRegionCode: this.setField('newStoreRegionCode'),
+      onNewStoreAgentName: (e) => this.setState({ newStoreAgentName: e.target.value }),
+
+      openAddStoreModal: () => this.setState({
+        addStoreModalOpen: true,
+        addStoreError: '',
+        newStoreCode: '',
+        newStoreName: '',
+        newStoreProvince: '',
+        newStoreProvinceName: '',
+        newStoreCity: '',
+        newStoreAddress: '',
+        newStoreRegion: '',
+        newStoreRegionCode: '',
+        newStoreAgentName: ''
+      }),
+      closeAddStoreModal: () => this.setState({ addStoreModalOpen: false, addStoreError: '' }),
+      submitAddStore: () => this.doAddStore(),
+
+      addAgentModalOpen: s.addAgentModalOpen,
+      addAgentError: s.addAgentError,
+      newAgentName: s.newAgentName,
+      newAgentZona: s.newAgentZona,
+      newAgentTel: s.newAgentTel,
+      newAgentEmail: s.newAgentEmail,
+      newAgentEmailPersonal: s.newAgentEmailPersonal,
+      newAgentNote: s.newAgentNote,
+
+      onNewAgentName: this.setField('newAgentName'),
+      onNewAgentZona: this.setField('newAgentZona'),
+      onNewAgentTel: this.setField('newAgentTel'),
+      onNewAgentEmail: this.setField('newAgentEmail'),
+      onNewAgentEmailPersonal: this.setField('newAgentEmailPersonal'),
+      onNewAgentNote: this.setField('newAgentNote'),
+
+      openAddAgentModal: () => this.setState({
+        addAgentModalOpen: true,
+        addAgentError: '',
+        newAgentName: '',
+        newAgentZona: '',
+        newAgentTel: '',
+        newAgentEmail: '',
+        newAgentEmailPersonal: '',
+        newAgentNote: ''
+      }),
+      closeAddAgentModal: () => this.setState({ addAgentModalOpen: false, addAgentError: '' }),
+      submitAddAgent: () => this.doAddAgent(),
       
       // inventory specific views/variables
       isInventory,

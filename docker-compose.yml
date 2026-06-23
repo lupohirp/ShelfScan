@@ -23,6 +23,7 @@ services:
       - MCP_URL=ws://mcp:8081/ws
     volumes:
       - ./server/uploads:/app/uploads
+      - ./server/db:/app/db
       - ./logs:/app/logs
     dns:
       - 8.8.8.8

@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useScan } from '../store/scan'
 import TopBar from '../components/TopBar'
 import PageShell from '../components/PageShell'
+import { getApiUrl } from '../lib/api'
 import {
   Share2,
   Download,
@@ -10,12 +12,14 @@ import {
   MapPin,
   Calendar,
   Package,
+  Loader2,
 } from 'lucide-react'
 
 export default function ReportPreview() {
   const navigate = useNavigate()
   const session = useScan((s) => s.currentSession)
   const clearSession = useScan((s) => s.clearSession)
+  const [saving, setSaving] = useState(false)
 
   if (!session) {
     navigate('/home', { replace: true })
@@ -29,10 +33,38 @@ export default function ReportPreview() {
     year: 'numeric',
   })
 
-  const handleFinalize = () => {
-    clearSession()
-    navigate('/home', { replace: true })
+  const handleFinalize = async () => {
+    setSaving(true)
+    try {
+      const apiBase = getApiUrl()
+      const finalizedSession = {
+        ...session,
+        status: 'finalized' as const,
+        finalizedAt: new Date().toISOString(),
+      }
+      
+      const res = await fetch(`${apiBase}/visits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(finalizedSession),
+      })
+      
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      
+      clearSession()
+      navigate('/home', { replace: true })
+    } catch (err) {
+      console.error('Error saving visit:', err)
+      alert('Impossibile salvare la visita: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setSaving(false)
+    }
   }
+
 
   return (
     <PageShell bottomNav={false}>
@@ -138,9 +170,17 @@ export default function ReportPreview() {
           </div>
           <button
             onClick={handleFinalize}
-            className="w-full h-12 bg-black text-white rounded-xl font-semibold text-[15px] active:scale-[0.98] transition-transform"
+            disabled={saving}
+            className="w-full h-12 bg-black text-white rounded-xl font-semibold text-[15px] active:scale-[0.98] transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
           >
-            Salva e chiudi
+            {saving ? (
+              <>
+                <Loader2 className="animate-spin" size={18} />
+                <span>Salvataggio...</span>
+              </>
+            ) : (
+              <span>Salva e chiudi</span>
+            )}
           </button>
         </div>
       </div>

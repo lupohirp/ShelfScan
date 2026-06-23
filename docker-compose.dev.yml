@@ -32,6 +32,7 @@ services:
       - "${API_PORT:-8080}:8080"
     volumes:
       - ./server/uploads:/app/uploads
+      - ./server/db:/app/db
       - ./logs:/app/logs
 
   mcp:
