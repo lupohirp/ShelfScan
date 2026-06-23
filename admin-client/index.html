@@ -20,6 +20,34 @@
   ::-webkit-scrollbar{width:11px;height:11px;}
   ::-webkit-scrollbar-thumb{background:#dededa;border-radius:20px;border:3px solid #f5f4f2;}
   ::-webkit-scrollbar-track{background:transparent;}
+
+  @keyframes slideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @media (min-width: 769px) {
+    .desktop-menu { display: flex !important; }
+    .mobile-menu-btn { display: none !important; }
+    .app-name-title { display: block !important; }
+    .topbar-divider { display: block !important; }
+    .user-meta-info { display: block !important; }
+  }
+  @media (max-width: 768px) {
+    .desktop-menu { display: none !important; }
+    .mobile-menu-btn { display: flex !important; }
+    .app-name-title { display: none !important; }
+    .topbar-divider { display: none !important; }
+    .user-meta-info { display: none !important; }
+    .topbar-container { gap: 15px !important; padding: 0 16px !important; }
+    .recent-visit-row { grid-template-columns: 80px 1fr auto !important; gap: 10px !important; padding: 14px 16px !important; }
+    .recent-visit-hide-mobile { display: none !important; }
+  }
 </style>
 </helmet>
 
@@ -79,12 +107,21 @@
   <div>
     <!-- top bar -->
     <div style="position:sticky;top:0;z-index:40;background:#ffffff;border-bottom:1px solid #e7e6e2;">
-      <div style="max-width:1320px;margin:0 auto;padding:0 clamp(20px,4vw,40px);height:66px;display:flex;align-items:center;gap:30px;">
-        <img src="assets/liujo-logo.png" alt="Liu Jo" style="height:18px;width:auto;" />
-        <div style="width:1px;height:26px;background:#e7e6e2;"></div>
-        <div style="font-family:'Jost',sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#8c8a85;">{{ t.appName }}</div>
+      <div class="topbar-container" style="max-width:1320px;margin:0 auto;padding:0 clamp(20px,4vw,40px);height:66px;display:flex;align-items:center;gap:30px;">
+        <!-- Hamburger Button (mobile only) -->
+        <div onClick="{{ toggleMobileMenu }}" class="mobile-menu-btn" style="cursor:pointer;color:#141414;align-items:center;justify-content:center;width:40px;height:40px;border-radius:2px;border:1px solid #e7e6e2;display:none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="12" x2="20" y2="12"></line>
+            <line x1="4" y1="6" x2="20" y2="6"></line>
+            <line x1="4" y1="18" x2="20" y2="18"></line>
+          </svg>
+        </div>
 
-        <div style="display:flex;gap:4px;margin-left:18px;">
+        <img src="assets/liujo-logo.png" alt="Liu Jo" style="height:18px;width:auto;" />
+        <div class="topbar-divider" style="width:1px;height:26px;background:#e7e6e2;"></div>
+        <div class="app-name-title" style="font-family:'Jost',sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#8c8a85;">{{ t.appName }}</div>
+
+        <div class="desktop-menu" style="display:flex;gap:4px;margin-left:18px;">
           <div onClick="{{ goOverview }}" style="{{ navOverviewStyle }}">{{ t.navOverview }}</div>
           <div onClick="{{ goSearch }}" style="{{ navSearchStyle }}">{{ t.navJewelers }}</div>
           <div onClick="{{ goAgents }}" style="{{ navAgentsStyle }}">{{ t.navAgents }}</div>
@@ -95,7 +132,7 @@
 
           <div style="display:flex;align-items:center;gap:10px;">
             <div style="width:34px;height:34px;border-radius:50%;background:#141414;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;">{{ userInitials }}</div>
-            <div style="line-height:1.2;">
+            <div class="user-meta-info" style="line-height:1.2;">
               <div style="font-size:13.5px;font-weight:600;">{{ userName }}</div>
               <div style="font-size:11.5px;color:#8c8a85;">{{ t.userRole }}</div>
             </div>
@@ -106,6 +143,42 @@
         </div>
       </div>
     </div>
+
+    <!-- ===================== MOBILE NAV DRAWER ===================== -->
+    <sc-if value="{{ mobileMenuOpen }}" hint-placeholder-val="">
+    <div style="position:fixed;inset:0;z-index:100;display:flex;">
+      <!-- Backdrop -->
+      <div onClick="{{ closeMobileMenu }}" style="position:absolute;inset:0;background:rgba(20,20,20,.45);backdrop-filter:blur(3px);animation:fadeIn .25s ease;"></div>
+      
+      <!-- Drawer content -->
+      <div style="position:relative;width:280px;height:100%;background:#ffffff;box-shadow:4px 0 24px rgba(20,20,20,.15);display:flex;flex-direction:column;padding:24px;z-index:101;animation:slideIn .25s ease;">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;">
+          <img src="assets/liujo-logo.png" alt="Liu Jo" style="height:16px;width:auto;" />
+          <div onClick="{{ closeMobileMenu }}" style="cursor:pointer;color:#8c8a85;width:28px;height:28px;border:1px solid #e7e6e2;border-radius:2px;display:flex;align-items:center;justify-content:center;margin-left:auto;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+        </div>
+        
+        <!-- Nav items -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div onClick="{{ goOverviewMobile }}" style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500;padding:12px 16px;border-radius:3px;cursor:pointer;{{ navOverviewMobileStyle }}">{{ t.navOverview }}</div>
+          <div onClick="{{ goSearchMobile }}" style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500;padding:12px 16px;border-radius:3px;cursor:pointer;{{ navSearchMobileStyle }}">{{ t.navJewelers }}</div>
+          <div onClick="{{ goAgentsMobile }}" style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500;padding:12px 16px;border-radius:3px;cursor:pointer;{{ navAgentsMobileStyle }}">{{ t.navAgents }}</div>
+          <div onClick="{{ goInventoryMobile }}" style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500;padding:12px 16px;border-radius:3px;cursor:pointer;{{ navInventoryMobileStyle }}">{{ t.navInventory }}</div>
+        </div>
+        
+        <!-- Footer/User Info -->
+        <div style="margin-top:auto;border-top:1px solid #f0efec;padding-top:20px;display:flex;align-items:center;gap:12px;">
+          <div style="width:38px;height:38px;border-radius:50%;background:#141414;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Jost',sans-serif;font-size:14px;">{{ userInitials }}</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#141414;">{{ userName }}</div>
+            <div style="font-size:12px;color:#8c8a85;">{{ t.userRole }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
 
     <!-- ============ OVERVIEW ============ -->
     <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
@@ -181,11 +254,11 @@
           <div onClick="{{ goSearch }}" style="font-size:12.5px;letter-spacing:.04em;color:#141414;cursor:pointer;border-bottom:1px solid #141414;padding-bottom:1px;">{{ t.seeAll }}</div>
         </div>
         <sc-for list="{{ recent }}" as="v" hint-placeholder-count="5">
-          <div onClick="{{ v.open }}" style="display:grid;grid-template-columns:108px 1.6fr 1fr 1fr auto;gap:16px;align-items:center;padding:14px 24px;border-top:1px solid #f0efec;cursor:pointer;" style-hover="background:#faf9f7;">
+          <div class="recent-visit-row" onClick="{{ v.open }}" style="display:grid;grid-template-columns:108px 1.6fr 1fr 1fr auto;gap:16px;align-items:center;padding:14px 24px;border-top:1px solid #f0efec;cursor:pointer;" style-hover="background:#faf9f7;">
             <span style="font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;color:#9a7b3f;">{{ v.code }}</span>
             <span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ v.name }}</span>
-            <span style="font-size:13.5px;color:#4a4843;">{{ v.city }}</span>
-            <span style="font-size:13px;color:#8c8a85;">{{ v.agent }}</span>
+            <span class="recent-visit-hide-mobile" style="font-size:13.5px;color:#4a4843;">{{ v.city }}</span>
+            <span class="recent-visit-hide-mobile" style="font-size:13px;color:#8c8a85;">{{ v.agent }}</span>
             <span style="font-size:12.5px;color:#8c8a85;white-space:nowrap;">{{ v.visitLabel }}</span>
           </div>
         </sc-for>
@@ -967,6 +1040,7 @@
 class Component extends DCLogic {
   state = {
     screen: 'login', view: 'overview', lang: 'it',
+    mobileMenuOpen: false,
     email: '', password: '', loginError: '',
     fCodice: '', fNome: '', fProvincia: '', fCitta: '', fSku: '',
     fAgentQuery: '', fAgentZona: '',
@@ -2332,6 +2406,15 @@ class Component extends DCLogic {
 
     const isAgents = s.view === 'agents';
     const navAgentsStyle = s.view === 'agents' ? navOn : navOff;
+
+    const mobileNavBase = "transition:all .15s;";
+    const mobileNavOn = mobileNavBase + "background:#141414;color:#fff;";
+    const mobileNavOff = mobileNavBase + "background:#faf9f7;color:#8c8a85;";
+
+    const navOverviewMobileStyle = s.view === 'overview' ? mobileNavOn : mobileNavOff;
+    const navSearchMobileStyle = s.view === 'search' ? mobileNavOn : mobileNavOff;
+    const navAgentsMobileStyle = s.view === 'agents' ? mobileNavOn : mobileNavOff;
+    const navInventoryMobileStyle = s.view === 'inventory' ? mobileNavOn : mobileNavOff;
     const agentsList = this.filteredAgents();
     const agentsResults = agentsList.map(a => ({
       id: a.id,
@@ -2352,6 +2435,17 @@ class Component extends DCLogic {
       statStoresVal: this.fmtNum(this.totalStoresCount),
       statRegionsVal: this.fmtNum(this.totalRegionsCount),
       statBestVal: this.fmtNum(this.totalBestSellersCount),
+      mobileMenuOpen: s.mobileMenuOpen,
+      toggleMobileMenu: () => this.setState({ mobileMenuOpen: !s.mobileMenuOpen }),
+      closeMobileMenu: () => this.setState({ mobileMenuOpen: false }),
+      goOverviewMobile: () => this.setState({ view: 'overview', mobileMenuOpen: false }),
+      goSearchMobile: () => this.setState({ view: 'search', mobileMenuOpen: false }),
+      goAgentsMobile: () => this.setState({ view: 'agents', mobileMenuOpen: false }),
+      goInventoryMobile: () => this.setState({ view: 'inventory', mobileMenuOpen: false }),
+      navOverviewMobileStyle,
+      navSearchMobileStyle,
+      navAgentsMobileStyle,
+      navInventoryMobileStyle,
       onEmail:this.setField('email'), onPassword:this.setField('password'),
       doLogin:()=>{ if(!s.email.trim()||!s.password.trim()){ this.setState({loginError: s.lang==='en'?'Enter email and password to continue.':'Inserisci email e password per continuare.'}); return;} this.setState({screen:'app', loginError:''}); },
 
