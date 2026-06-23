@@ -46,12 +46,7 @@
 
     <div style="flex:1 1 460px;display:flex;align-items:center;justify-content:center;padding:48px 28px;background:#fff;">
       <div style="width:100%;max-width:368px;">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:36px;">
-          <div style="display:flex;border:1px solid #e7e6e2;border-radius:2px;overflow:hidden;font-size:12px;letter-spacing:.12em;">
-            <div onClick="{{ setIt }}" style="{{ langItStyle }}">IT</div>
-            <div onClick="{{ setEn }}" style="{{ langEnStyle }}">EN</div>
-          </div>
-        </div>
+        <div style="height:36px;"></div>
         <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:27px;letter-spacing:-.01em;">{{ t.loginHeading }}</div>
         <div style="color:#8c8a85;font-size:14.5px;margin-top:8px;line-height:1.55;">{{ t.loginSub }}</div>
 
@@ -97,10 +92,7 @@
         </div>
 
         <div style="margin-left:auto;display:flex;align-items:center;gap:18px;">
-          <div style="display:flex;border:1px solid #e7e6e2;border-radius:2px;overflow:hidden;font-size:11.5px;letter-spacing:.1em;">
-            <div onClick="{{ setIt }}" style="{{ langItStyleSm }}">IT</div>
-            <div onClick="{{ setEn }}" style="{{ langEnStyleSm }}">EN</div>
-          </div>
+
           <div style="display:flex;align-items:center;gap:10px;">
             <div style="width:34px;height:34px;border-radius:50%;background:#141414;color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;">{{ userInitials }}</div>
             <div style="line-height:1.2;">
@@ -2432,9 +2424,7 @@ class Component extends DCLogic {
       statBestVal: this.fmtNum(this.totalBestSellersCount),
       onEmail:this.setField('email'), onPassword:this.setField('password'),
       doLogin:()=>{ if(!s.email.trim()||!s.password.trim()){ this.setState({loginError: s.lang==='en'?'Enter email and password to continue.':'Inserisci email e password per continuare.'}); return;} this.setState({screen:'app', loginError:''}); },
-      setIt:()=> this.setState({lang:'it'}), setEn:()=> this.setState({lang:'en'}),
-      langItStyle: langSeg(s.lang==='it'), langEnStyle: langSeg(s.lang==='en'),
-      langItStyleSm: langSegSm(s.lang==='it'), langEnStyleSm: langSegSm(s.lang==='en'),
+
       goOverview:()=> this.setState({view:'overview'}), goSearch:()=> this.setState({view:'search'}), goAgents:()=> this.setState({view:'agents'}),
       goInventory:()=> this.setState({view:'inventory'}),
       navOverviewStyle: s.view==='overview'?navOn:navOff,
