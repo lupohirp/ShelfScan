@@ -38,9 +38,9 @@
         <div style="margin-top:22px;max-width:380px;color:rgba(255,255,255,.62);font-size:15px;line-height:1.6;">{{ t.brandSub }}</div>
       </div>
       <div style="position:relative;display:flex;gap:34px;color:rgba(255,255,255,.5);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;">
-        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">1.000</span>{{ t.statStores }}</div>
-        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">20</span>{{ t.statRegions }}</div>
-        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">50</span>{{ t.statBest }}</div>
+        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">{{ statStoresVal }}</span>{{ t.statStores }}</div>
+        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">{{ statRegionsVal }}</span>{{ t.statRegions }}</div>
+        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">{{ statBestVal }}</span>{{ t.statBest }}</div>
       </div>
     </div>
 
@@ -1138,6 +1138,7 @@ class Component extends DCLogic {
       });
 
       this.inventoryItems = Object.values(groupedMap);
+      this.totalBestSellersCount = products.length;
 
       if (products.length > 0) {
         this.products = products;
@@ -1744,6 +1745,7 @@ class Component extends DCLogic {
       if (overviewRes && overviewRes.ok) {
         const overview = await overviewRes.json();
         this.avgCoverage = Math.round(overview.avg_coverage);
+        this.totalStoresCount = overview.total_stores || 0;
       }
 
       // 2. Fetch regions
@@ -1756,6 +1758,7 @@ class Component extends DCLogic {
       if (regionsRes && regionsRes.ok) {
         const regions = await regionsRes.json();
         this.regionsData = regions.map(r => ({ name: r.region, cov: Math.round(r.avg_coverage) }));
+        this.totalRegionsCount = regions.length;
       }
 
       // 3. Fetch top products
@@ -1813,6 +1816,8 @@ class Component extends DCLogic {
             lastVisit: s.finalized_at ? new Date(s.finalized_at) : null
           };
         });
+
+        this.totalStoresCount = stores.length;
 
         const visitedJewelers = this.jewelers.filter(j => j.lastVisit);
         if (visitedJewelers.length > 0) {
@@ -1932,6 +1937,9 @@ class Component extends DCLogic {
     if (this._built) return; this._built = true;
     this.inventoryItems = [];
     this.agents = [];
+    this.totalStoresCount = 0;
+    this.totalRegionsCount = 0;
+    this.totalBestSellersCount = 0;
     const tones = ['#eaeaef','#e7e7ee','#ecebf0','#e6e8ee','#edeaed','#e9e9ef'];
     this.products = [
       ['LJ2891','Collana rigida multifilo','Collane'],
@@ -2236,6 +2244,10 @@ class Component extends DCLogic {
     const mm = String(d.getMonth()+1).padStart(2,'0');
     return dd+'/'+mm+'/'+d.getFullYear();
   }
+  fmtNum(n) {
+    const sep = this.state.lang === 'en' ? ',' : '.';
+    return String(n || 0).replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+  }
   relDate(d){
     if (!d || !(d instanceof Date) || isNaN(d.getTime())) return this.state.lang==='en'?'Never':'Mai';
     const ref = new Date(2026,5,10);
@@ -2415,6 +2427,9 @@ class Component extends DCLogic {
       isLogin: s.screen==='login', isApp: s.screen==='app',
       isOverview: s.view==='overview', isSearch: s.view==='search', isAgents,
       email:s.email, password:s.password, loginError:s.loginError,
+      statStoresVal: this.fmtNum(this.totalStoresCount),
+      statRegionsVal: this.fmtNum(this.totalRegionsCount),
+      statBestVal: this.fmtNum(this.totalBestSellersCount),
       onEmail:this.setField('email'), onPassword:this.setField('password'),
       doLogin:()=>{ if(!s.email.trim()||!s.password.trim()){ this.setState({loginError: s.lang==='en'?'Enter email and password to continue.':'Inserisci email e password per continuare.'}); return;} this.setState({screen:'app', loginError:''}); },
       setIt:()=> this.setState({lang:'it'}), setEn:()=> this.setState({lang:'en'}),
