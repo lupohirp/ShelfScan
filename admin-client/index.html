@@ -1015,25 +1015,13 @@ class Component extends DCLogic {
   }
 
   getUrl(path) {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
-      return `http://${hostname}:8080${path}`;
-    }
     return `/api${path}`;
   }
 
   async fetchInventory() {
     try {
-      let response;
-      try {
-        response = await fetch('/api/inventory');
-      } catch (err) {
-        response = await fetch('http://localhost:8080/inventory');
-      }
+      const response = await fetch('/api/inventory');
       if (!response || !response.ok) {
-        response = await fetch('http://localhost:8080/inventory');
-      }
-      if (!response.ok) {
         throw new Error('Failed to fetch inventory');
       }
       const items = await response.json();
@@ -1186,18 +1174,10 @@ class Component extends DCLogic {
     formData.append('material', finalMaterial);
 
     try {
-      let response;
-      try {
-        response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        });
-      } catch (err) {
-        response = await fetch('http://localhost:8080/upload', {
-          method: 'POST',
-          body: formData
-        });
-      }
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
 
       if (!response || !response.ok) {
         throw new Error('Upload failed');
@@ -1241,16 +1221,9 @@ class Component extends DCLogic {
     this.setState({ invLoading: true });
     try {
       for (const id of ids) {
-        let response;
-        try {
-          response = await fetch(`/api/inventory?id=${id}`, {
-            method: 'DELETE'
-          });
-        } catch (err) {
-          response = await fetch(`http://localhost:8080/inventory?id=${id}`, {
-            method: 'DELETE'
-          });
-        }
+        const response = await fetch(`/api/inventory?id=${id}`, {
+          method: 'DELETE'
+        });
         if (!response || !response.ok) {
           console.error(`Failed to delete point ID: ${id}`);
         }
@@ -1348,15 +1321,9 @@ class Component extends DCLogic {
       if (s.invFiles && s.invFiles.length > 0) {
         // Delete all old points of this item, then index the new images as a new upload
         for (const id of ids) {
-          try {
-            await fetch(`/api/inventory?id=${id}`, {
-              method: 'DELETE'
-            });
-          } catch (err) {
-            await fetch(`http://localhost:8080/inventory?id=${id}`, {
-              method: 'DELETE'
-            });
-          }
+          await fetch(`/api/inventory?id=${id}`, {
+            method: 'DELETE'
+          });
         }
 
         const formData = new FormData();
@@ -1368,18 +1335,10 @@ class Component extends DCLogic {
         formData.append('color', finalColor);
         formData.append('material', finalMaterial);
 
-        let response;
-        try {
-          response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-          });
-        } catch (err) {
-          response = await fetch('http://localhost:8080/upload', {
-            method: 'POST',
-            body: formData
-          });
-        }
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
 
         if (!response || !response.ok) {
           throw new Error('Edit upload failed');
@@ -1393,18 +1352,10 @@ class Component extends DCLogic {
           formData.append('color', finalColor);
           formData.append('material', finalMaterial);
 
-          let response;
-          try {
-            response = await fetch(`/api/inventory?id=${id}`, {
-              method: 'PUT',
-              body: formData
-            });
-          } catch (err) {
-            response = await fetch(`http://localhost:8080/inventory?id=${id}`, {
-              method: 'PUT',
-              body: formData
-            });
-          }
+          const response = await fetch(`/api/inventory?id=${id}`, {
+            method: 'PUT',
+            body: formData
+          });
 
           if (!response || !response.ok) {
             throw new Error('Edit failed');
@@ -1728,12 +1679,7 @@ class Component extends DCLogic {
       const getUrl = (path) => this.getUrl(path);
 
       // 1. Fetch overview
-      let overviewRes;
-      try {
-        overviewRes = await fetch(getUrl('/stats/overview'));
-      } catch(e) {
-        overviewRes = await fetch(`http://localhost:8080/stats/overview`);
-      }
+      const overviewRes = await fetch(getUrl('/stats/overview'));
       if (overviewRes && overviewRes.ok) {
         const overview = await overviewRes.json();
         this.avgCoverage = Math.round(overview.avg_coverage);
@@ -1741,12 +1687,7 @@ class Component extends DCLogic {
       }
 
       // 2. Fetch regions
-      let regionsRes;
-      try {
-        regionsRes = await fetch(getUrl('/stats/regions'));
-      } catch(e) {
-        regionsRes = await fetch(`http://localhost:8080/stats/regions`);
-      }
+      const regionsRes = await fetch(getUrl('/stats/regions'));
       if (regionsRes && regionsRes.ok) {
         const regions = await regionsRes.json();
         this.regionsData = regions.map(r => ({ name: r.region, cov: Math.round(r.avg_coverage) }));
@@ -1754,12 +1695,7 @@ class Component extends DCLogic {
       }
 
       // 3. Fetch top products
-      let topRes;
-      try {
-        topRes = await fetch(getUrl('/stats/top-products'));
-      } catch(e) {
-        topRes = await fetch(`http://localhost:8080/stats/top-products`);
-      }
+      const topRes = await fetch(getUrl('/stats/top-products'));
       if (topRes && topRes.ok) {
         const topProd = await topRes.json();
         this.topNational = topProd.map(tp => ({
@@ -1771,12 +1707,7 @@ class Component extends DCLogic {
       }
 
       // 4. Fetch stores and latest visits
-      let storesRes;
-      try {
-        storesRes = await fetch(getUrl('/stats/stores'));
-      } catch(e) {
-        storesRes = await fetch(`http://localhost:8080/stats/stores`);
-      }
+      const storesRes = await fetch(getUrl('/stats/stores'));
       if (storesRes && storesRes.ok) {
         const stores = await storesRes.json();
         this.jewelers = stores.map((s, idx) => {
@@ -1827,12 +1758,7 @@ class Component extends DCLogic {
 
   async fetchAgentsData() {
     try {
-      let res;
-      try {
-        res = await fetch(this.getUrl('/agents'));
-      } catch(e) {
-        res = await fetch('http://localhost:8080/agents');
-      }
+      const res = await fetch(this.getUrl('/agents'));
       if (res && res.ok) {
         this.agents = await res.json();
       }
@@ -1871,18 +1797,10 @@ class Component extends DCLogic {
       const formData = new FormData();
       formData.append('image', file);
 
-      let response;
-      try {
-        response = await fetch('/api/analyze', {
-          method: 'POST',
-          body: formData
-        });
-      } catch (err) {
-        response = await fetch('http://localhost:8080/analyze', {
-          method: 'POST',
-          body: formData
-        });
-      }
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        body: formData
+      });
 
       if (!response || !response.ok) {
         throw new Error('Analysis failed');
@@ -2036,10 +1954,10 @@ class Component extends DCLogic {
       forgot:'Password dimenticata?', demoHint:'Demo: accesso libero',
       appName:'Visual Management', navOverview:'Panoramica', navJewelers:'Gioiellerie',
       logout:'Esci', userRole:'Area Manager',
-      overviewTitle:'Panoramica nazionale', overviewSub:'Stato della rete di 1.000 gioiellerie Liu Jo in Italia.',
+      overviewTitle:'Panoramica nazionale', overviewSub:`Stato della rete di ${this.fmtNum(this.totalStoresCount)} gioiellerie Liu Jo in Italia.`,
       updated:'Aggiornato oggi',
       kpiVisits:'Visite ultimi 30 giorni', kpiVisitsSub:'agenti sul territorio',
-      kpiCoverage:'Copertura media best seller', kpiCoverageSub:'sui 50 best seller',
+      kpiCoverage:'Copertura media best seller', kpiCoverageSub:`sui ${this.totalBestSellersCount} best seller`,
       kpiMissing:'Prodotti mancanti (media)', kpiMissingSub:'per gioielleria',
       kpiTop:'Best seller pi\u00f9 esposto', kpiTopSub:'in vetrina a livello nazionale',
       topProductsTitle:'Best seller pi\u00f9 esposti', topProductsSub:'Referenze presenti nel maggior numero di vetrine.',
@@ -2060,7 +1978,7 @@ class Component extends DCLogic {
       tabPhotos:'Foto vetrine', tabMissing:'Prodotti mancanti', tabExposed:'Prodotti esposti',
       photosSub:'Scatti della vetrina raccolti dall\u2019agente in questa visita.',
       photoLabel:'Scatto vetrina', photoNote:'Trascina qui le foto reali dell\u2019agente per sostituire i segnaposto.',
-      missingSub:'Best seller assenti rispetto ai 50 prodotti di punta Liu Jo, alla data della visita.', onBest:'sui 50 best seller',
+      missingSub:`Best seller assenti rispetto ai ${this.totalBestSellersCount} prodotti di punta Liu Jo, alla data della visita.`, onBest:`sui ${this.totalBestSellersCount} best seller`,
       missingTag:'Mancante',
       exposedSub:'Referenze Liu Jo presenti in vetrina alla data della visita (una referenza per prodotto).',
       exposedUnit:'referenze esposte', exposedTag:'Esposto',
@@ -2136,10 +2054,10 @@ class Component extends DCLogic {
       forgot:'Forgot password?', demoHint:'Demo: open access',
       appName:'Visual Management', navOverview:'Overview', navJewelers:'Stores',
       logout:'Sign out', userRole:'Area Manager',
-      overviewTitle:'National overview', overviewSub:'Status of the network of 1,000 Liu Jo jewelry stores in Italy.',
+      overviewTitle:'National overview', overviewSub:`Status of the network of ${this.fmtNum(this.totalStoresCount)} Liu Jo jewelry stores in Italy.`,
       updated:'Updated today',
       kpiVisits:'Visits last 30 days', kpiVisitsSub:'agents in the field',
-      kpiCoverage:'Avg. best-seller coverage', kpiCoverageSub:'of the 50 best sellers',
+      kpiCoverage:'Avg. best-seller coverage', kpiCoverageSub:`of the ${this.totalBestSellersCount} best sellers`,
       kpiMissing:'Missing products (avg.)', kpiMissingSub:'per store',
       kpiTop:'Most-displayed best seller', kpiTopSub:'in windows nationwide',
       topProductsTitle:'Most-displayed best sellers', topProductsSub:'References present in the largest number of windows.',
@@ -2160,7 +2078,7 @@ class Component extends DCLogic {
       tabPhotos:'Window photos', tabMissing:'Missing products', tabExposed:'Displayed products',
       photosSub:'Window shots collected by the agent on this visit.',
       photoLabel:'Window shot', photoNote:'Drop the real agent photos here to replace the placeholders.',
-      missingSub:'Best sellers absent versus the 50 Liu Jo flagship products, on the visit date.', onBest:'of 50 best sellers',
+      missingSub:`Best sellers absent versus the ${this.totalBestSellersCount} Liu Jo flagship products, on the visit date.`, onBest:`of ${this.totalBestSellersCount} best sellers`,
       missingTag:'Missing',
       exposedSub:'Liu Jo references present in the window on the visit date (one reference per product).',
       exposedUnit:'displayed refs', exposedTag:'Displayed',
