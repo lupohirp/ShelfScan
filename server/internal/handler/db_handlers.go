@@ -883,6 +883,7 @@ func (h *Handler) AgentsHandler(w http.ResponseWriter, r *http.Request) {
 				Tel           string `json:"tel"`
 				Email         string `json:"email"`
 				EmailPersonal string `json:"email_personal"`
+				Password      string `json:"password"`
 			}
 
 			var p AgentPayload
@@ -891,8 +892,8 @@ func (h *Handler) AgentsHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if p.Agente == "" || p.Zona == "" {
-				http.Error(w, "Missing required fields (agente, zona)", http.StatusBadRequest)
+			if p.Agente == "" || p.Zona == "" || p.Password == "" {
+				http.Error(w, "Missing required fields (agente, zona, password)", http.StatusBadRequest)
 				return
 			}
 
@@ -900,9 +901,9 @@ func (h *Handler) AgentsHandler(w http.ResponseWriter, r *http.Request) {
 			cleanedAgente := strings.ToUpper(strings.TrimSpace(p.Agente))
 
 			res, err := h.db.Exec(`
-				INSERT INTO agents (zona, agente, note, tel, email, email_personal)
-				VALUES (?, ?, ?, ?, ?, ?)
-			`, cleanedZona, cleanedAgente, p.Note, p.Tel, p.Email, p.EmailPersonal)
+				INSERT INTO agents (zona, agente, note, tel, email, email_personal, password)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`, cleanedZona, cleanedAgente, p.Note, p.Tel, p.Email, p.EmailPersonal, p.Password)
 			if err != nil {
 				log.Printf("Error inserting agent: %v", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1028,6 +1029,66 @@ func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		type LoginPayload struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
+		}
+
+		var p LoginPayload
+		if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		email := strings.TrimSpace(p.Email)
+		password := p.Password
+
+		if email == "" || password == "" {
+			http.Error(w, "Email e password richiesti", http.StatusBadRequest)
+			return
+		}
+
+		var id int
+		var dbEmail, dbAgente, dbZona string
+		err := h.db.QueryRow(`
+			SELECT id, email, agente, zona 
+			FROM agents 
+			WHERE LOWER(email) = LOWER(?) AND password = ?
+		`, email, password).Scan(&id, &dbEmail, &dbAgente, &dbZona)
+
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Credenziali non valide", http.StatusUnauthorized)
+				return
+			}
+			log.Printf("Login error querying DB: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"id":     strconv.Itoa(id),
+			"email":  dbEmail,
+			"agente": dbAgente,
+			"zona":   dbZona,
+		})
 	})
 
 	if h.corsMiddleware != nil {

@@ -935,9 +935,15 @@
           </div>
         </div>
 
-        <div style="margin-bottom:16px;">
-          <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colEmailPersonal }}</label>
-          <input value="{{ newAgentEmailPersonal }}" onInput="{{ onNewAgentEmailPersonal }}" placeholder="es. m.ferraro@gmail.com" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colEmailPersonal }}</label>
+            <input value="{{ newAgentEmailPersonal }}" onInput="{{ onNewAgentEmailPersonal }}" placeholder="es. m.ferraro@gmail.com" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colPassword }} *</label>
+            <input type="password" value="{{ newAgentPassword }}" onInput="{{ onNewAgentPassword }}" placeholder="••••••••" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
         </div>
 
         <div style="margin-bottom:8px;">
@@ -982,6 +988,7 @@ class Component extends DCLogic {
     newAgentTel: '',
     newAgentEmail: '',
     newAgentEmailPersonal: '',
+    newAgentPassword: '',
     newAgentNote: '',
     selectedId: null, selectedVisit: null, tab: 'photos',
     searchTick: 0,
@@ -1466,14 +1473,16 @@ class Component extends DCLogic {
     const email = (s.newAgentEmail || '').trim();
     const email_personal = (s.newAgentEmailPersonal || '').trim();
 
-    if (!agente || !zona) {
-      this.setState({ addAgentError: s.lang === 'en' ? 'Please fill in name and zone.' : 'Compila nome e zona.' });
+    const password = (s.newAgentPassword || '').trim();
+
+    if (!agente || !zona || !password) {
+      this.setState({ addAgentError: s.lang === 'en' ? 'Please fill in name, zone and password.' : 'Compila nome, zona e password.' });
       return;
     }
 
     try {
       const payload = {
-        agente, zona, note, tel, email, email_personal
+        agente, zona, note, tel, email, email_personal, password
       };
 
       const res = await fetch(this.getUrl('/agents'), {
@@ -1491,6 +1500,7 @@ class Component extends DCLogic {
           newAgentTel: '',
           newAgentEmail: '',
           newAgentEmailPersonal: '',
+          newAgentPassword: '',
           newAgentNote: ''
         });
         await this.fetchAgentsData();
@@ -2041,6 +2051,7 @@ class Component extends DCLogic {
       colTel:'Telefono',
       colEmail:'Email aziendale',
       colEmailPersonal:'Email personale',
+      colPassword:'Password',
       colNote:'Note di copertura',
       addAgentBtn: 'Aggiungi agente',
       addAgentTitle: 'Nuovo agente commerciale'
@@ -2141,6 +2152,7 @@ class Component extends DCLogic {
       colTel:'Phone',
       colEmail:'Company email',
       colEmailPersonal:'Personal email',
+      colPassword:'Password',
       colNote:'Coverage notes',
       addAgentBtn: 'Add agent',
       addAgentTitle: 'New commercial agent'
@@ -2423,6 +2435,7 @@ class Component extends DCLogic {
       newAgentTel: s.newAgentTel,
       newAgentEmail: s.newAgentEmail,
       newAgentEmailPersonal: s.newAgentEmailPersonal,
+      newAgentPassword: s.newAgentPassword,
       newAgentNote: s.newAgentNote,
 
       onNewAgentName: this.setField('newAgentName'),
@@ -2430,6 +2443,7 @@ class Component extends DCLogic {
       onNewAgentTel: this.setField('newAgentTel'),
       onNewAgentEmail: this.setField('newAgentEmail'),
       onNewAgentEmailPersonal: this.setField('newAgentEmailPersonal'),
+      onNewAgentPassword: this.setField('newAgentPassword'),
       onNewAgentNote: this.setField('newAgentNote'),
 
       openAddAgentModal: () => this.setState({
@@ -2440,6 +2454,7 @@ class Component extends DCLogic {
         newAgentTel: '',
         newAgentEmail: '',
         newAgentEmailPersonal: '',
+        newAgentPassword: '',
         newAgentNote: ''
       }),
       closeAddAgentModal: () => this.setState({ addAgentModalOpen: false, addAgentError: '' }),
