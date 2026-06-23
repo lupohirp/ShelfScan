@@ -2,11 +2,8 @@ package db
 
 import (
 	"database/sql"
-	"encoding/csv"
 	"fmt"
-	"io"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
