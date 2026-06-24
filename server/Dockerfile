@@ -23,6 +23,7 @@ COPY --from=builder /app/main .
 COPY --from=builder /app/clienti.csv /app/clienti.csv
 COPY --from=builder /app/agenti.csv /app/agenti.csv
 COPY --from=builder /app/db /app/db
+COPY --from=builder /app/db/migrations /app/migrations
 
 EXPOSE 8080
 
