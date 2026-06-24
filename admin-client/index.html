@@ -1200,18 +1200,30 @@ class Component extends DCLogic {
     if (!url) return '';
     const idx = url.indexOf('/uploads/');
     if (idx !== -1) {
-      return '/api' + url.substring(idx);
+      return this.getUrl(url.substring(idx));
     }
     return url;
   }
 
   getUrl(path) {
-    return `/api${path}`;
+    const hostname = window.location.hostname;
+    let base = '/api';
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.') && !hostname.startsWith('10.')) {
+      if (hostname.startsWith('admin-')) {
+        const baseHost = hostname.replace(/^admin-/, '');
+        base = `https://api-${baseHost}`;
+      } else {
+        base = `https://api-${hostname}`;
+      }
+    } else {
+      base = `http://${hostname}:8080`;
+    }
+    return `${base}${path}`;
   }
 
   async fetchInventory() {
     try {
-      const response = await fetch('/api/inventory');
+      const response = await fetch(this.getUrl('/inventory'));
       if (!response || !response.ok) {
         throw new Error('Failed to fetch inventory');
       }
@@ -1365,7 +1377,7 @@ class Component extends DCLogic {
     formData.append('material', finalMaterial);
 
     try {
-      const response = await fetch('/api/upload', {
+      const response = await fetch(this.getUrl('/upload'), {
         method: 'POST',
         body: formData
       });
@@ -1412,7 +1424,7 @@ class Component extends DCLogic {
     this.setState({ invLoading: true });
     try {
       for (const id of ids) {
-        const response = await fetch(`/api/inventory?id=${id}`, {
+        const response = await fetch(this.getUrl(`/inventory?id=${id}`), {
           method: 'DELETE'
         });
         if (!response || !response.ok) {
@@ -1512,7 +1524,7 @@ class Component extends DCLogic {
       if (s.invFiles && s.invFiles.length > 0) {
         // Delete all old points of this item, then index the new images as a new upload
         for (const id of ids) {
-          await fetch(`/api/inventory?id=${id}`, {
+          await fetch(this.getUrl(`/inventory?id=${id}`), {
             method: 'DELETE'
           });
         }
@@ -1526,7 +1538,7 @@ class Component extends DCLogic {
         formData.append('color', finalColor);
         formData.append('material', finalMaterial);
 
-        const response = await fetch('/api/upload', {
+        const response = await fetch(this.getUrl('/upload'), {
           method: 'POST',
           body: formData
         });
@@ -1543,7 +1555,7 @@ class Component extends DCLogic {
           formData.append('color', finalColor);
           formData.append('material', finalMaterial);
 
-          const response = await fetch(`/api/inventory?id=${id}`, {
+          const response = await fetch(this.getUrl(`/inventory?id=${id}`), {
             method: 'PUT',
             body: formData
           });
@@ -2018,7 +2030,7 @@ class Component extends DCLogic {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('/api/analyze', {
+      const response = await fetch(this.getUrl('/analyze'), {
         method: 'POST',
         body: formData
       });
