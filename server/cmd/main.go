@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 
+	"shelfscan-api/internal/db"
 	"shelfscan-api/internal/embedding"
 	"shelfscan-api/internal/gemini"
 	handler "shelfscan-api/internal/handler"
@@ -97,12 +98,27 @@ Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscine
 		WithTemperature(temp).
 		WithMaxOutputTokens(tokens)
 
+	dbPath := os.Getenv("SQLITE_DB_PATH")
+	if dbPath == "" {
+		dbPath = "/app/db/shelfscan.db"
+	}
+	migrationsPath := os.Getenv("MIGRATIONS_PATH")
+	if migrationsPath == "" {
+		migrationsPath = "/app/db/migrations"
+	}
+	database, err := db.InitDB(dbPath, migrationsPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer database.Close()
+
 	handlers := handler.NewHandler().
 		WithCorsMiddleware(corsMiddleware).
 		WithQdrantClient(qdrantClient).
 		WithEmbeddingClient(embeddingClient).
 		WithMCPClient(mcpClient).
-		WithGeminiClient(geminiClient)
+		WithGeminiClient(geminiClient).
+		WithDB(database)
 
 	http.HandleFunc("/health", handlers.HealthHandler)
 
@@ -115,6 +131,18 @@ Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscine
 	http.HandleFunc("/uploads/", handlers.UploadsHandler)
 
 	http.HandleFunc("/analyze", handlers.AnalyzeHandler)
+
+	http.HandleFunc("/stores", handlers.StoresHandler)
+	http.HandleFunc("/stores/", handlers.StoresDetailHandler)
+	http.HandleFunc("/agents", handlers.AgentsHandler)
+	http.HandleFunc("/agents/", handlers.AgentsDetailHandler)
+	http.HandleFunc("/visits", handlers.VisitsHandler)
+	http.HandleFunc("/login", handlers.LoginHandler)
+	http.HandleFunc("/stats/overview", handlers.StatsOverviewHandler)
+	http.HandleFunc("/stats/regions", handlers.StatsRegionsHandler)
+	http.HandleFunc("/stats/top-products", handlers.StatsTopProductsHandler)
+	http.HandleFunc("/stats/recent-visits", handlers.StatsRecentVisitsHandler)
+	http.HandleFunc("/stats/stores", handlers.StatsStoresHandler)
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		panic(err)

@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS visit_products;
+DROP TABLE IF EXISTS visit_scans;
+DROP TABLE IF EXISTS visits;
+DROP TABLE IF EXISTS stores;

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"net/http"
 
 	"shelfscan-api/internal/embedding"
@@ -15,6 +16,7 @@ type Handler struct {
 	embeddingClient *embedding.EmbeddingClient
 	mcpClient       *mcp.MCPClient
 	geminiClient    *gemini.GeminiClient
+	db              *sql.DB
 }
 
 func NewHandler() *Handler {
@@ -45,3 +47,9 @@ func (h *Handler) WithGeminiClient(geminiClient *gemini.GeminiClient) *Handler {
 	h.geminiClient = geminiClient
 	return h
 }
+
+func (h *Handler) WithDB(db *sql.DB) *Handler {
+	h.db = db
+	return h
+}
+

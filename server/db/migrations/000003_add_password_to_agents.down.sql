@@ -1,0 +1,1 @@
+-- down migration (not strictly required for local DB updates but nice to have)

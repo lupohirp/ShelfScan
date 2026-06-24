@@ -1,27 +1,50 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useScan } from '../store/scan'
-import { mockStores } from '../lib/mock-data'
+import { getApiUrl } from '../lib/api'
 import TopBar from '../components/TopBar'
 import PageShell from '../components/PageShell'
-import { Search, MapPin, Plus, ChevronRight } from 'lucide-react'
+import { Search, MapPin, Plus, ChevronRight, Loader2 } from 'lucide-react'
 import type { Store } from '../types'
 
 export default function StoreSelect() {
   const [query, setQuery] = useState('')
+  const [stores, setStores] = useState<Store[]>([])
+  const [loading, setLoading] = useState(false)
   const setStore = useScan((s) => s.setStore)
   const navigate = useNavigate()
 
-  const filtered = mockStores.filter(
-    (s) =>
-      s.name.toLowerCase().includes(query.toLowerCase()) ||
-      s.city.toLowerCase().includes(query.toLowerCase())
-  )
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    const fetchStores = async () => {
+      try {
+        const apiBase = getApiUrl()
+        const res = await fetch(`${apiBase}/stores?q=${encodeURIComponent(query)}`)
+        if (!res.ok) throw new Error('Failed to fetch stores')
+        const data = await res.json()
+        if (active) {
+          setStores(data)
+        }
+      } catch (err) {
+        console.error('Error fetching stores:', err)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    const timer = setTimeout(fetchStores, 250)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [query])
 
   const handleSelect = (store: Store) => {
     setStore(store)
     navigate('/scan/camera')
   }
+
 
   return (
     <PageShell>
@@ -52,7 +75,12 @@ export default function StoreSelect() {
 
         {/* Store list */}
         <div className="space-y-0">
-          {filtered.map((store) => (
+          {loading && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="animate-spin text-black" size={24} />
+            </div>
+          )}
+          {!loading && stores.map((store) => (
             <button
               key={store.id}
               onClick={() => handleSelect(store)}
@@ -73,7 +101,7 @@ export default function StoreSelect() {
           ))}
         </div>
 
-        {filtered.length === 0 && (
+        {!loading && stores.length === 0 && (
           <div className="text-center py-20 grayscale opacity-40">
             <Search size={32} className="mx-auto mb-4" strokeWidth={1} />
             <p className="text-[12px] font-black uppercase tracking-[0.2em]">Nessun risultato</p>
