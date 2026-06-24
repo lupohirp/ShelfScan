@@ -174,7 +174,7 @@ func CleanExistingVisits(db *sql.DB) error {
 	defer rows.Close()
 
 	type Visit struct {
-		id    int
+		id    string
 		agent string
 	}
 
