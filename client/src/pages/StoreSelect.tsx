@@ -16,8 +16,8 @@ export default function StoreSelect() {
 
   useEffect(() => {
     let active = true
+    setLoading(true)
     const fetchStores = async () => {
-      setLoading(true)
       try {
         const apiBase = getApiUrl()
         const res = await fetch(`${apiBase}/stores?q=${encodeURIComponent(query)}`)
