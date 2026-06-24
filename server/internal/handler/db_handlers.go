@@ -463,7 +463,8 @@ func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
 					b64Data := img.CapturedImage[commaIdx+1:]
 					dec, err := base64.StdEncoding.DecodeString(b64Data)
 					if err == nil {
-						filename := fmt.Sprintf("visit_%s_%d.jpg", payload.ID, idx)
+						safeID := strings.NewReplacer("..", "", "/", "", "\\", "").Replace(payload.ID)
+						filename := fmt.Sprintf("visit_%s_%d.jpg", safeID, idx)
 						filepath := "uploads/" + filename
 						err = os.WriteFile(filepath, dec, 0644)
 						if err == nil {
