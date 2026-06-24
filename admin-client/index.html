@@ -2452,7 +2452,48 @@ class Component extends DCLogic {
   }
 
   setField(k){ return (e)=> this.setState({ [k]: e.target.value }); }
-  openStore(id){ this.setState({ selectedId:id, selectedVisit:null, tab:'photos' }); }
+  async openStore(id) {
+    this.setState({ selectedId: id, selectedVisit: null, tab: 'photos' });
+    try {
+      const res = await fetch(this.getUrl(`/stores/${id}`));
+      if (res && res.ok) {
+        const data = await res.json();
+        const idx = this.jewelers.findIndex(j => String(j.id) === String(id));
+        if (idx !== -1) {
+          const visits = (data.visits || []).map(v => ({
+            date: new Date(v.finalized_at || v.created_at),
+            agent: v.agent,
+            coverage: v.coverage,
+            missingCount: v.missing_count,
+            exposed: (v.exposed || []).map(p => ({
+              sku: p.sku,
+              name: p.name,
+              cat: p.cat,
+              tone: 'neutral'
+            })),
+            missing: (v.missing || []).map(p => ({
+              sku: p.sku,
+              name: p.name,
+              cat: p.cat,
+              tone: 'neutral'
+            })),
+            photos: (v.photos || []).map(p => ({
+              tone: p.tone || 'neutral',
+              url: this.cleanImgUrl(p.url)
+            }))
+          }));
+          this.jewelers[idx].visits = visits;
+          if (visits.length > 0) {
+            this.setState({ selectedVisit: 0 });
+          } else {
+            this.setState({ selectedVisit: null });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching store details:', err);
+    }
+  }
 
   renderVals(){
     const t = this.dict();

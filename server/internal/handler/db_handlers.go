@@ -341,6 +341,9 @@ func (h *Handler) StoresDetailHandler(w http.ResponseWriter, r *http.Request) {
 			Agent       string     `json:"agent"`
 			CreatedAt   time.Time  `json:"created_at"`
 			FinalizedAt *time.Time `json:"finalized_at,omitempty"`
+			Photos      []any      `json:"photos"`
+			Exposed     []any      `json:"exposed"`
+			MissingProds []any     `json:"missing"`
 		}
 
 		visits := []VisitJSON{}
@@ -352,6 +355,52 @@ func (h *Handler) StoresDetailHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+
+			// Query photos for this visit
+			photoRows, err := h.db.Query("SELECT photo_url, photo_tone FROM visit_scans WHERE visit_id = ?", v.ID)
+			if err == nil {
+				v.Photos = []any{}
+				for photoRows.Next() {
+					var url, tone string
+					if err := photoRows.Scan(&url, &tone); err == nil {
+						v.Photos = append(v.Photos, map[string]string{
+							"url":  url,
+							"tone": tone,
+						})
+					}
+				}
+				photoRows.Close()
+			} else {
+				v.Photos = []any{}
+			}
+
+			// Query products for this visit
+			prodRows, err := h.db.Query("SELECT sku, name, category, is_exposed FROM visit_products WHERE visit_id = ?", v.ID)
+			if err == nil {
+				v.Exposed = []any{}
+				v.MissingProds = []any{}
+				for prodRows.Next() {
+					var sku, name, cat string
+					var isExposed bool
+					if err := prodRows.Scan(&sku, &name, &cat, &isExposed); err == nil {
+						prodItem := map[string]string{
+							"sku":  sku,
+							"name": name,
+							"cat":  cat,
+						}
+						if isExposed {
+							v.Exposed = append(v.Exposed, prodItem)
+						} else {
+							v.MissingProds = append(v.MissingProds, prodItem)
+						}
+					}
+				}
+				prodRows.Close()
+			} else {
+				v.Exposed = []any{}
+				v.MissingProds = []any{}
+			}
+
 			visits = append(visits, v)
 		}
 
