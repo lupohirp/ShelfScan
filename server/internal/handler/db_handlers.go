@@ -83,7 +83,7 @@ func (h *Handler) StoresHandler(w http.ResponseWriter, r *http.Request) {
 			cleanedRegion := strings.ToUpper(strings.TrimSpace(p.Region))
 			cleanedRegionCode := strings.ToUpper(strings.TrimSpace(p.RegionCode))
 			cleanedCity := strings.ToUpper(strings.TrimSpace(p.City))
-			cleanedAgentName := strings.ToUpper(strings.TrimSpace(p.AgentName))
+			cleanedAgentName := db.GetOfficialAgentName(p.AgentName)
 
 			res, err := h.db.Exec(`
 				INSERT INTO stores (code, name, province, province_name, address, region, region_code, city, agent_name)
