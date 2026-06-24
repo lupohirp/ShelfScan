@@ -34,18 +34,18 @@ export default function App() {
       {/* Main Mobile Routes with persistent BottomNav */}
       <Route element={<ProtectedRoute><MobileLayout /></ProtectedRoute>}>
         <Route path="/home" element={<Home />} />
-        <Route path="/scan" element={<StoreSelect />} />
-        <Route path="/scan/results" element={<ScanResults />} />
-        <Route path="/scan/edit" element={<ManualEdit />} />
-        <Route path="/scan/report" element={<ReportPreview />} />
-        <Route path="/customization" element={<CustomizationForm />} />
         <Route path="/history" element={<History />} />
-        <Route path="/history/:id" element={<HistoryDetail />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 
       {/* Fullscreen / Special Mobile routes (No BottomNav) */}
+      <Route path="/scan" element={<ProtectedRoute><StoreSelect /></ProtectedRoute>} />
       <Route path="/scan/camera" element={<ProtectedRoute><Camera /></ProtectedRoute>} />
+      <Route path="/scan/results" element={<ProtectedRoute><ScanResults /></ProtectedRoute>} />
+      <Route path="/scan/edit" element={<ProtectedRoute><ManualEdit /></ProtectedRoute>} />
+      <Route path="/scan/report" element={<ProtectedRoute><ReportPreview /></ProtectedRoute>} />
+      <Route path="/customization" element={<ProtectedRoute><CustomizationForm /></ProtectedRoute>} />
+      <Route path="/history/:id" element={<ProtectedRoute><HistoryDetail /></ProtectedRoute>} />
 
       {/* Admin routes */}
       <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>

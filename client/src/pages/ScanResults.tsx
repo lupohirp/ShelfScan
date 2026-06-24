@@ -143,17 +143,17 @@ export default function ScanResults() {
       </div>
 
       {/* Bottom actions */}
-      <div className="fixed bottom-16 left-0 right-0 p-8 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100">
+      <div className="fixed bottom-0 left-0 right-0 p-4 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 safe-bottom">
         <div className="max-w-lg mx-auto flex gap-4">
           <button
             onClick={() => navigate('/scan/camera')}
-            className="flex-1 border-2 border-black text-black h-14 text-[12px] font-black uppercase tracking-[0.2em] active:bg-gray-100 transition-colors"
+            className="flex-1 border-2 border-black text-black h-12 text-[12px] font-black uppercase tracking-[0.2em] active:bg-gray-100 transition-colors"
           >
             Riprova
           </button>
           <button
             onClick={() => navigate('/scan/report')}
-            className="flex-1 bg-black text-white h-14 text-[12px] font-black uppercase tracking-[0.2em] active:opacity-80 transition-opacity"
+            className="flex-1 bg-black text-white h-12 text-[12px] font-black uppercase tracking-[0.2em] active:opacity-80 transition-opacity"
           >
             Invia Report
           </button>
