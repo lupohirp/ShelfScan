@@ -8,3 +8,5 @@ mcp/__debug_*
 server/uploads/*
 .antigravitycli/ba541ced-6c4e-47ff-b8a7-e2f26ca815ec.json
 /logs
+server/db/shelfscan.db-shm
+server/db/shelfscan.db-wal
