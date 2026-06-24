@@ -8,6 +8,7 @@ import {
   MapPin,
   Clock,
   Grid3X3,
+  Palette,
 } from 'lucide-react'
 
 export default function Home() {
@@ -35,20 +36,35 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Main CTA */}
+      {/* Main CTAs */}
       <div className="p-8 border-b border-gray-100 bg-gray-50/50">
-        <button
-          onClick={() => navigate('/scan')}
-          className="w-full bg-black text-white p-8 flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.99]"
-        >
-          <ScanLine size={32} strokeWidth={1.5} />
-          <div className="text-center">
-            <span className="text-[16px] font-black uppercase tracking-[0.2em] block mb-1">Nuova Scansione</span>
-            <span className="text-white/50 text-[11px] font-bold uppercase tracking-[0.1em]">
-              Controllo Visivo Inventario
-            </span>
-          </div>
-        </button>
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => navigate('/scan')}
+            className="bg-black text-white p-6 flex flex-col items-center justify-center gap-3 transition-all active:scale-[0.98] h-40"
+          >
+            <ScanLine size={24} strokeWidth={1.5} />
+            <div className="text-center">
+              <span className="text-[12px] font-black uppercase tracking-[0.15em] block mb-1">Scansione</span>
+              <span className="text-white/40 text-[9px] font-bold uppercase tracking-[0.05em] block leading-tight">
+                Controllo Visivo
+              </span>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => navigate('/customization')}
+            className="bg-white border border-gray-200 text-black p-6 flex flex-col items-center justify-center gap-3 transition-all active:scale-[0.98] h-40"
+          >
+            <Palette size={24} strokeWidth={1.5} />
+            <div className="text-center">
+              <span className="text-[12px] font-black uppercase tracking-[0.15em] block mb-1">Allestimento</span>
+              <span className="text-gray-400 text-[9px] font-bold uppercase tracking-[0.05em] block leading-tight">
+                Personalizzazioni
+              </span>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Stats Bento */}

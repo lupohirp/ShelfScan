@@ -138,6 +138,7 @@ Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscine
 	http.HandleFunc("/agents/", handlers.AgentsDetailHandler)
 	http.HandleFunc("/visits", handlers.VisitsHandler)
 	http.HandleFunc("/login", handlers.LoginHandler)
+	http.HandleFunc("/customizations", handlers.CustomizationsHandler)
 	http.HandleFunc("/stats/overview", handlers.StatsOverviewHandler)
 	http.HandleFunc("/stats/regions", handlers.StatsRegionsHandler)
 	http.HandleFunc("/stats/top-products", handlers.StatsTopProductsHandler)

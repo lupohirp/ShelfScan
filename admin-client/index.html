@@ -126,6 +126,7 @@
           <div onClick="{{ goSearch }}" style="{{ navSearchStyle }}">{{ t.navJewelers }}</div>
           <div onClick="{{ goAgents }}" style="{{ navAgentsStyle }}">{{ t.navAgents }}</div>
           <div onClick="{{ goInventory }}" style="{{ navInventoryStyle }}">{{ t.navInventory }}</div>
+          <div onClick="{{ goCustomizations }}" style="{{ navCustomizationsStyle }}">{{ t.navCustomizations }}</div>
         </div>
 
         <div style="margin-left:auto;display:flex;align-items:center;gap:18px;">
@@ -166,6 +167,7 @@
           <div onClick="{{ goSearchMobile }}" style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500;padding:12px 16px;border-radius:3px;cursor:pointer;{{ navSearchMobileStyle }}">{{ t.navJewelers }}</div>
           <div onClick="{{ goAgentsMobile }}" style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500;padding:12px 16px;border-radius:3px;cursor:pointer;{{ navAgentsMobileStyle }}">{{ t.navAgents }}</div>
           <div onClick="{{ goInventoryMobile }}" style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500;padding:12px 16px;border-radius:3px;cursor:pointer;{{ navInventoryMobileStyle }}">{{ t.navInventory }}</div>
+          <div onClick="{{ goCustomizationsMobile }}" style="font-family:'Jost',sans-serif;font-size:16px;font-weight:500;padding:12px 16px;border-radius:3px;cursor:pointer;{{ navCustomizationsMobileStyle }}">{{ t.navCustomizations }}</div>
         </div>
         
         <!-- Footer/User Info -->
@@ -699,6 +701,112 @@
       </div>
     </div>
     </sc-if>
+
+    <!-- ============ CUSTOMIZATIONS ============ -->
+    <sc-if value="{{ isCustomizations }}" hint-placeholder-val="">
+    <div style="max-width:1320px;margin:0 auto;padding:clamp(26px,4vw,46px) clamp(20px,4vw,40px) 70px;">
+      <div style="margin-bottom:24px;">
+        <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:clamp(26px,3vw,34px);letter-spacing:-.01em;">{{ t.customizationsTitle }}</div>
+        <div style="color:#8c8a85;font-size:14.5px;margin-top:6px;">{{ t.customizationsSub }}</div>
+      </div>
+
+      <!-- Filters -->
+      <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:20px 22px;margin-bottom:24px;">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:end;">
+          <div style="flex:2 1 240px;min-width:180px;">
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:7px;">{{ t.fCustQueryLabel }}</label>
+            <input value="{{ fCustQuery }}" onInput="{{ onFCustQuery }}" placeholder="{{ t.fCustQueryPh }}" style="width:100%;height:44px;border:1px solid #e2e1dc;border-radius:2px;padding:0 13px;font-size:14.5px;outline:none;background:#fafaf9;color:#141414;" />
+          </div>
+          <div style="flex:0 0 auto;margin-left:auto;">
+            <div style="display:flex;gap:10px;">
+              <button onClick="{{ doResetCust }}" style="height:44px;padding:0 16px;background:#fff;color:#4a4843;border:1px solid #e2e1dc;border-radius:2px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;white-space:nowrap;" style-hover="border-color:#141414;color:#141414;">{{ t.reset }}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Count -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin:24px 2px 12px;">
+        <div style="font-size:13px;color:#8c8a85;"><span style="color:#141414;font-weight:600;font-variant-numeric:tabular-nums;">{{ custCount }}</span> {{ t.customizationsFound }}</div>
+      </div>
+
+      <!-- Table -->
+      <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <div style="min-width:1100px;">
+            <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1.8fr 3fr 2.2fr 1fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
+              <span>{{ t.colCustDate }}</span>
+              <span>{{ t.colCustAgent }}</span>
+              <span>{{ t.colCustStore }}</span>
+              <span>{{ t.colCustDetails }}</span>
+              <span>{{ t.colCustShipping }}</span>
+              <span style="text-align:right;">{{ t.colCustPhoto }}</span>
+            </div>
+            
+            <sc-if value="{{ hasCustResults }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ custResults }}" as="row" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1.8fr 3fr 2.2fr 1fr;gap:14px;padding:18px 22px;border-top:1px solid #f0efec;align-items:start;font-size:13.5px;" style-hover="background:#faf9f7;">
+                <span style="color:#141414;">{{ row.dateFormatted }}</span>
+                <span style="font-family:'Jost',sans-serif;font-weight:600;color:#141414;">{{ row.agentName }}</span>
+                <div>
+                  <div style="font-weight:600;color:#9a7b3f;font-family:'Jost',sans-serif;">{{ row.customerCode }}</div>
+                  <div style="font-weight:600;color:#141414;margin-top:2px;">{{ row.customerStoreName }}</div>
+                  <div style="color:#8c8a85;font-size:12px;margin-top:1px;">{{ row.customerCity }}</div>
+                  <div style="color:#8c8a85;font-size:11px;margin-top:1px;">Sell in: {{ row.annualSellInEstimate }}</div>
+                </div>
+                <div>
+                  <!-- Customization 1 -->
+                  <div style="margin-bottom:8px;border-left:2px solid #9a7b3f;padding-left:8px;">
+                    <div style="font-weight:600;font-size:12.5px;">{{ row.cust1Subject }} ({{ row.cust1Type }})</div>
+                    <div style="font-size:12px;color:#8c8a85;margin-top:2px;">Misura: {{ row.cust1WidthCm }}x{{ row.cust1HeightCm }} cm | Materiale: {{ row.cust1Material }}</div>
+                  </div>
+                  <!-- Customization 2 -->
+                  <sc-if value="{{ row.hasCust2 }}">
+                    <div style="margin-bottom:8px;border-left:2px solid #ccc;padding-left:8px;">
+                      <div style="font-weight:600;font-size:12.5px;">{{ row.cust2Subject }} ({{ row.cust2Type }})</div>
+                      <div style="font-size:12px;color:#8c8a85;margin-top:2px;">Misura: {{ row.cust2WidthCm }}x{{ row.cust2HeightCm }} cm | Materiale: {{ row.cust2Material }}</div>
+                    </div>
+                  </sc-if>
+                  <!-- Customization 3 -->
+                  <sc-if value="{{ row.hasCust3 }}">
+                    <div style="margin-bottom:8px;border-left:2px solid #ccc;padding-left:8px;">
+                      <div style="font-weight:600;font-size:12.5px;">{{ row.cust3Subject }} ({{ row.cust3Type }})</div>
+                      <div style="font-size:12px;color:#8c8a85;margin-top:2px;">Misura: {{ row.cust3WidthCm }}x{{ row.cust3HeightCm }} cm | Materiale: {{ row.cust3Material }}</div>
+                    </div>
+                  </sc-if>
+                  
+                  <div style="font-size:11.5px;color:#4a4843;border-top:1px dashed #f0efec;padding-top:4px;margin-top:4px;">
+                    <div>Stampa: <strong>{{ row.printingCostResponsibility }}</strong></div>
+                    <div>Montaggio: <strong>{{ row.assemblyCostResponsibility }}</strong></div>
+                    <sc-if value="{{ row.periodText }}">
+                      <div style="margin-top:2px;color:#9a7b3f;">Periodo: {{ row.periodText }}</div>
+                    </sc-if>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-weight:500;color:#141414;">{{ row.shippingAddress }} {{ row.shippingCivic }}</div>
+                  <div style="font-size:12.5px;color:#8c8a85;margin-top:1px;">{{ row.shippingCap }} {{ row.shippingCity }} ({{ row.shippingProvince }})</div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;">
+                  <a href="{{ row.photoUrlCleaned }}" target="_blank" style="display:block;width:70px;height:70px;border:1px solid #e7e6e2;border-radius:2px;overflow:hidden;background:#faf9f7;" title="Clicca per ingrandire">
+                    <img src="{{ row.photoUrlCleaned }}" style="width:100%;height:100%;object-fit:cover;" />
+                  </a>
+                </div>
+              </div>
+            </sc-for>
+            </sc-if>
+            
+            <sc-if value="{{ noCustResults }}" hint-placeholder-val="">
+              <div style="padding:54px 22px;text-align:center;color:#8c8a85;">
+                <div style="font-family:'Jost',sans-serif;font-size:17px;color:#141414;margin-bottom:6px;">{{ t.noResTitle }}</div>
+                <div style="font-size:13.5px;">{{ t.noResSub }}</div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+    </sc-if>
   </div>
   </sc-if>
 
@@ -1040,6 +1148,7 @@
 class Component extends DCLogic {
   state = {
     screen: 'login', view: 'overview', lang: 'it',
+    fCustQuery: '',
     mobileMenuOpen: false,
     email: '', password: '', loginError: '',
     fCodice: '', fNome: '', fProvincia: '', fCitta: '', fSku: '',
@@ -1084,6 +1193,7 @@ class Component extends DCLogic {
     await this.fetchInventory();
     await this.fetchDashboardData();
     await this.fetchAgentsData();
+    await this.fetchCustomizationsData();
   }
 
   cleanImgUrl(url) {
@@ -1852,6 +1962,33 @@ class Component extends DCLogic {
     }
   }
 
+  async fetchCustomizationsData() {
+    try {
+      const res = await fetch(this.getUrl('/customizations'));
+      if (res && res.ok) {
+        this.customizations = await res.json();
+      }
+      this.setState({ searchTick: this.state.searchTick + 1 });
+    } catch(err) {
+      console.error('Error fetching customizations data:', err);
+    }
+  }
+
+  filteredCustomizations() {
+    const s = this.state;
+    const q = (s.fCustQuery || '').trim().toLowerCase();
+    return (this.customizations || []).filter(c => {
+      if (!c) return false;
+      if (q && 
+          !(c.agent_name || '').toLowerCase().includes(q) && 
+          !(c.customer_code || '').toLowerCase().includes(q) && 
+          !(c.customer_store_name || '').toLowerCase().includes(q) && 
+          !(c.customer_city || '').toLowerCase().includes(q)
+      ) return false;
+      return true;
+    });
+  }
+
   filteredAgents() {
     const s = this.state;
     const q = (s.fAgentQuery || '').trim().toLowerCase();
@@ -2113,6 +2250,19 @@ class Component extends DCLogic {
       catEarring:'Orecchino',
       catOther:'Altro',
       navAgents:'Agenti',
+      navCustomizations:'Allestimenti',
+      customizationsTitle:'Personalizzazioni ed Allestimenti',
+      customizationsSub:'Allestimenti e personalizzazioni richiesti dai rappresentanti sul territorio.',
+      fCustQueryLabel:'Ricerca allestimento',
+      fCustQueryPh:'Cerca per codice, ragione sociale, agente...',
+      customizationsFound:'richieste trovate',
+      colCustDate:'Data richiesta',
+      colCustAgent:'Agente',
+      colCustStore:'Cliente',
+      colCustDetails:'Dettagli allestimento',
+      colCustShipping:'Indirizzo Spedizione',
+      colCustPhoto:'Foto Spazi',
+      colCustCosts:'Costi stampa/montaggio',
       agentsTitle:'Anagrafica agenti',
       agentsSub:'Elenco e contatti degli agenti commerciali Liu Jo sul territorio.',
       fAgentQueryLabel:'Ricerca agente',
@@ -2214,6 +2364,19 @@ class Component extends DCLogic {
       catEarring:'Earring',
       catOther:'Other',
       navAgents:'Agents',
+      navCustomizations:'Customizations',
+      customizationsTitle:'Customizations & Displays',
+      customizationsSub:'Store display and customization requests submitted by agents in the field.',
+      fCustQueryLabel:'Search requests',
+      fCustQueryPh:'Search by code, customer, agent...',
+      customizationsFound:'requests found',
+      colCustDate:'Request date',
+      colCustAgent:'Agent',
+      colCustStore:'Customer',
+      colCustDetails:'Display details',
+      colCustShipping:'Shipping address',
+      colCustPhoto:'Photo',
+      colCustCosts:'Costs',
       agentsTitle:'Agents Registry',
       agentsSub:'List and contacts of Liu Jo commercial agents in the field.',
       fAgentQueryLabel:'Search agent',
@@ -2415,6 +2578,60 @@ class Component extends DCLogic {
     const navSearchMobileStyle = s.view === 'search' ? mobileNavOn : mobileNavOff;
     const navAgentsMobileStyle = s.view === 'agents' ? mobileNavOn : mobileNavOff;
     const navInventoryMobileStyle = s.view === 'inventory' ? mobileNavOn : mobileNavOff;
+    const navCustomizationsMobileStyle = s.view === 'customizations' ? mobileNavOn : mobileNavOff;
+    const isCustomizations = s.view === 'customizations';
+    const navCustomizationsStyle = s.view === 'customizations' ? navOn : navOff;
+    
+    const custRaw = this.filteredCustomizations();
+    const custResults = custRaw.map(c => {
+      const dateFormatted = c.created_at ? new Date(c.created_at).toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : '';
+      
+      const periodText = (c.start_date || c.end_date) ? 
+        `${c.start_date ? new Date(c.start_date).toLocaleDateString('it-IT') : ''} - ${c.end_date ? new Date(c.end_date).toLocaleDateString('it-IT') : ''}` : '';
+
+      return {
+        id: c.id,
+        agentName: c.agent_name || '-',
+        customerCode: c.customer_code || '-',
+        customerBusinessName: c.customer_business_name || '-',
+        customerStoreName: c.customer_store_name || '-',
+        customerCity: c.customer_city || '-',
+        annualSellInEstimate: c.annual_sell_in_estimate || '-',
+        cust1Subject: c.cust1_subject || '-',
+        cust1Type: c.cust1_type || '-',
+        cust1WidthCm: c.cust1_width_cm || 0,
+        cust1HeightCm: c.cust1_height_cm || 0,
+        cust1Material: c.cust1_material || '-',
+        hasCust2: !!c.cust2_subject,
+        cust2Subject: c.cust2_subject || '',
+        cust2Type: c.cust2_type || '',
+        cust2WidthCm: c.cust2_width_cm || 0,
+        cust2HeightCm: c.cust2_height_cm || 0,
+        cust2Material: c.cust2_material || '',
+        hasCust3: !!c.cust3_subject,
+        cust3Subject: c.cust3_subject || '',
+        cust3Type: c.cust3_type || '',
+        cust3WidthCm: c.cust3_width_cm || 0,
+        cust3HeightCm: c.cust3_height_cm || 0,
+        cust3Material: c.cust3_material || '',
+        printingCostResponsibility: c.printing_cost_responsibility || '-',
+        assemblyCostResponsibility: c.assembly_cost_responsibility || '-',
+        shippingAddress: c.shipping_address || '-',
+        shippingCivic: c.shipping_civic || '-',
+        shippingCity: c.shipping_city || '-',
+        shippingProvince: c.shipping_province || '-',
+        shippingCap: c.shipping_cap || '-',
+        photoUrlCleaned: this.cleanImgUrl(c.photo_url),
+        dateFormatted,
+        periodText
+      };
+    });
     const agentsList = this.filteredAgents();
     const agentsResults = agentsList.map(a => ({
       id: a.id,
@@ -2431,6 +2648,14 @@ class Component extends DCLogic {
       t,
       isLogin: s.screen==='login', isApp: s.screen==='app',
       isOverview: s.view==='overview', isSearch: s.view==='search', isAgents,
+      isCustomizations,
+      custCount: custResults.length,
+      hasCustResults: custResults.length > 0,
+      noCustResults: custResults.length === 0,
+      custResults,
+      fCustQuery: s.fCustQuery,
+      onFCustQuery: this.setField('fCustQuery'),
+      doResetCust: () => this.setState({ fCustQuery: '' }),
       email:s.email, password:s.password, loginError:s.loginError,
       statStoresVal: this.fmtNum(this.totalStoresCount),
       statRegionsVal: this.fmtNum(this.totalRegionsCount),
@@ -2442,19 +2667,29 @@ class Component extends DCLogic {
       goSearchMobile: () => this.setState({ view: 'search', mobileMenuOpen: false }),
       goAgentsMobile: () => this.setState({ view: 'agents', mobileMenuOpen: false }),
       goInventoryMobile: () => this.setState({ view: 'inventory', mobileMenuOpen: false }),
+      goCustomizationsMobile: () => {
+        this.setState({ view: 'customizations', mobileMenuOpen: false });
+        this.fetchCustomizationsData();
+      },
       navOverviewMobileStyle,
       navSearchMobileStyle,
       navAgentsMobileStyle,
       navInventoryMobileStyle,
+      navCustomizationsMobileStyle,
       onEmail:this.setField('email'), onPassword:this.setField('password'),
       doLogin:()=>{ if(!s.email.trim()||!s.password.trim()){ this.setState({loginError: s.lang==='en'?'Enter email and password to continue.':'Inserisci email e password per continuare.'}); return;} this.setState({screen:'app', loginError:''}); },
 
       goOverview:()=> this.setState({view:'overview'}), goSearch:()=> this.setState({view:'search'}), goAgents:()=> this.setState({view:'agents'}),
       goInventory:()=> this.setState({view:'inventory'}),
+      goCustomizations: () => {
+        this.setState({ view: 'customizations' });
+        this.fetchCustomizationsData();
+      },
       navOverviewStyle: s.view==='overview'?navOn:navOff,
       navSearchStyle: s.view==='search'?navOn:navOff,
       navAgentsStyle,
       navInventoryStyle,
+      navCustomizationsStyle,
       doLogout:()=> this.setState({screen:'login', password:''}),
       userName:'Chiara Bellini', userInitials:'CB',
       kpis, topProducts, regions, recent,

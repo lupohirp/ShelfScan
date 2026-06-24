@@ -10,6 +10,7 @@ import ReportPreview from './pages/ReportPreview'
 import History from './pages/History'
 import HistoryDetail from './pages/HistoryDetail'
 import Settings from './pages/Settings'
+import CustomizationForm from './pages/CustomizationForm'
 import AdminLayout from './pages/admin/AdminLayout'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminProducts from './pages/admin/AdminProducts'
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/scan/results" element={<ScanResults />} />
         <Route path="/scan/edit" element={<ManualEdit />} />
         <Route path="/scan/report" element={<ReportPreview />} />
+        <Route path="/customization" element={<CustomizationForm />} />
         <Route path="/history" element={<History />} />
         <Route path="/history/:id" element={<HistoryDetail />} />
         <Route path="/settings" element={<Settings />} />

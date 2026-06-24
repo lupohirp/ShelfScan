@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -1089,6 +1090,305 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			"agente": dbAgente,
 			"zona":   dbZona,
 		})
+	})
+
+	if h.corsMiddleware != nil {
+		h.corsMiddleware(handlerFunc)(w, r)
+		return
+	}
+	handlerFunc(w, r)
+}
+
+func parseFloat(val string) float64 {
+	if val == "" {
+		return 0.0
+	}
+	f, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return 0.0
+	}
+	return f
+}
+
+func (h *Handler) CustomizationsHandler(w http.ResponseWriter, r *http.Request) {
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			// Parse multipart form
+			err := r.ParseMultipartForm(50 << 20) // up to 50MB
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Get fields
+			agentIdStr := r.FormValue("agent_id")
+			agentId, _ := strconv.Atoi(agentIdStr)
+			agentName := r.FormValue("agent_name")
+			customerCode := r.FormValue("customer_code")
+			customerBusinessName := r.FormValue("customer_business_name")
+			customerStoreName := r.FormValue("customer_store_name")
+			customerAddress := r.FormValue("customer_address")
+			customerCap := r.FormValue("customer_cap")
+			customerCity := r.FormValue("customer_city")
+			customerEmail := r.FormValue("customer_email")
+			customerPhone := r.FormValue("customer_phone")
+			annualSellInEstimate := r.FormValue("annual_sell_in_estimate")
+
+			// Cust 1
+			cust1Subject := r.FormValue("cust1_subject")
+			cust1Type := r.FormValue("cust1_type")
+			cust1Width := parseFloat(r.FormValue("cust1_width_cm"))
+			cust1Height := parseFloat(r.FormValue("cust1_height_cm"))
+			cust1Material := r.FormValue("cust1_material")
+
+			// Cust 2
+			cust2Subject := r.FormValue("cust2_subject")
+			cust2Type := r.FormValue("cust2_type")
+			var cust2Width, cust2Height float64
+			if r.FormValue("cust2_width_cm") != "" {
+				cust2Width = parseFloat(r.FormValue("cust2_width_cm"))
+			}
+			if r.FormValue("cust2_height_cm") != "" {
+				cust2Height = parseFloat(r.FormValue("cust2_height_cm"))
+			}
+			cust2Material := r.FormValue("cust2_material")
+
+			// Cust 3
+			cust3Subject := r.FormValue("cust3_subject")
+			cust3Type := r.FormValue("cust3_type")
+			var cust3Width, cust3Height float64
+			if r.FormValue("cust3_width_cm") != "" {
+				cust3Width = parseFloat(r.FormValue("cust3_width_cm"))
+			}
+			if r.FormValue("cust3_height_cm") != "" {
+				cust3Height = parseFloat(r.FormValue("cust3_height_cm"))
+			}
+			cust3Material := r.FormValue("cust3_material")
+
+			startDate := r.FormValue("start_date")
+			endDate := r.FormValue("end_date")
+
+			printingCostResponsibility := r.FormValue("printing_cost_responsibility")
+			assemblyCostResponsibility := r.FormValue("assembly_cost_responsibility")
+
+			shippingAddress := r.FormValue("shipping_address")
+			shippingCivic := r.FormValue("shipping_civic")
+			shippingCity := r.FormValue("shipping_city")
+			shippingProvince := r.FormValue("shipping_province")
+			shippingCap := r.FormValue("shipping_cap")
+
+			// Get photo file
+			file, header, err := r.FormFile("photo")
+			if err != nil {
+				http.Error(w, "Photo file is required", http.StatusBadRequest)
+				return
+			}
+			defer file.Close()
+
+			// Save file
+			os.MkdirAll("uploads", 0755)
+			filename := fmt.Sprintf("customization_%d_%s", time.Now().UnixNano(), header.Filename)
+			filePath := "uploads/" + filename
+
+			dst, err := os.Create(filePath)
+			if err != nil {
+				http.Error(w, "Failed to save file", http.StatusInternalServerError)
+				return
+			}
+			defer dst.Close()
+			if _, err := io.Copy(dst, file); err != nil {
+				http.Error(w, "Failed to save file contents", http.StatusInternalServerError)
+				return
+			}
+
+			// Save to DB
+			now := time.Now()
+			res, err := h.db.Exec(`
+				INSERT INTO customizations (
+					agent_id, agent_name, customer_code, customer_business_name, customer_store_name,
+					customer_address, customer_cap, customer_city, customer_email, customer_phone,
+					annual_sell_in_estimate,
+					cust1_subject, cust1_type, cust1_width_cm, cust1_height_cm, cust1_material,
+					cust2_subject, cust2_type, cust2_width_cm, cust2_height_cm, cust2_material,
+					cust3_subject, cust3_type, cust3_width_cm, cust3_height_cm, cust3_material,
+					start_date, end_date,
+					printing_cost_responsibility, assembly_cost_responsibility,
+					shipping_address, shipping_civic, shipping_city, shipping_province, shipping_cap,
+					photo_url, created_at
+				) VALUES (
+					?, ?, ?, ?, ?,
+					?, ?, ?, ?, ?,
+					?,
+					?, ?, ?, ?, ?,
+					?, ?, ?, ?, ?,
+					?, ?, ?, ?, ?,
+					?, ?,
+					?, ?,
+					?, ?, ?, ?, ?,
+					?, ?
+				)
+			`, agentId, agentName, customerCode, customerBusinessName, customerStoreName,
+				customerAddress, customerCap, customerCity, customerEmail, customerPhone,
+				annualSellInEstimate,
+				cust1Subject, cust1Type, cust1Width, cust1Height, cust1Material,
+				cust2Subject, cust2Type, cust2Width, cust2Height, cust2Material,
+				cust3Subject, cust3Type, cust3Width, cust3Height, cust3Material,
+				startDate, endDate,
+				printingCostResponsibility, assemblyCostResponsibility,
+				shippingAddress, shippingCivic, shippingCity, shippingProvince, shippingCap,
+				"/uploads/"+filename, now)
+
+			if err != nil {
+				log.Printf("Error inserting customization: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			lastID, _ := res.LastInsertId()
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]any{
+				"id":     lastID,
+				"status": "created",
+			})
+			return
+		}
+
+		if r.Method == http.MethodGet {
+			// Query DB
+			rows, err := h.db.Query(`
+				SELECT 
+					id, agent_id, agent_name, customer_code, customer_business_name, customer_store_name,
+					customer_address, customer_cap, customer_city, customer_email, customer_phone,
+					annual_sell_in_estimate,
+					cust1_subject, cust1_type, cust1_width_cm, cust1_height_cm, cust1_material,
+					cust2_subject, cust2_type, cust2_width_cm, cust2_height_cm, cust2_material,
+					cust3_subject, cust3_type, cust3_width_cm, cust3_height_cm, cust3_material,
+					start_date, end_date,
+					printing_cost_responsibility, assembly_cost_responsibility,
+					shipping_address, shipping_civic, shipping_city, shipping_province, shipping_cap,
+					photo_url, created_at
+				FROM customizations
+				ORDER BY created_at DESC
+			`)
+			if err != nil {
+				log.Printf("Error querying customizations: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			defer rows.Close()
+
+			type CustomizationResponse struct {
+				ID                         int       `json:"id"`
+				AgentID                    int       `json:"agent_id"`
+				AgentName                  string    `json:"agent_name"`
+				CustomerCode               string    `json:"customer_code"`
+				CustomerBusinessName       string    `json:"customer_business_name"`
+				CustomerStoreName          string    `json:"customer_store_name"`
+				CustomerAddress            string    `json:"customer_address"`
+				CustomerCap                string    `json:"customer_cap"`
+				CustomerCity               string    `json:"customer_city"`
+				CustomerEmail              string    `json:"customer_email"`
+				CustomerPhone              string    `json:"customer_phone"`
+				AnnualSellInEstimate       string    `json:"annual_sell_in_estimate"`
+				Cust1Subject               string    `json:"cust1_subject"`
+				Cust1Type                  string    `json:"cust1_type"`
+				Cust1WidthCm               float64   `json:"cust1_width_cm"`
+				Cust1HeightCm              float64   `json:"cust1_height_cm"`
+				Cust1Material              string    `json:"cust1_material"`
+				Cust2Subject               *string   `json:"cust2_subject"`
+				Cust2Type                  *string   `json:"cust2_type"`
+				Cust2WidthCm               *float64  `json:"cust2_width_cm"`
+				Cust2HeightCm              *float64  `json:"cust2_height_cm"`
+				Cust2Material              *string   `json:"cust2_material"`
+				Cust3Subject               *string   `json:"cust3_subject"`
+				Cust3Type                  *string   `json:"cust3_type"`
+				Cust3WidthCm               *float64  `json:"cust3_width_cm"`
+				Cust3HeightCm              *float64  `json:"cust3_height_cm"`
+				Cust3Material              *string   `json:"cust3_material"`
+				StartDate                  string    `json:"start_date"`
+				EndDate                    string    `json:"end_date"`
+				PrintingCostResponsibility string    `json:"printing_cost_responsibility"`
+				AssemblyCostResponsibility string    `json:"assembly_cost_responsibility"`
+				ShippingAddress            string    `json:"shipping_address"`
+				ShippingCivic              string    `json:"shipping_civic"`
+				ShippingCity               string    `json:"shipping_city"`
+				ShippingProvince           string    `json:"shipping_province"`
+				ShippingCap                string    `json:"shipping_cap"`
+				PhotoURL                   string    `json:"photo_url"`
+				CreatedAt                  time.Time `json:"created_at"`
+			}
+
+			results := []CustomizationResponse{}
+			for rows.Next() {
+				var cr CustomizationResponse
+				var agentIdVal sql.NullInt64
+				var cust2Sub, cust2Type, cust2Mat sql.NullString
+				var cust3Sub, cust3Type, cust3Mat sql.NullString
+				var cust2W, cust2H, cust3W, cust3H sql.NullFloat64
+
+				err := rows.Scan(
+					&cr.ID, &agentIdVal, &cr.AgentName, &cr.CustomerCode, &cr.CustomerBusinessName, &cr.CustomerStoreName,
+					&cr.CustomerAddress, &cr.CustomerCap, &cr.CustomerCity, &cr.CustomerEmail, &cr.CustomerPhone,
+					&cr.AnnualSellInEstimate,
+					&cr.Cust1Subject, &cr.Cust1Type, &cr.Cust1WidthCm, &cr.Cust1HeightCm, &cr.Cust1Material,
+					&cust2Sub, &cust2Type, &cust2W, &cust2H, &cust2Mat,
+					&cust3Sub, &cust3Type, &cust3W, &cust3H, &cust3Mat,
+					&cr.StartDate, &cr.EndDate,
+					&cr.PrintingCostResponsibility, &cr.AssemblyCostResponsibility,
+					&cr.ShippingAddress, &cr.ShippingCivic, &cr.ShippingCity, &cr.ShippingProvince, &cr.ShippingCap,
+					&cr.PhotoURL, &cr.CreatedAt,
+				)
+				if err != nil {
+					log.Printf("Error scanning customization row: %v", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+
+				if agentIdVal.Valid {
+					cr.AgentID = int(agentIdVal.Int64)
+				}
+				if cust2Sub.Valid {
+					cr.Cust2Subject = &cust2Sub.String
+				}
+				if cust2Type.Valid {
+					cr.Cust2Type = &cust2Type.String
+				}
+				if cust2Mat.Valid {
+					cr.Cust2Material = &cust2Mat.String
+				}
+				if cust2W.Valid {
+					cr.Cust2WidthCm = &cust2W.Float64
+				}
+				if cust2H.Valid {
+					cr.Cust2HeightCm = &cust2H.Float64
+				}
+				if cust3Sub.Valid {
+					cr.Cust3Subject = &cust3Sub.String
+				}
+				if cust3Type.Valid {
+					cr.Cust3Type = &cust3Type.String
+				}
+				if cust3Mat.Valid {
+					cr.Cust3Material = &cust3Mat.String
+				}
+				if cust3W.Valid {
+					cr.Cust3WidthCm = &cust3W.Float64
+				}
+				if cust3H.Valid {
+					cr.Cust3HeightCm = &cust3H.Float64
+				}
+
+				results = append(results, cr)
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(results)
+			return
+		}
+
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	})
 
 	if h.corsMiddleware != nil {
