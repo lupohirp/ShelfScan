@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type VisitPayload struct {
@@ -900,10 +902,17 @@ func (h *Handler) AgentsHandler(w http.ResponseWriter, r *http.Request) {
 			cleanedZona := strings.ToUpper(strings.TrimSpace(p.Zona))
 			cleanedAgente := strings.ToUpper(strings.TrimSpace(p.Agente))
 
+			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(p.Password), bcrypt.DefaultCost)
+			if err != nil {
+				log.Printf("Error hashing password: %v", err)
+				http.Error(w, "Error processing password", http.StatusInternalServerError)
+				return
+			}
+
 			res, err := h.db.Exec(`
 				INSERT INTO agents (zona, agente, note, tel, email, email_personal, password)
 				VALUES (?, ?, ?, ?, ?, ?, ?)
-			`, cleanedZona, cleanedAgente, p.Note, p.Tel, p.Email, p.EmailPersonal, p.Password)
+			`, cleanedZona, cleanedAgente, p.Note, p.Tel, p.Email, p.EmailPersonal, string(hashedPassword))
 			if err != nil {
 				log.Printf("Error inserting agent: %v", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -1065,12 +1074,12 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var id int
-		var dbEmail, dbAgente, dbZona string
+		var dbEmail, dbAgente, dbZona, dbPassword string
 		err := h.db.QueryRow(`
-			SELECT id, email, agente, zona 
+			SELECT id, email, agente, zona, password 
 			FROM agents 
-			WHERE LOWER(email) = LOWER(?) AND password = ?
-		`, email, password).Scan(&id, &dbEmail, &dbAgente, &dbZona)
+			WHERE LOWER(email) = LOWER(?)
+		`, email).Scan(&id, &dbEmail, &dbAgente, &dbZona, &dbPassword)
 
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -1079,6 +1088,19 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			log.Printf("Login error querying DB: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Verify password using bcrypt if hashed, or direct comparison if plaintext legacy
+		var validPassword bool
+		if strings.HasPrefix(dbPassword, "$2a$") || strings.HasPrefix(dbPassword, "$2b$") || strings.HasPrefix(dbPassword, "$2y$") {
+			validPassword = bcrypt.CompareHashAndPassword([]byte(dbPassword), []byte(password)) == nil
+		} else {
+			validPassword = (dbPassword == password)
+		}
+
+		if !validPassword {
+			http.Error(w, "Credenziali non valide", http.StatusUnauthorized)
 			return
 		}
 
