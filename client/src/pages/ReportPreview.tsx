@@ -156,18 +156,8 @@ export default function ReportPreview() {
       </div>
 
       {/* Bottom actions */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200 p-4 safe-bottom">
-        <div className="max-w-lg mx-auto space-y-2">
-          <div className="flex gap-3">
-            <button className="flex-1 h-12 bg-gray-100 rounded-xl flex items-center justify-center gap-2 text-[14px] font-semibold active:bg-gray-200 transition-colors">
-              <Download size={18} />
-              Scarica PDF
-            </button>
-            <button className="flex-1 h-12 bg-gray-100 rounded-xl flex items-center justify-center gap-2 text-[14px] font-semibold active:bg-gray-200 transition-colors">
-              <Share2 size={18} />
-              Condividi
-            </button>
-          </div>
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 p-4 pb-10 safe-bottom">
+        <div className="max-w-lg mx-auto space-y-3">
           <button
             onClick={handleFinalize}
             disabled={saving}
@@ -182,6 +172,16 @@ export default function ReportPreview() {
               <span>Salva e chiudi</span>
             )}
           </button>
+          <div className="flex gap-3">
+            <button className="flex-1 h-10 bg-gray-100 rounded-xl flex items-center justify-center gap-2 text-[13px] font-semibold active:bg-gray-200 transition-colors">
+              <Download size={16} />
+              Scarica PDF
+            </button>
+            <button className="flex-1 h-10 bg-gray-100 rounded-xl flex items-center justify-center gap-2 text-[13px] font-semibold active:bg-gray-200 transition-colors">
+              <Share2 size={16} />
+              Condividi
+            </button>
+          </div>
         </div>
       </div>
     </PageShell>
