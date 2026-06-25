@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useScan } from '../store/scan'
+import { useAuth } from '../store/auth'
 import TopBar from '../components/TopBar'
 import PageShell from '../components/PageShell'
 import { getApiUrl } from '../lib/api'
@@ -17,6 +18,7 @@ export default function ReportPreview() {
   const navigate = useNavigate()
   const session = useScan((s) => s.currentSession)
   const clearSession = useScan((s) => s.clearSession)
+  const user = useAuth((s) => s.user)
   const [saving, setSaving] = useState(false)
 
   if (!session) {
@@ -39,6 +41,7 @@ export default function ReportPreview() {
         ...session,
         status: 'finalized' as const,
         finalizedAt: new Date().toISOString(),
+        agent: user ? `${user.firstName} ${user.lastName}`.trim() : '',
       }
       
       const res = await fetch(`${apiBase}/visits`, {

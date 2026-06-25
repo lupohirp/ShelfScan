@@ -331,16 +331,15 @@
       <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;overflow:hidden;">
         <div style="overflow-x:auto;">
           <div style="min-width:760px;">
-            <div style="display:grid;grid-template-columns:112px 2fr 1.1fr 1.2fr 1fr 1.1fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
-              <span>{{ t.colCode }}</span><span>{{ t.colName }}</span><span>{{ t.colCity }}</span><span>{{ t.colAgent }}</span><span>{{ t.colVisit }}</span><span>{{ t.colMissing }}</span>
+            <div style="display:grid;grid-template-columns:112px 2fr 1.1fr 1fr 1.1fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
+              <span>{{ t.colCode }}</span><span>{{ t.colName }}</span><span>{{ t.colCity }}</span><span>{{ t.colVisit }}</span><span>{{ t.colMissing }}</span>
             </div>
             <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ true }}">
             <sc-for list="{{ results }}" as="row" hint-placeholder-count="8">
-              <div onClick="{{ row.open }}" style="display:grid;grid-template-columns:112px 2fr 1.1fr 1.2fr 1fr 1.1fr;gap:14px;padding:15px 22px;border-top:1px solid #f0efec;align-items:center;cursor:pointer;" style-hover="background:#faf9f7;">
+              <div onClick="{{ row.open }}" style="display:grid;grid-template-columns:112px 2fr 1.1fr 1fr 1.1fr;gap:14px;padding:15px 22px;border-top:1px solid #f0efec;align-items:center;cursor:pointer;" style-hover="background:#faf9f7;">
                 <span style="font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;color:#9a7b3f;">{{ row.code }}</span>
                 <span style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ row.name }}</span>
                 <span style="font-size:13.5px;color:#4a4843;">{{ row.city }}</span>
-                <span style="font-size:13px;color:#8c8a85;">{{ row.agent }}</span>
                 <span style="font-size:12.5px;color:#8c8a85;white-space:nowrap;">{{ row.visitLabel }}</span>
                 <span style="font-size:13.5px;font-variant-numeric:tabular-nums;color:{{ row.missingColor }};">{{ row.missingLabel }}</span>
               </div>
@@ -2483,11 +2482,7 @@ class Component extends DCLogic {
             }))
           }));
           this.jewelers[idx].visits = visits;
-          if (visits.length > 0) {
-            this.setState({ selectedVisit: 0 });
-          } else {
-            this.setState({ selectedVisit: null });
-          }
+          this.setState({ selectedVisit: null });
         }
       }
     } catch (err) {

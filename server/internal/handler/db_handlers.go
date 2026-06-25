@@ -24,6 +24,7 @@ type VisitPayload struct {
 	Coverage        int    `json:"coverage"`
 	CreatedAt       string `json:"createdAt"`
 	FinalizedAt     string `json:"finalizedAt"`
+	Agent           string `json:"agent"`
 	FoundProducts   []struct {
 		SKU      string `json:"sku"`
 		Name     string `json:"name"`
@@ -459,11 +460,12 @@ func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
 			finalizedAt = &t
 		}
 
-		// Retrieve agent name from store
-		var agentName string
-		err = h.db.QueryRow("SELECT agent_name FROM stores WHERE id = ?", storeID).Scan(&agentName)
-		if err != nil {
-			agentName = "Unknown Agent"
+		agentName := payload.Agent
+		if agentName == "" {
+			err = h.db.QueryRow("SELECT agent_name FROM stores WHERE id = ?", storeID).Scan(&agentName)
+			if err != nil {
+				agentName = "Unknown Agent"
+			}
 		}
 
 		tx, err := h.db.Begin()
