@@ -349,6 +349,7 @@ func (h *Handler) StoresDetailHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		visits := []VisitJSON{}
+		visitIDs := []string{}
 		for rows.Next() {
 			var v VisitJSON
 			err := rows.Scan(&v.ID, &v.Status, &v.Coverage, &v.Missing, &v.Agent, &v.CreatedAt, &v.FinalizedAt)
@@ -357,53 +358,79 @@ func (h *Handler) StoresDetailHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			v.Photos = []any{}
+			v.Exposed = []any{}
+			v.MissingProds = []any{}
+			visits = append(visits, v)
+			visitIDs = append(visitIDs, v.ID)
+		}
 
-			// Query photos for this visit
-			photoRows, err := h.db.Query("SELECT photo_url, photo_tone FROM visit_scans WHERE visit_id = ?", v.ID)
+		// Map to store photos by visit_id
+		photosMap := make(map[string][]any)
+		if len(visitIDs) > 0 {
+			photoRows, err := h.db.Query(`
+				SELECT s.visit_id, s.photo_url, s.photo_tone
+				FROM visit_scans s
+				JOIN visits v ON s.visit_id = v.id
+				WHERE v.store_id = ?
+			`, storeID)
 			if err == nil {
-				v.Photos = []any{}
+				defer photoRows.Close()
 				for photoRows.Next() {
-					var url, tone string
-					if err := photoRows.Scan(&url, &tone); err == nil {
-						v.Photos = append(v.Photos, map[string]string{
+					var visitID, url, tone string
+					if err := photoRows.Scan(&visitID, &url, &tone); err == nil {
+						photosMap[visitID] = append(photosMap[visitID], map[string]string{
 							"url":  url,
 							"tone": tone,
 						})
 					}
 				}
-				photoRows.Close()
-			} else {
-				v.Photos = []any{}
 			}
+		}
 
-			// Query products for this visit
-			prodRows, err := h.db.Query("SELECT sku, name, category, is_exposed FROM visit_products WHERE visit_id = ?", v.ID)
+		// Map to store exposed/missing products by visit_id
+		exposedMap := make(map[string][]any)
+		missingMap := make(map[string][]any)
+		if len(visitIDs) > 0 {
+			prodRows, err := h.db.Query(`
+				SELECT p.visit_id, p.sku, p.name, p.category, p.is_exposed
+				FROM visit_products p
+				JOIN visits v ON p.visit_id = v.id
+				WHERE v.store_id = ?
+			`, storeID)
 			if err == nil {
-				v.Exposed = []any{}
-				v.MissingProds = []any{}
+				defer prodRows.Close()
 				for prodRows.Next() {
-					var sku, name, cat string
+					var visitID, sku, name, cat string
 					var isExposed bool
-					if err := prodRows.Scan(&sku, &name, &cat, &isExposed); err == nil {
+					if err := prodRows.Scan(&visitID, &sku, &name, &cat, &isExposed); err == nil {
 						prodItem := map[string]string{
 							"sku":  sku,
 							"name": name,
 							"cat":  cat,
 						}
 						if isExposed {
-							v.Exposed = append(v.Exposed, prodItem)
+							exposedMap[visitID] = append(exposedMap[visitID], prodItem)
 						} else {
-							v.MissingProds = append(v.MissingProds, prodItem)
+							missingMap[visitID] = append(missingMap[visitID], prodItem)
 						}
 					}
 				}
-				prodRows.Close()
-			} else {
-				v.Exposed = []any{}
-				v.MissingProds = []any{}
 			}
+		}
 
-			visits = append(visits, v)
+		// Merge database results in memory
+		for i := range visits {
+			vID := visits[i].ID
+			if photos, ok := photosMap[vID]; ok {
+				visits[i].Photos = photos
+			}
+			if exposed, ok := exposedMap[vID]; ok {
+				visits[i].Exposed = exposed
+			}
+			if missing, ok := missingMap[vID]; ok {
+				visits[i].MissingProds = missing
+			}
 		}
 
 		response := map[string]any{
