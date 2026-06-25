@@ -577,20 +577,14 @@ func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
 
 		// 4. Insert found products
 		for _, prod := range payload.FoundProducts {
-			count := prod.Count
-			if count <= 0 {
-				count = 1
-			}
-			for c := 0; c < count; c++ {
-				_, err = tx.Exec(`
-					INSERT INTO visit_products (visit_id, sku, name, category, is_exposed)
-					VALUES (?, ?, ?, ?, ?)
-				`, payload.ID, prod.SKU, prod.Name, prod.Category, true)
-				if err != nil {
-					log.Printf("Error inserting found product: %v", err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
+			_, err = tx.Exec(`
+				INSERT INTO visit_products (visit_id, sku, name, category, is_exposed)
+				VALUES (?, ?, ?, ?, ?)
+			`, payload.ID, prod.SKU, prod.Name, prod.Category, true)
+			if err != nil {
+				log.Printf("Error inserting found product: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 		}
 

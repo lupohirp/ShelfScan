@@ -935,12 +935,7 @@
               <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:12px 14px;margin-bottom:9px;">
                 <div style="width:48px;height:48px;border-radius:2px;background:{{ m.tone }};flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="width:15px;height:15px;border:1.5px solid rgba(20,20,20,.3);border-radius:50%;"></span></div>
                 <div style="flex:1;min-width:0;">
-                  <div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;">
-                    <span>{{ m.name }}</span>
-                    <sc-if value="{{ m.countLabel }}">
-                      <span style="font-size:10px;color:#b25540;background:#f7ebe7;border:1px solid #efd9d2;padding:1px 5px;border-radius:2px;font-weight:700;">{{ m.countLabel }}</span>
-                    </sc-if>
-                  </div>
+                  <div style="font-size:14px;font-weight:600;">{{ m.name }}</div>
                   <div style="font-size:12px;color:#8c8a85;margin-top:2px;">{{ m.cat }} · {{ m.sku }}</div>
                 </div>
                 <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#b25540;background:#f7ebe7;border:1px solid #efd9d2;padding:5px 10px;border-radius:2px;white-space:nowrap;">{{ t.missingTag }}</div>
@@ -960,12 +955,7 @@
               <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:12px 14px;margin-bottom:9px;">
                 <div style="width:48px;height:48px;border-radius:2px;background:{{ e.tone }};flex-shrink:0;display:flex;align-items:center;justify-content:center;"><span style="width:15px;height:15px;border:1.5px solid rgba(20,20,20,.3);border-radius:50%;"></span></div>
                 <div style="flex:1;min-width:0;">
-                  <div style="font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;">
-                    <span>{{ e.name }}</span>
-                    <sc-if value="{{ e.countLabel }}">
-                      <span style="font-size:10px;color:#9a7b3f;background:#f7f2e8;border:1px solid #ece4d4;padding:1px 5px;border-radius:2px;font-weight:700;">{{ e.countLabel }}</span>
-                    </sc-if>
-                  </div>
+                  <div style="font-size:14px;font-weight:600;">{{ e.name }}</div>
                   <div style="font-size:12px;color:#8c8a85;margin-top:2px;">{{ e.cat }} · {{ e.sku }}</div>
                 </div>
                 <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9a7b3f;background:#f7f2e8;border:1px solid #ece4d4;padding:5px 10px;border-radius:2px;white-space:nowrap;">{{ t.exposedTag }}</div>

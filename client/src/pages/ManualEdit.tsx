@@ -83,9 +83,7 @@ export default function ManualEdit() {
                   {isFound ? <Check size={18} /> : <Package size={18} />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold truncate">
-                    {product.name} {product.count && product.count > 1 ? `(x${product.count})` : ''}
-                  </p>
+                  <p className="text-[14px] font-semibold truncate">{product.name}</p>
                   <p className="text-xs text-gray-500">SKU: {product.sku || 'N/A'} · {categoryLabels[product.category] || product.category}</p>
                 </div>
                 <div

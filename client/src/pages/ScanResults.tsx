@@ -118,9 +118,7 @@ export default function ScanResults() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-black uppercase tracking-wider text-black truncate">
-                  {product.name} {product.count && product.count > 1 ? `(x${product.count})` : ''}
-                </p>
+                <p className="text-[13px] font-black uppercase tracking-wider text-black truncate">{product.name}</p>
                 <div className="flex flex-col gap-0.5 mt-1">
                   <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider">
                     SKU: {product.sku || 'N/A'}
