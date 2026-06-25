@@ -541,13 +541,13 @@ export default function CustomizationForm() {
               )}
             </div>
 
-            {/* Dimensions */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-black mb-1">Larghezza in cm *</label>
                 <input
                   type="number"
                   required
+                  min="1"
                   value={cust1Width}
                   onChange={(e) => setCust1Width(e.target.value)}
                   className="lj-input"
@@ -558,6 +558,7 @@ export default function CustomizationForm() {
                 <input
                   type="number"
                   required
+                  min="1"
                   value={cust1Height}
                   onChange={(e) => setCust1Height(e.target.value)}
                   className="lj-input"
@@ -675,6 +676,7 @@ export default function CustomizationForm() {
                   <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-black mb-1">Larghezza in cm</label>
                   <input
                     type="number"
+                    min="1"
                     value={cust2Width}
                     onChange={(e) => setCust2Width(e.target.value)}
                     className="lj-input"
@@ -684,6 +686,7 @@ export default function CustomizationForm() {
                   <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-black mb-1">Altezza in cm</label>
                   <input
                     type="number"
+                    min="1"
                     value={cust2Height}
                     onChange={(e) => setCust2Height(e.target.value)}
                     className="lj-input"
@@ -801,6 +804,7 @@ export default function CustomizationForm() {
                   <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-black mb-1">Larghezza in cm</label>
                   <input
                     type="number"
+                    min="1"
                     value={cust3Width}
                     onChange={(e) => setCust3Width(e.target.value)}
                     className="lj-input"
@@ -810,6 +814,7 @@ export default function CustomizationForm() {
                   <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-black mb-1">Altezza in cm</label>
                   <input
                     type="number"
+                    min="1"
                     value={cust3Height}
                     onChange={(e) => setCust3Height(e.target.value)}
                     className="lj-input"
