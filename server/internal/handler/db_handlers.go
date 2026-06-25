@@ -587,62 +587,6 @@ func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
 	handlerFunc(w, r)
 }
 
-func (h *Handler) StatsOverviewHandler(w http.ResponseWriter, r *http.Request) {
-	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var totalVisits int
-		err := h.db.QueryRow("SELECT COUNT(*) FROM visits WHERE status = 'finalized'").Scan(&totalVisits)
-		if err != nil {
-			log.Printf("Error query totalVisits: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		var totalStores int
-		err = h.db.QueryRow("SELECT COUNT(*) FROM stores").Scan(&totalStores)
-		if err != nil {
-			log.Printf("Error query totalStores: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		var visitedStores int
-		err = h.db.QueryRow("SELECT COUNT(DISTINCT store_id) FROM visits WHERE status = 'finalized'").Scan(&visitedStores)
-		if err != nil {
-			log.Printf("Error query visitedStores: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		var avgCoverage float64
-		err = h.db.QueryRow("SELECT COALESCE(AVG(coverage), 0.0) FROM visits WHERE status = 'finalized'").Scan(&avgCoverage)
-		if err != nil {
-			log.Printf("Error query avgCoverage: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		response := map[string]any{
-			"total_visits":   totalVisits,
-			"total_stores":   totalStores,
-			"visited_stores": visitedStores,
-			"avg_coverage":   avgCoverage,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
-	})
-
-	if h.corsMiddleware != nil {
-		h.corsMiddleware(handlerFunc)(w, r)
-		return
-	}
-	handlerFunc(w, r)
-}
 
 func (h *Handler) StatsRegionsHandler(w http.ResponseWriter, r *http.Request) {
 	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

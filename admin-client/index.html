@@ -57,18 +57,13 @@
   <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
   <div style="display:flex;flex-wrap:wrap;min-height:100vh;">
 
-    <div style="flex:1 1 460px;background:#141414;color:#fff;padding:48px clamp(40px,5vw,80px);display:flex;flex-direction:column;justify-content:space-between;min-height:340px;position:relative;overflow:hidden;">
+    <div style="flex:1 1 460px;background:#141414;color:#fff;padding:48px clamp(40px,5vw,80px);display:flex;flex-direction:column;justify-content:center;gap:40px;min-height:340px;position:relative;overflow:hidden;">
       <div style="position:absolute;right:-120px;top:-120px;width:360px;height:360px;border:1px solid rgba(255,255,255,.07);border-radius:50%;"></div>
       <div style="position:absolute;right:-40px;top:-40px;width:200px;height:200px;border:1px solid rgba(255,255,255,.07);border-radius:50%;"></div>
       <img src="assets/liujo-logo-white.png" alt="Liu Jo" style="height:28px;width:auto;align-self:flex-start;position:relative;" />
       <div style="position:relative;">
         <div style="font-family:'Jost',sans-serif;font-weight:300;font-size:clamp(30px,3.4vw,46px);line-height:1.12;letter-spacing:-.01em;">{{ t.brandLine1 }}<br><span style="font-weight:500;">{{ t.brandLine2 }}</span></div>
         <div style="margin-top:22px;max-width:380px;color:rgba(255,255,255,.62);font-size:15px;line-height:1.6;">{{ t.brandSub }}</div>
-      </div>
-      <div style="position:relative;display:flex;gap:34px;color:rgba(255,255,255,.5);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;">
-        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">{{ statStoresVal }}</span>{{ t.statStores }}</div>
-        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">{{ statRegionsVal }}</span>{{ t.statRegions }}</div>
-        <div><span style="display:block;font-family:'Jost',sans-serif;font-size:21px;letter-spacing:0;color:#fff;margin-bottom:3px;">{{ statBestVal }}</span>{{ t.statBest }}</div>
       </div>
     </div>
 
@@ -1883,14 +1878,6 @@ class Component extends DCLogic {
     try {
       const getUrl = (path) => this.getUrl(path);
 
-      // 1. Fetch overview
-      const overviewRes = await fetch(getUrl('/stats/overview'));
-      if (overviewRes && overviewRes.ok) {
-        const overview = await overviewRes.json();
-        this.avgCoverage = Math.round(overview.avg_coverage);
-        this.totalStoresCount = overview.total_stores || 0;
-      }
-
       // 2. Fetch regions
       const regionsRes = await fetch(getUrl('/stats/regions'));
       if (regionsRes && regionsRes.ok) {
@@ -1949,8 +1936,10 @@ class Component extends DCLogic {
 
         const visitedJewelers = this.jewelers.filter(j => j.lastVisit);
         if (visitedJewelers.length > 0) {
+          this.avgCoverage = Math.round(visitedJewelers.reduce((a, j) => a + j.coverage, 0) / visitedJewelers.length);
           this.avgMissing = Math.round(visitedJewelers.reduce((a, j) => a + j.missingCount, 0) / visitedJewelers.length);
         } else {
+          this.avgCoverage = 0;
           this.avgMissing = 0;
         }
       }
