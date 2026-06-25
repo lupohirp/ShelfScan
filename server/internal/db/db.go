@@ -211,7 +211,7 @@ func CleanExistingVisits(db *sql.DB) error {
 		cAgent := strings.ToUpper(strings.TrimSpace(v.agent))
 		_, err = stmt.Exec(cAgent, v.id)
 		if err != nil {
-			return fmt.Errorf("failed to update visit %d: %w", v.id, err)
+			return fmt.Errorf("failed to update visit %s: %w", v.id, err)
 		}
 	}
 

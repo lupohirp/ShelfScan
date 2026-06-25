@@ -157,7 +157,7 @@ export default function Camera() {
       }
       
       const analysisData = await analysisResponse.json() as {
-        found: {name: string, sku: string, imageUrl: string, score: number}[],
+        found: {name: string, sku: string, imageUrl: string, score: number, count?: number}[],
         missing: {name: string, sku: string, imageUrl: string}[],
         imageResults: { detections: { desc: string, box?: number[], box_2d?: number[] }[] }[]
       }
@@ -170,7 +170,8 @@ export default function Camera() {
         name: r.name,
         category: 'identified',
         imageUrl: r.imageUrl,
-        status: 'active'
+        status: 'active',
+        count: r.count || 1
       }))
 
       const missingProducts: any[] = analysisData.missing.map(m => ({

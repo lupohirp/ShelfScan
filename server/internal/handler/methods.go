@@ -375,8 +375,13 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Warning: failed to create request log dir %s: %v", reqDir, mkdirErr)
 		}
 
-		productMaxScores := make(map[string]float32)
-		productImageURLs := make(map[string]string)
+		type AcceptedMatch struct {
+			Name     string
+			Sku      string
+			ImageURL string
+			Score    float32
+		}
+		var acceptedMatches []AcceptedMatch
 		allImageResults := make([]subdomain.ImageResult, len(imageFiles))
 
 		imageLogs := make([]ImageLog, len(imageFiles))
@@ -535,6 +540,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 						var bestMatchName string
 						var bestMatchImgUrl string
+						var bestMatchSku string
 						var bestMatchScore float32 = -1.0
 
 						for _, hit := range hits {
@@ -653,6 +659,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								bestMatchScore = finalScore
 								bestMatchName = name
 								bestMatchImgUrl = imgUrl
+								bestMatchSku = sku
 							}
 						}
 
@@ -665,11 +672,13 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						// Require a final confidence score of at least 0.82
 						if bestMatchScore >= 0.82 {
 							mainMu.Lock()
-							if currentMax, ok := productMaxScores[bestMatchName]; !ok || bestMatchScore > currentMax {
-								productMaxScores[bestMatchName] = bestMatchScore
-								productImageURLs[bestMatchName] = bestMatchImgUrl
-								log.Printf("Match accepted from img %d: %s (%f)", imgIdx, bestMatchName, bestMatchScore)
-							}
+							acceptedMatches = append(acceptedMatches, AcceptedMatch{
+								Name:     bestMatchName,
+								Sku:      bestMatchSku,
+								ImageURL: bestMatchImgUrl,
+								Score:    bestMatchScore,
+							})
+							log.Printf("Match accepted from img %d: %s (%s, %f)", imgIdx, bestMatchName, bestMatchSku, bestMatchScore)
 							mainMu.Unlock()
 						}
 					}(detIdx, det)
@@ -683,6 +692,58 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 		foundResults := []subdomain.ProductResult{}
 		missingItems := []subdomain.MissingItem{}
 
+		// Set of all found SKUs (matched by AI)
+		foundSkus := make(map[string]bool)
+		for _, am := range acceptedMatches {
+			if am.Sku != "" {
+				foundSkus[am.Sku] = true
+			}
+		}
+
+		// Group acceptedMatches by SKU
+		type GroupedMatch struct {
+			Name     string
+			Sku      string
+			ImageURL string
+			MaxScore float32
+			Count    int
+		}
+		groupedMatches := make(map[string]*GroupedMatch)
+		for _, am := range acceptedMatches {
+			if am.Sku == "" {
+				continue
+			}
+			if gm, ok := groupedMatches[am.Sku]; ok {
+				gm.Count++
+				if am.Score > gm.MaxScore {
+					gm.MaxScore = am.Score
+					gm.ImageURL = am.ImageURL
+				}
+			} else {
+				groupedMatches[am.Sku] = &GroupedMatch{
+					Name:     am.Name,
+					Sku:      am.Sku,
+					ImageURL: am.ImageURL,
+					MaxScore: am.Score,
+					Count:    1,
+				}
+			}
+		}
+
+		// Compile found results from groupedMatches
+		for _, gm := range groupedMatches {
+			foundResults = append(foundResults, subdomain.ProductResult{
+				Name:     gm.Name,
+				Sku:      gm.Sku,
+				ImageURL: fixURL(gm.ImageURL, r.Host),
+				Score:    gm.MaxScore,
+				Count:    gm.Count,
+			})
+		}
+
+		// Compile missing items by checking which SKUs in the inventory were NOT found.
+		// Use a map to ensure we only list each missing SKU exactly once.
+		addedMissingSkus := make(map[string]bool)
 		for _, item := range inventory {
 			payload, ok := item["payload"].(map[string]any)
 			if !ok {
@@ -690,21 +751,20 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			name, _ := payload["name"].(string)
 			sku, _ := payload["sku"].(string)
+			if sku == "" {
+				continue
+			}
 
-			if score, found := productMaxScores[name]; found {
-				foundResults = append(foundResults, subdomain.ProductResult{
-					Name:     name,
-					Sku:      sku,
-					ImageURL: fixURL(productImageURLs[name], r.Host),
-					Score:    score,
-				})
-			} else {
-				imgUrl, _ := payload["imageUrl"].(string)
-				missingItems = append(missingItems, subdomain.MissingItem{
-					Name:     name,
-					Sku:      sku,
-					ImageURL: fixURL(imgUrl, r.Host),
-				})
+			if !foundSkus[sku] {
+				if !addedMissingSkus[sku] {
+					addedMissingSkus[sku] = true
+					imgUrl, _ := payload["imageUrl"].(string)
+					missingItems = append(missingItems, subdomain.MissingItem{
+						Name:     name,
+						Sku:      sku,
+						ImageURL: fixURL(imgUrl, r.Host),
+					})
+				}
 			}
 		}
 

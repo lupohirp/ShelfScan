@@ -32,6 +32,7 @@ type VisitPayload struct {
 		SKU      string `json:"sku"`
 		Name     string `json:"name"`
 		Category string `json:"category"`
+		Count    int    `json:"count"`
 	} `json:"foundProducts"`
 	MissingProducts []struct {
 		SKU      string `json:"sku"`
@@ -576,14 +577,20 @@ func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
 
 		// 4. Insert found products
 		for _, prod := range payload.FoundProducts {
-			_, err = tx.Exec(`
-				INSERT INTO visit_products (visit_id, sku, name, category, is_exposed)
-				VALUES (?, ?, ?, ?, ?)
-			`, payload.ID, prod.SKU, prod.Name, prod.Category, true)
-			if err != nil {
-				log.Printf("Error inserting found product: %v", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+			count := prod.Count
+			if count <= 0 {
+				count = 1
+			}
+			for c := 0; c < count; c++ {
+				_, err = tx.Exec(`
+					INSERT INTO visit_products (visit_id, sku, name, category, is_exposed)
+					VALUES (?, ?, ?, ?, ?)
+				`, payload.ID, prod.SKU, prod.Name, prod.Category, true)
+				if err != nil {
+					log.Printf("Error inserting found product: %v", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 			}
 		}
 
