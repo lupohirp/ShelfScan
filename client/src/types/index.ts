@@ -24,6 +24,7 @@ export interface Product {
   imageUrl: string
   status: 'active' | 'discontinued'
   confidence?: number
+  count?: number
 }
 
 export interface DetectedProduct {

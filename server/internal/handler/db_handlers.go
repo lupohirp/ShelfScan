@@ -32,6 +32,7 @@ type VisitPayload struct {
 		SKU      string `json:"sku"`
 		Name     string `json:"name"`
 		Category string `json:"category"`
+		Count    int    `json:"count"`
 	} `json:"foundProducts"`
 	MissingProducts []struct {
 		SKU      string `json:"sku"`
