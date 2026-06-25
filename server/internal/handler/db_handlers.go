@@ -32,12 +32,13 @@ type VisitPayload struct {
 		SKU      string `json:"sku"`
 		Name     string `json:"name"`
 		Category string `json:"category"`
-		Count    int    `json:"count"`
+		ImageURL string `json:"imageUrl"`
 	} `json:"foundProducts"`
 	MissingProducts []struct {
 		SKU      string `json:"sku"`
 		Name     string `json:"name"`
 		Category string `json:"category"`
+		ImageURL string `json:"imageUrl"`
 	} `json:"missingProducts"`
 	AnalyzedImages []struct {
 		CapturedImage string `json:"capturedImage"` // base64 data URL or upload path
@@ -396,7 +397,7 @@ func (h *Handler) StoresDetailHandler(w http.ResponseWriter, r *http.Request) {
 		missingMap := make(map[string][]any)
 		if len(visitIDs) > 0 {
 			prodRows, err := h.db.Query(`
-				SELECT p.visit_id, p.sku, p.name, p.category, p.is_exposed
+				SELECT p.visit_id, p.sku, p.name, p.category, COALESCE(p.image_url, ''), p.is_exposed
 				FROM visit_products p
 				JOIN visits v ON p.visit_id = v.id
 				WHERE v.store_id = ?
@@ -404,13 +405,14 @@ func (h *Handler) StoresDetailHandler(w http.ResponseWriter, r *http.Request) {
 			if err == nil {
 				defer prodRows.Close()
 				for prodRows.Next() {
-					var visitID, sku, name, cat string
+					var visitID, sku, name, cat, imgUrl string
 					var isExposed bool
-					if err := prodRows.Scan(&visitID, &sku, &name, &cat, &isExposed); err == nil {
+					if err := prodRows.Scan(&visitID, &sku, &name, &cat, &imgUrl, &isExposed); err == nil {
 						prodItem := map[string]string{
-							"sku":  sku,
-							"name": name,
-							"cat":  cat,
+							"sku":       sku,
+							"name":      name,
+							"cat":       cat,
+							"image_url": imgUrl,
 						}
 						if isExposed {
 							exposedMap[visitID] = append(exposedMap[visitID], prodItem)
@@ -578,9 +580,9 @@ func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
 		// 4. Insert found products
 		for _, prod := range payload.FoundProducts {
 			_, err = tx.Exec(`
-				INSERT INTO visit_products (visit_id, sku, name, category, is_exposed)
-				VALUES (?, ?, ?, ?, ?)
-			`, payload.ID, prod.SKU, prod.Name, prod.Category, true)
+				INSERT INTO visit_products (visit_id, sku, name, category, image_url, is_exposed)
+				VALUES (?, ?, ?, ?, ?, ?)
+			`, payload.ID, prod.SKU, prod.Name, prod.Category, prod.ImageURL, true)
 			if err != nil {
 				log.Printf("Error inserting found product: %v", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -591,9 +593,9 @@ func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
 		// 5. Insert missing products
 		for _, prod := range payload.MissingProducts {
 			_, err = tx.Exec(`
-				INSERT INTO visit_products (visit_id, sku, name, category, is_exposed)
-				VALUES (?, ?, ?, ?, ?)
-			`, payload.ID, prod.SKU, prod.Name, prod.Category, false)
+				INSERT INTO visit_products (visit_id, sku, name, category, image_url, is_exposed)
+				VALUES (?, ?, ?, ?, ?, ?)
+			`, payload.ID, prod.SKU, prod.Name, prod.Category, prod.ImageURL, false)
 			if err != nil {
 				log.Printf("Error inserting missing product: %v", err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
