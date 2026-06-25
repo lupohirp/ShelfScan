@@ -99,19 +99,27 @@ export default function CustomizationForm() {
       return
     }
     const apiBase = getApiUrl()
+    const controller = new AbortController()
     const delayDebounce = setTimeout(async () => {
       try {
-        const res = await fetch(`${apiBase}/stores?q=${encodeURIComponent(searchQuery)}`)
+        const res = await fetch(`${apiBase}/stores?q=${encodeURIComponent(searchQuery)}`, {
+          signal: controller.signal
+        })
         if (res.ok) {
           const data = await res.json()
           setSearchResults(data.slice(0, 5))
         }
-      } catch (err) {
-        console.error('Error fetching stores for autofill:', err)
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Error fetching stores for autofill:', err)
+        }
       }
     }, 250)
 
-    return () => clearTimeout(delayDebounce)
+    return () => {
+      clearTimeout(delayDebounce)
+      controller.abort()
+    }
   }, [searchQuery])
 
   // Autofill shipping address if checked
