@@ -1422,6 +1422,12 @@ func (h *Handler) CustomizationsHandler(w http.ResponseWriter, r *http.Request) 
 				results = append(results, cr)
 			}
 
+			if err = rows.Err(); err != nil {
+				log.Printf("Error during rows iteration: %v", err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(results)
 			return
