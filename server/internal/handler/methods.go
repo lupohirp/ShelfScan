@@ -718,6 +718,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				if am.Score > gm.MaxScore {
 					gm.MaxScore = am.Score
 					gm.ImageURL = am.ImageURL
+					gm.Name = am.Name
 				}
 			} else {
 				groupedMatches[am.Sku] = &GroupedMatch{
