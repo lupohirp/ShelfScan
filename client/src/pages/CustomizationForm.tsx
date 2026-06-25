@@ -165,6 +165,9 @@ export default function CustomizationForm() {
     setError('')
 
     // Basic validation
+    const isCust2Valid = customizationCount < 2 || (cust2Width && cust2Height)
+    const isCust3Valid = customizationCount < 3 || (cust3Width && cust3Height)
+
     if (
       !customerCode ||
       !customerBusinessName ||
@@ -176,6 +179,8 @@ export default function CustomizationForm() {
       !customerPhone ||
       !cust1Width ||
       !cust1Height ||
+      !isCust2Valid ||
+      !isCust3Valid ||
       !shippingAddress ||
       !shippingCivic ||
       !shippingCity ||
