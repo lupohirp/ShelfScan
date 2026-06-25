@@ -1202,7 +1202,7 @@ class Component extends DCLogic {
   getUrl(path) {
     const hostname = window.location.hostname;
     let base = '/api';
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.') && !hostname.startsWith('10.')) {
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.') && !hostname.startsWith('10.') && !hostname.startsWith('172.')) {
       if (hostname.startsWith('admin-')) {
         const baseHost = hostname.replace(/^admin-/, '');
         base = `https://api-${baseHost}`;
