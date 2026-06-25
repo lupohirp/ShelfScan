@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"shelfscan-api/internal/db"
 	"strconv"
 	"strings"
@@ -1180,9 +1181,26 @@ func (h *Handler) CustomizationsHandler(w http.ResponseWriter, r *http.Request) 
 			}
 			defer file.Close()
 
+			// Validate that the file is an image
+			buff := make([]byte, 512)
+			if _, err := file.Read(buff); err != nil {
+				http.Error(w, "Failed to read file headers", http.StatusInternalServerError)
+				return
+			}
+			if _, err := file.Seek(0, io.SeekStart); err != nil {
+				http.Error(w, "Failed to reset file pointer", http.StatusInternalServerError)
+				return
+			}
+			contentType := http.DetectContentType(buff)
+			if !strings.HasPrefix(contentType, "image/") {
+				http.Error(w, "Only image files are allowed", http.StatusBadRequest)
+				return
+			}
+
 			// Save file
 			os.MkdirAll("uploads", 0755)
 			filename := fmt.Sprintf("customization_%d_%s", time.Now().UnixNano(), filepath.Base(header.Filename))
+			filePath := "uploads/" + filename
 
 			dst, err := os.Create(filePath)
 			if err != nil {
