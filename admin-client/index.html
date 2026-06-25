@@ -638,7 +638,7 @@
               </thead>
               <tbody>
                 <sc-for list="{{ inventoryList }}" as="item">
-                  <tr style="border-bottom:1px solid #f0efec;" style-hover="background:#faf9f7;">
+                  <tr onClick="{{ item.showDetails }}" style="border-bottom:1px solid #f0efec;cursor:pointer;" style-hover="background:#faf9f7;">
                     <td style="padding:10px 12px;">
                       <div style="width:46px;height:46px;border-radius:2px;background:{{ item.tone }};overflow:hidden;border:1px solid #e7e6e2;display:flex;align-items:center;justify-content:center;position:relative;">
                         <sc-if value="{{ item.img }}">
@@ -932,7 +932,7 @@
               <div style="text-align:right;flex-shrink:0;"><div style="font-family:'Jost',sans-serif;font-size:26px;color:#b25540;line-height:1;">{{ sel.vMissingLabel }}</div><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b4b2ab;margin-top:4px;">{{ t.onBest }}</div></div>
             </div>
             <sc-for list="{{ sel.missing }}" as="m" hint-placeholder-count="6">
-              <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:12px 14px;margin-bottom:9px;">
+              <div onClick="{{ m.showDetails }}" style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:12px 14px;margin-bottom:9px;cursor:pointer;transition:all .15s;" style-hover="border-color:#141414;background:#faf9f7;">
                 <div style="width:48px;height:48px;border-radius:2px;background:#faf9f7;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e7e6e2;">
                   <sc-if value="{{ m.imageUrl }}">
                     <img src="{{ m.imageUrl }}" style="width:100%;height:100%;object-fit:cover;" />
@@ -959,7 +959,7 @@
               <div style="text-align:right;flex-shrink:0;"><div style="font-family:'Jost',sans-serif;font-size:26px;color:#9a7b3f;line-height:1;">{{ sel.exposedCount }}</div><div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b4b2ab;margin-top:4px;">{{ t.exposedUnit }}</div></div>
             </div>
             <sc-for list="{{ sel.exposed }}" as="e" hint-placeholder-count="6">
-              <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:12px 14px;margin-bottom:9px;">
+              <div onClick="{{ e.showDetails }}" style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #e7e6e2;border-radius:3px;padding:12px 14px;margin-bottom:9px;cursor:pointer;transition:all .15s;" style-hover="border-color:#141414;background:#faf9f7;">
                 <div style="width:48px;height:48px;border-radius:2px;background:#faf9f7;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e7e6e2;">
                   <sc-if value="{{ e.imageUrl }}">
                     <img src="{{ e.imageUrl }}" style="width:100%;height:100%;object-fit:cover;" />
@@ -1150,6 +1150,102 @@
   </div>
   </sc-if>
 
+  <!-- ===================== PRODUCT DETAIL MODAL ===================== -->
+  <sc-if value="{{ productDetailModalOpen }}" hint-placeholder-val="">
+  <div>
+    <!-- Backdrop -->
+    <div onClick="{{ closeProductDetailModal }}" style="position:fixed;inset:0;background:rgba(20,20,20,.34);z-index:100;backdrop-filter:blur(2px);"></div>
+    
+    <!-- Modal content container -->
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(680px, 92vw);max-height:85vh;background:#fff;z-index:101;box-shadow:0 24px 60px rgba(20,20,20,.25);display:flex;flex-direction:column;border-radius:6px;overflow:hidden;border:1px solid #e7e6e2;font-family:'Jost',sans-serif;">
+      <!-- Modal Header -->
+      <div style="padding:18px 24px;border-bottom:1px solid #e7e6e2;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#fff;">
+        <div style="font-weight:600;font-size:19px;color:#141414;">Dettagli Prodotto (Catalog / Qdrant)</div>
+        <div onClick="{{ closeProductDetailModal }}" style="cursor:pointer;color:#8c8a85;width:30px;height:30px;border:1px solid #e7e6e2;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:all .15s;" style-hover="border-color:#141414;color:#141414;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      
+      <!-- Modal Body -->
+      <div style="padding:24px;overflow-y:auto;flex-grow:1;background:#faf9f7;display:flex;gap:24px;flex-direction:row;flex-wrap:wrap;">
+        
+        <!-- Left: Image Gallery -->
+        <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:12px;">
+          <!-- Large image preview -->
+          <div style="width:100%;aspect-ratio:1;background:#fff;border:1px solid #e7e6e2;border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:inset 0 0 8px rgba(0,0,0,.02);">
+            <sc-for list="{{ detailProductImages }}" as="imgItem">
+              <sc-if value="{{ imgItem.isActive }}">
+                <img src="{{ imgItem.url }}" style="width:100%;height:100%;object-fit:cover;" />
+              </sc-if>
+            </sc-for>
+            <sc-if value="{{ !detailProductImages.length }}">
+              <div style="color:#8c8a85;font-size:14px;text-align:center;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:8px;opacity:.5;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <div>Nessuna foto disponibile</div>
+              </div>
+            </sc-if>
+          </div>
+          
+          <!-- Thumbnails -->
+          <sc-if value="{{ detailProductImages.length > 1 }}">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;overflow-x:auto;padding-bottom:4px;">
+              <sc-for list="{{ detailProductImages }}" as="imgItem">
+                <div onClick="{{ imgItem.setActive }}" style="width:52px;height:52px;border-radius:3px;overflow:hidden;border:2px solid {{ imgItem.isActive ? '#9a7b3f' : '#e7e6e2' }};cursor:pointer;background:#fff;transition:all .15s;" style-hover="border-color:#9a7b3f;">
+                  <img src="{{ imgItem.url }}" style="width:100%;height:100%;object-fit:cover;" />
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        
+        <!-- Right: Details Info -->
+        <div style="flex:1.2;min-width:280px;display:flex;flex-direction:column;gap:18px;">
+          <!-- Product Name & SKU -->
+          <div>
+            <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#9a7b3f;font-weight:600;margin-bottom:4px;">{{ detailProduct.cat }}</div>
+            <h3 style="font-size:22px;font-weight:600;color:#141414;line-height:1.2;margin:0 0 6px 0;">{{ detailProduct.name }}</h3>
+            <div style="font-size:14px;color:#8c8a85;font-weight:500;">Codice SKU: <span style="color:#141414;font-weight:600;">{{ detailProduct.sku }}</span></div>
+          </div>
+          
+          <!-- Characteristics Card -->
+          <div style="background:#fff;border:1px solid #e7e6e2;border-radius:4px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;font-weight:600;border-bottom:1px solid #f0efec;padding-bottom:6px;">Caratteristiche</div>
+            
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:14px;">
+              <sc-if value="{{ detailProduct.color }}">
+                <div style="display:flex;justify-content:space-between;border-bottom:1px solid #faf9f7;padding-bottom:4px;gap:12px;">
+                  <span style="color:#8c8a85;white-space:nowrap;">Colore cassa/finitura</span>
+                  <span style="font-weight:500;color:#141414;text-align:right;">{{ detailProduct.color }}</span>
+                </div>
+              </sc-if>
+              
+              <sc-if value="{{ detailProduct.material }}">
+                <div style="display:flex;justify-content:space-between;border-bottom:1px solid #faf9f7;padding-bottom:4px;gap:12px;">
+                  <span style="color:#8c8a85;white-space:nowrap;">Materiale/Forma</span>
+                  <span style="font-weight:500;color:#141414;text-align:right;">{{ detailProduct.material }}</span>
+                </div>
+              </sc-if>
+              
+              <sc-if value="{{ !detailProduct.color && !detailProduct.material }}">
+                <div style="color:#8c8a85;font-style:italic;font-size:13.5px;padding:8px 0;text-align:center;">Dettagli aggiuntivi non configurati per questo articolo.</div>
+              </sc-if>
+            </div>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+      <!-- Modal Footer -->
+      <div style="padding:16px 24px;border-top:1px solid #e7e6e2;display:flex;justify-content:flex-end;flex-shrink:0;background:#fff;">
+        <button onClick="{{ closeProductDetailModal }}" style="cursor:pointer;background:#141414;border:none;color:#fff;padding:10px 24px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.08em;text-transform:uppercase;border-radius:2px;font-weight:500;transition:all .15s;" style-hover="background:#3a3834;">
+          Chiudi
+        </button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -1191,11 +1287,54 @@ class Component extends DCLogic {
     invJewelryMaterial: '', invFiles: null,
     invLoading: false, invSuccess: false, invSuccessMsg: '', invError: '',
     invSearchTerm: '', invPage: 1,
-    invEditMode: false, invEditIds: []
+    invEditMode: false, invEditIds: [],
+    productDetailModalOpen: false,
+    detailProduct: null,
+    detailProductActiveImageIdx: 0
   };
 
   componentWillMount() { this.build(); }
   constructor(props){ super(props); this.build(); }
+
+  showProductDetailsBySku(sku, fallbackName) {
+    const catalogItem = (this.inventoryItems || []).find(item => item.sku === sku);
+    if (catalogItem) {
+      this.setState({
+        productDetailModalOpen: true,
+        detailProduct: {
+          sku: catalogItem.sku,
+          name: catalogItem.name,
+          cat: catalogItem.cat,
+          color: catalogItem.color,
+          material: catalogItem.material,
+          imageUrls: catalogItem.imageUrls || [],
+          thumbUrls: catalogItem.thumbUrls || []
+        },
+        detailProductActiveImageIdx: 0
+      });
+    } else {
+      this.setState({
+        productDetailModalOpen: true,
+        detailProduct: {
+          sku: sku,
+          name: fallbackName || sku,
+          cat: 'Altro',
+          color: '',
+          material: '',
+          imageUrls: [],
+          thumbUrls: []
+        },
+        detailProductActiveImageIdx: 0
+      });
+    }
+  }
+
+  closeProductDetailModal() {
+    this.setState({
+      productDetailModalOpen: false,
+      detailProduct: null
+    });
+  }
 
   async componentDidMount() {
     await this.fetchInventory();
@@ -2593,7 +2732,8 @@ class Component extends DCLogic {
             sku: g.sku,
             tone: g.tone,
             imageUrl: this.cleanImgUrl(g.imageUrl),
-            countLabel: g.count > 1 ? `x${g.count}` : ''
+            countLabel: g.count > 1 ? `x${g.count}` : '',
+            showDetails: () => this.showProductDetailsBySku(g.sku, g.name)
           }));
         };
         const groupedMissing = groupProducts(v.missing);
@@ -2627,8 +2767,9 @@ class Component extends DCLogic {
         tone: item.tone,
         imagesCount: String(item.imageUrls.length),
         ids: item.ids,
-        edit: () => this.onStartEdit(item),
-        delete: () => this.doDeleteItem(item.ids)
+        showDetails: () => this.showProductDetailsBySku(item.sku, item.name),
+        edit: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.onStartEdit(item); },
+        delete: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.doDeleteItem(item.ids); }
       };
     });
 
@@ -2889,6 +3030,16 @@ class Component extends DCLogic {
       invEditMode: s.invEditMode,
       cancelEdit: () => this.resetInvForm(),
       
+      productDetailModalOpen: s.productDetailModalOpen,
+      detailProduct: s.detailProduct || {},
+      detailProductActiveImageIdx: s.detailProductActiveImageIdx || 0,
+      detailProductImages: (s.detailProduct && s.detailProduct.imageUrls || []).map((url, idx) => ({
+        url: url,
+        isActive: idx === (s.detailProductActiveImageIdx || 0),
+        setActive: () => this.setState({ detailProductActiveImageIdx: idx })
+      })),
+      closeProductDetailModal: () => this.setState({ productDetailModalOpen: false }),
+
       onInvName: this.setField('invName'),
       onInvSku: this.setField('invSku'),
       onInvCategory: this.setField('invCategory'),
