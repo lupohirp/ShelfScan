@@ -12,11 +12,8 @@ export default function Home() {
     <PageShell bottomNav={false}>
       <div className="min-h-svh flex flex-col bg-white">
         {/* Header Section */}
-        <div className="px-8 pt-24 pb-6 safe-top flex flex-col gap-4 bg-white">
-          <div className="flex items-center justify-between w-full">
-            <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.25em]">
-              Area Agente / Rappresentante
-            </p>
+        <div className="px-8 pt-8 pb-6 safe-top flex flex-col bg-white">
+          <div className="flex justify-end w-full">
             <button
               onClick={logout}
               className="flex items-center gap-1.5 text-gray-400 hover:text-black text-[10px] font-black uppercase tracking-[0.25em] transition-all active:scale-95"
@@ -25,6 +22,9 @@ export default function Home() {
               <span>Esci</span>
             </button>
           </div>
+          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.25em] pt-16 mb-2">
+            Area Agente / Rappresentante
+          </p>
           <h1 className="text-[36px] font-black tracking-tight text-black leading-none uppercase">
             Ciao, {user?.firstName || 'Agente'}
           </h1>
