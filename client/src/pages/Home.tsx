@@ -13,7 +13,7 @@ export default function Home() {
       <div className="min-h-svh flex flex-col bg-white">
         {/* Header Section */}
         <div className="px-8 pt-8 pb-6 safe-top flex flex-col bg-white">
-          <div className="flex justify-end w-full">
+          <div className="pt-12 flex justify-end w-full">
             <button
               onClick={logout}
               className="flex items-center gap-1.5 text-gray-400 hover:text-black text-[10px] font-black uppercase tracking-[0.25em] transition-all active:scale-95"
