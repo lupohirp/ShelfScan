@@ -105,6 +105,9 @@ Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscine
 	migrationsPath := os.Getenv("MIGRATIONS_PATH")
 	if migrationsPath == "" {
 		migrationsPath = "/app/db/migrations"
+		if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
+			migrationsPath = "/app/migrations"
+		}
 	}
 	database, err := db.InitDB(dbPath, migrationsPath)
 	if err != nil {
@@ -138,7 +141,7 @@ Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscine
 	http.HandleFunc("/agents/", handlers.AgentsDetailHandler)
 	http.HandleFunc("/visits", handlers.VisitsHandler)
 	http.HandleFunc("/login", handlers.LoginHandler)
-	http.HandleFunc("/stats/overview", handlers.StatsOverviewHandler)
+	http.HandleFunc("/customizations", handlers.CustomizationsHandler)
 	http.HandleFunc("/stats/regions", handlers.StatsRegionsHandler)
 	http.HandleFunc("/stats/top-products", handlers.StatsTopProductsHandler)
 	http.HandleFunc("/stats/recent-visits", handlers.StatsRecentVisitsHandler)

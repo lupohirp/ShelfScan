@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useScan } from '../store/scan'
+import { useAuth } from '../store/auth'
 import TopBar from '../components/TopBar'
 import PageShell from '../components/PageShell'
 import { getApiUrl } from '../lib/api'
 import {
-  Share2,
-  Download,
   Check,
   ScanLine,
   MapPin,
@@ -19,6 +18,7 @@ export default function ReportPreview() {
   const navigate = useNavigate()
   const session = useScan((s) => s.currentSession)
   const clearSession = useScan((s) => s.clearSession)
+  const user = useAuth((s) => s.user)
   const [saving, setSaving] = useState(false)
 
   if (!session) {
@@ -41,6 +41,7 @@ export default function ReportPreview() {
         ...session,
         status: 'finalized' as const,
         finalizedAt: new Date().toISOString(),
+        agent: user ? `${user.firstName} ${user.lastName}`.trim() : '',
       }
       
       const res = await fetch(`${apiBase}/visits`, {
@@ -156,18 +157,8 @@ export default function ReportPreview() {
       </div>
 
       {/* Bottom actions */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200 p-4 safe-bottom">
-        <div className="max-w-lg mx-auto space-y-2">
-          <div className="flex gap-3">
-            <button className="flex-1 h-12 bg-gray-100 rounded-xl flex items-center justify-center gap-2 text-[14px] font-semibold active:bg-gray-200 transition-colors">
-              <Download size={18} />
-              Scarica PDF
-            </button>
-            <button className="flex-1 h-12 bg-gray-100 rounded-xl flex items-center justify-center gap-2 text-[14px] font-semibold active:bg-gray-200 transition-colors">
-              <Share2 size={18} />
-              Condividi
-            </button>
-          </div>
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 p-4 safe-bottom">
+        <div className="max-w-lg mx-auto">
           <button
             onClick={handleFinalize}
             disabled={saving}

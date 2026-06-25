@@ -2,8 +2,11 @@ package db
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -51,6 +54,11 @@ func InitDB(dbPath, migrationsPath string) (*sql.DB, error) {
 	}
 
 	log.Println("Migrations completed successfully.")
+
+	// Seed database from CSV if empty
+	if err := SeedDatabaseFromCSV(db); err != nil {
+		log.Printf("Warning: failed to seed database from CSV: %v", err)
+	}
 
 	// Run data cleaning and uniformization on startup for existing databases
 	log.Println("Running store name cleanup and uniformization...")
@@ -250,6 +258,224 @@ func CleanExistingAgents(db *sql.DB) error {
 		_, err = stmt.Exec(cZona, cAgente, a.id)
 		if err != nil {
 			return fmt.Errorf("failed to update agent %d: %w", a.id, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+func SeedDatabaseFromCSV(db *sql.DB) error {
+	// 1. Seed agents if table is empty
+	var agentCount int
+	err := db.QueryRow("SELECT COUNT(*) FROM agents").Scan(&agentCount)
+	if err != nil {
+		return fmt.Errorf("failed to check agents count: %w", err)
+	}
+
+	if agentCount == 0 {
+		agentsPath := findCSVPath("agenti.csv")
+		if agentsPath == "" {
+			log.Println("agenti.csv not found, skipping agents seeding")
+		} else {
+			log.Printf("Seeding agents from %s...", agentsPath)
+			if err := seedAgents(db, agentsPath); err != nil {
+				log.Printf("Error seeding agents: %v", err)
+			} else {
+				log.Println("Agents seeding completed successfully.")
+			}
+		}
+	} else {
+		log.Printf("Agents table already populated (count: %d), skipping seeding.", agentCount)
+	}
+
+	// 2. Seed stores if table is empty
+	var storeCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM stores").Scan(&storeCount)
+	if err != nil {
+		return fmt.Errorf("failed to check stores count: %w", err)
+	}
+
+	if storeCount == 0 {
+		clientiPath := findCSVPath("clienti.csv")
+		if clientiPath == "" {
+			log.Println("clienti.csv not found, skipping stores seeding")
+		} else {
+			log.Printf("Seeding stores from %s...", clientiPath)
+			if err := seedStores(db, clientiPath); err != nil {
+				log.Printf("Error seeding stores: %v", err)
+			} else {
+				log.Println("Stores seeding completed successfully.")
+			}
+		}
+	} else {
+		log.Printf("Stores table already populated (count: %d), skipping seeding.", storeCount)
+	}
+
+	return nil
+}
+
+func findCSVPath(filename string) string {
+	containerPath := "/app/" + filename
+	if _, err := os.Stat(containerPath); err == nil {
+		return containerPath
+	}
+	// Try local path in workspace
+	localPaths := []string{
+		filename,
+		"server/" + filename,
+		"../" + filename,
+		"../server/" + filename,
+	}
+	for _, p := range localPaths {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+func seedAgents(db *sql.DB, csvPath string) error {
+	f, err := os.Open(csvPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	// Read header
+	headers, err := reader.Read()
+	if err != nil {
+		return err
+	}
+
+	// Map headers to column indices
+	colIndices := make(map[string]int)
+	for i, h := range headers {
+		colIndices[strings.ToUpper(strings.TrimSpace(h))] = i
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO agents (zona, agente, note, tel, email, email_personal, password)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		getValue := func(colName string) string {
+			if idx, ok := colIndices[colName]; ok && idx < len(record) {
+				return strings.TrimSpace(record[idx])
+			}
+			return ""
+		}
+
+		zona := getValue("ZONA")
+		agente := getValue("AGENTE")
+		note := getValue("NOTE")
+		tel := getValue("TEL")
+		email := getValue("EMAIL")
+		emailPersonal := getValue("EMAIL_PERSONAL")
+
+		// Ignore rows with empty agent name
+		if agente == "" {
+			continue
+		}
+
+		// Use the agent name (or part of it) as a default password or a default dummy like 'shelfscan2026'
+		defaultPassword := "shelfscan2026"
+
+		_, err = stmt.Exec(zona, agente, note, tel, email, emailPersonal, defaultPassword)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+func seedStores(db *sql.DB, csvPath string) error {
+	f, err := os.Open(csvPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	// Read header
+	headers, err := reader.Read()
+	if err != nil {
+		return err
+	}
+
+	colIndices := make(map[string]int)
+	for i, h := range headers {
+		colIndices[strings.ToUpper(strings.TrimSpace(h))] = i
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO stores (code, name, province, province_name, address, region, region_code, city, agent_name)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		getValue := func(colName string) string {
+			if idx, ok := colIndices[colName]; ok && idx < len(record) {
+				return strings.TrimSpace(record[idx])
+			}
+			return ""
+		}
+
+		code := getValue("CD_CF")
+		name := getValue("CF_DESCRIZIONE")
+		province := getValue("PROVINCIA")
+		provinceName := getValue("DESCRIZIONE")
+		address := getValue("INDIRIZZO")
+		region := getValue("DESCRIZIONE.1")
+		regionCode := getValue("CD_REGIONE")
+		city := getValue("CITTA")
+		agentName := getValue("DESCRAGENTE")
+
+		if code == "" || name == "" {
+			continue
+		}
+
+		_, err = stmt.Exec(code, name, province, provinceName, address, region, regionCode, city, agentName)
+		if err != nil {
+			return err
 		}
 	}
 
