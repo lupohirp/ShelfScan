@@ -1182,8 +1182,7 @@ func (h *Handler) CustomizationsHandler(w http.ResponseWriter, r *http.Request) 
 
 			// Save file
 			os.MkdirAll("uploads", 0755)
-			filename := fmt.Sprintf("customization_%d_%s", time.Now().UnixNano(), header.Filename)
-			filePath := "uploads/" + filename
+			filename := fmt.Sprintf("customization_%d_%s", time.Now().UnixNano(), filepath.Base(header.Filename))
 
 			dst, err := os.Create(filePath)
 			if err != nil {
