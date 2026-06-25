@@ -811,20 +811,44 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func isLocalHost(host string) bool {
+	return strings.Contains(host, "localhost") ||
+		strings.Contains(host, "127.0.0.1") ||
+		strings.HasPrefix(host, "192.168.") ||
+		strings.HasPrefix(host, "10.") ||
+		strings.HasPrefix(host, "172.")
+}
+
 func fixURL(imgURL string, host string) string {
 	if imgURL == "" {
 		return ""
 	}
-	if strings.HasPrefix(imgURL, "http") {
-		if strings.Contains(imgURL, "localhost") && !strings.Contains(host, "localhost") {
-			return strings.Replace(imgURL, "localhost:8080", host, 1)
+
+	protocol := "https://"
+	if isLocalHost(host) {
+		protocol = "http://"
+	}
+
+	if strings.HasPrefix(imgURL, "http://") || strings.HasPrefix(imgURL, "https://") {
+		if strings.Contains(imgURL, "localhost") && !isLocalHost(host) {
+			imgURL = strings.Replace(imgURL, "localhost:8080", host, 1)
+		}
+		if idx := strings.Index(imgURL, "/uploads/"); idx != -1 {
+			return protocol + host + imgURL[idx:]
+		}
+		if protocol == "https://" && strings.HasPrefix(imgURL, "http://") {
+			return "https://" + imgURL[7:]
+		}
+		if protocol == "http://" && strings.HasPrefix(imgURL, "https://") {
+			return "http://" + imgURL[8:]
 		}
 		return imgURL
 	}
+
 	if strings.HasPrefix(imgURL, "/") {
-		return "http://" + host + imgURL
+		return protocol + host + imgURL
 	}
-	return "http://" + host + "/uploads/" + imgURL
+	return protocol + host + "/uploads/" + imgURL
 }
 
 func systemID(name string) int {
