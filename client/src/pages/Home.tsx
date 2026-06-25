@@ -10,66 +10,68 @@ export default function Home() {
 
   return (
     <PageShell bottomNav={false}>
-      {/* Header Section */}
-      <div className="px-8 pt-16 pb-8 safe-top flex items-center justify-between bg-white border-b border-gray-100">
-        <div>
-          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">
-            Area Agente / Rappresentante
-          </p>
-          <h1 className="text-[28px] font-black tracking-tight text-black leading-none uppercase">
+      <div className="min-h-svh flex flex-col bg-white">
+        {/* Header Section */}
+        <div className="px-8 pt-24 pb-6 safe-top flex flex-col gap-4 bg-white">
+          <div className="flex items-center justify-between w-full">
+            <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.25em]">
+              Area Agente / Rappresentante
+            </p>
+            <button
+              onClick={logout}
+              className="flex items-center gap-1.5 text-gray-400 hover:text-black text-[10px] font-black uppercase tracking-[0.25em] transition-all active:scale-95"
+            >
+              <LogOut size={12} />
+              <span>Esci</span>
+            </button>
+          </div>
+          <h1 className="text-[36px] font-black tracking-tight text-black leading-none uppercase">
             Ciao, {user?.firstName || 'Agente'}
           </h1>
         </div>
-        <button
-          onClick={logout}
-          className="flex items-center gap-2 border border-gray-200 text-gray-500 hover:text-black hover:border-black px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all active:scale-95"
-        >
-          <LogOut size={12} />
-          <span>Esci</span>
-        </button>
-      </div>
 
-      {/* Main Container */}
-      <div className="p-8 space-y-6 max-w-md mx-auto">
-        <p className="text-gray-400 text-[11px] font-bold uppercase tracking-[0.15em] text-center mb-2">
-          Seleziona l'operazione da eseguire
-        </p>
+        {/* Main Container */}
+        <div className="flex-1 flex flex-col justify-center px-8 pb-24 max-w-md mx-auto w-full space-y-6">
+          <p className="text-gray-400 text-[11px] font-bold uppercase tracking-[0.15em] text-center mb-2">
+            Seleziona l'operazione da eseguire
+          </p>
 
-        {/* CTA 1: Scansione */}
-        <button
-          onClick={() => navigate('/scan')}
-          className="w-full bg-black text-white p-8 flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.98] hover:opacity-90 border-2 border-black rounded-2xl shadow-lg shadow-black/5"
-        >
-          <div className="w-12 h-12 bg-white/10 flex items-center justify-center rounded-xl">
-            <ScanLine size={28} className="text-white" strokeWidth={1.5} />
-          </div>
-          <div className="text-center">
-            <span className="text-[16px] font-black uppercase tracking-[0.2em] block mb-2">
-              Scansione Vetrina
-            </span>
-            <span className="text-white/50 text-[11px] font-medium block leading-relaxed max-w-[280px] mx-auto">
-              Analizza la vetrina in tempo reale e invia il report di copertura.
-            </span>
-          </div>
-        </button>
+          {/* CTA 1: Scansione */}
+          <button
+            onClick={() => navigate('/scan')}
+            className="w-full bg-black text-white p-8 flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.98] hover:opacity-90 border-2 border-black rounded-2xl shadow-lg shadow-black/5"
+          >
+            <div className="w-12 h-12 bg-white/10 flex items-center justify-center rounded-xl">
+              <ScanLine size={28} className="text-white" strokeWidth={1.5} />
+            </div>
+            <div className="text-center">
+              <span className="text-[16px] font-black uppercase tracking-[0.2em] block mb-2">
+                Scansione Vetrina
+              </span>
+              <span className="text-white/50 text-[11px] font-medium block leading-relaxed max-w-[280px] mx-auto">
+                Analizza la vetrina in tempo reale e invia il report di copertura.
+              </span>
+            </div>
+          </button>
 
-        {/* CTA 2: Personalizzazione */}
-        <button
-          onClick={() => navigate('/customization')}
-          className="w-full bg-white text-black p-8 flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.98] hover:bg-gray-50 border-2 border-gray-100 rounded-2xl shadow-sm"
-        >
-          <div className="w-12 h-12 bg-gray-50 flex items-center justify-center rounded-xl">
-            <Palette size={28} className="text-black" strokeWidth={1.5} />
-          </div>
-          <div className="text-center">
-            <span className="text-[16px] font-black uppercase tracking-[0.2em] block mb-2">
-              Richiesta Allestimento
-            </span>
-            <span className="text-gray-400 text-[11px] font-medium block leading-relaxed max-w-[280px] mx-auto">
-              Invia richieste di personalizzazione o nuovi materiali per lo store.
-            </span>
-          </div>
-        </button>
+          {/* CTA 2: Personalizzazione */}
+          <button
+            onClick={() => navigate('/customization')}
+            className="w-full bg-white text-black p-8 flex flex-col items-center justify-center gap-4 transition-all active:scale-[0.98] hover:bg-gray-50 border-2 border-gray-100 rounded-2xl shadow-sm"
+          >
+            <div className="w-12 h-12 bg-gray-50 flex items-center justify-center rounded-xl">
+              <Palette size={28} className="text-black" strokeWidth={1.5} />
+            </div>
+            <div className="text-center">
+              <span className="text-[16px] font-black uppercase tracking-[0.2em] block mb-2">
+                Richiesta Allestimento
+              </span>
+              <span className="text-gray-400 text-[11px] font-medium block leading-relaxed max-w-[280px] mx-auto">
+                Invia richieste di personalizzazione o nuovi materiali per lo store.
+              </span>
+            </div>
+          </button>
+        </div>
       </div>
     </PageShell>
   )
