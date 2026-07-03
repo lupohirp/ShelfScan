@@ -379,6 +379,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			Name     string
 			Sku      string
 			ImageURL string
+			CropURL  string
 			Score    float32
 		}
 		var acceptedMatches []AcceptedMatch
@@ -480,7 +481,6 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Gemini Response: %s", responseText)
 
 				detections := parseDetections(responseText)
-				allImageResults[imgIdx] = subdomain.ImageResult{Detections: detections}
 
 				logMu.Lock()
 				imageLogs[imgIdx].GeminiModel = modelUsed
@@ -521,6 +521,15 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						// Save cropped image to log directory
 						cropFilename := fmt.Sprintf("crop_%d_%d.jpg", imgIdx, detIdx)
 						_ = os.WriteFile(filepath.Join(reqDir, cropFilename), cropBuf.Bytes(), 0644)
+
+						// Also save to uploads directory so it can be served via HTTP
+						cropUploadFilename := fmt.Sprintf("crop_%s_%d_%d.jpg", reqID, imgIdx, detIdx)
+						if err := os.WriteFile(filepath.Join("uploads", cropUploadFilename), cropBuf.Bytes(), 0644); err != nil {
+							log.Printf("Error writing crop file %s: %v", cropUploadFilename, err)
+						}
+						cropURL := "/uploads/" + cropUploadFilename
+
+						detections[detIdx].CropURL = fixURL(cropURL, r.Host)
 
 						logMu.Lock()
 						imageLogs[imgIdx].Detections[detIdx].CropFilename = cropFilename
@@ -676,14 +685,17 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								Name:     bestMatchName,
 								Sku:      bestMatchSku,
 								ImageURL: bestMatchImgUrl,
+								CropURL:  cropURL,
 								Score:    bestMatchScore,
 							})
 							log.Printf("Match accepted from img %d: %s (%s, %f)", imgIdx, bestMatchName, bestMatchSku, bestMatchScore)
 							mainMu.Unlock()
+							detections[detIdx].SKU = bestMatchSku
 						}
 					}(detIdx, det)
 				}
 				wg.Wait()
+				allImageResults[imgIdx] = subdomain.ImageResult{Detections: detections}
 			}(imgIdx, fileHeader)
 		}
 		outerWg.Wait()
@@ -705,6 +717,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			Name     string
 			Sku      string
 			ImageURL string
+			CropURL  string
 			MaxScore float32
 			Count    int
 		}
@@ -719,12 +732,14 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 					gm.MaxScore = am.Score
 					gm.ImageURL = am.ImageURL
 					gm.Name = am.Name
+					gm.CropURL = am.CropURL
 				}
 			} else {
 				groupedMatches[am.Sku] = &GroupedMatch{
 					Name:     am.Name,
 					Sku:      am.Sku,
 					ImageURL: am.ImageURL,
+					CropURL:  am.CropURL,
 					MaxScore: am.Score,
 					Count:    1,
 				}
@@ -737,6 +752,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				Name:     gm.Name,
 				Sku:      gm.Sku,
 				ImageURL: fixURL(gm.ImageURL, r.Host),
+				CropURL:  fixURL(gm.CropURL, r.Host),
 				Score:    gm.MaxScore,
 				Count:    gm.Count,
 			})

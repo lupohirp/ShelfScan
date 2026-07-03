@@ -157,9 +157,9 @@ export default function Camera() {
       }
       
       const analysisData = await analysisResponse.json() as {
-        found: {name: string, sku: string, imageUrl: string, score: number, count?: number}[],
+        found: {name: string, sku: string, imageUrl: string, cropUrl?: string, score: number, count?: number}[],
         missing: {name: string, sku: string, imageUrl: string}[],
-        imageResults: { detections: { desc: string, box?: number[], box_2d?: number[] }[] }[]
+        imageResults: { detections: { desc: string, box?: number[], box_2d?: number[], crop_url?: string, sku?: string }[] }[]
       }
       console.log('AI Analysis data:', analysisData)
       
@@ -170,6 +170,7 @@ export default function Camera() {
         name: r.name,
         category: 'identified',
         imageUrl: r.imageUrl,
+        cropUrl: r.cropUrl || '',
         status: 'active',
         count: r.count || 1
       }))
@@ -185,7 +186,12 @@ export default function Camera() {
 
       const analyzedImages = analysisData.imageResults.map((ir, idx) => ({
         capturedImage: capturedImages[idx],
-        detections: ir.detections
+        detections: (ir.detections || []).map(d => ({
+          desc: d.desc,
+          box: d.box || d.box_2d || [],
+          crop_url: d.crop_url || '',
+          sku: d.sku || ''
+        }))
       }))
 
       const session: CheckSession = {
