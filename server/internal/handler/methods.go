@@ -523,9 +523,10 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						_ = os.WriteFile(filepath.Join(reqDir, cropFilename), cropBuf.Bytes(), 0644)
 
 						// Also save to uploads directory so it can be served via HTTP
-						_ = os.MkdirAll("uploads", 0755)
 						cropUploadFilename := fmt.Sprintf("crop_%s_%d_%d.jpg", reqID, imgIdx, detIdx)
-						_ = os.WriteFile(filepath.Join("uploads", cropUploadFilename), cropBuf.Bytes(), 0644)
+						if err := os.WriteFile(filepath.Join("uploads", cropUploadFilename), cropBuf.Bytes(), 0644); err != nil {
+							log.Printf("Error writing crop file %s: %v", cropUploadFilename, err)
+						}
 						cropURL := "/uploads/" + cropUploadFilename
 
 						detections[detIdx].CropURL = fixURL(cropURL, r.Host)
