@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ShelfScan Admin">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <script src="./support.js"></script>
 </head>
 <body>
@@ -187,6 +192,56 @@
         </div>
         <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9a7b3f;border:1px solid #ece4d4;background:#f7f2e8;padding:7px 13px;border-radius:2px;">{{ t.updated }}</div>
       </div>
+
+      <!-- PWA Install Banner (Android/Chrome) -->
+      <sc-if value="{{ showPwaBanner }}">
+      <div style="background:linear-gradient(135deg, #141414 0%, #2a2a2a 100%);color:#fff;border-radius:3px;padding:20px 24px;margin-bottom:24px;position:relative;box-shadow:0 10px 30px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.08);animation:fadeIn .25s ease;">
+        <div onClick="{{ dismissPwaBanner }}" style="position:absolute;top:16px;right:16px;cursor:pointer;color:rgba(255,255,255,0.4);" style-hover="color:#fff;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+        <div style="display:flex;align-items:start;gap:18px;">
+          <div style="width:40px;height:40px;background:rgba(154,123,63,0.12);border:1px solid rgba(154,123,63,0.3);border-radius:2px;display:flex;align-items:center;justify-content:center;color:#9a7b3f;flex-shrink:0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <div>
+            <div style="font-family:'Jost',sans-serif;font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:#9a7b3f;margin-bottom:4px;">{{ t.pwaTitle }}</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.5;max-width:700px;margin-bottom:14px;">{{ t.pwaSub }}</div>
+            <button onClick="{{ triggerPwaInstall }}" style="height:36px;padding:0 20px;background:#9a7b3f;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:12px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;font-weight:600;transition:all 0.15s;" style-hover="background:#b39150;">
+              {{ t.pwaInstallBtn }}
+            </button>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- PWA iOS Manual Guide Banner -->
+      <sc-if value="{{ showPwaIosHint }}">
+      <div style="background:linear-gradient(135deg, #141414 0%, #2a2a2a 100%);color:#fff;border-radius:3px;padding:20px 24px;margin-bottom:24px;position:relative;box-shadow:0 10px 30px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.08);animation:fadeIn .25s ease;">
+        <div onClick="{{ dismissPwaIosHint }}" style="position:absolute;top:16px;right:16px;cursor:pointer;color:rgba(255,255,255,0.4);" style-hover="color:#fff;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+        <div style="display:flex;align-items:start;gap:18px;">
+          <div style="width:40px;height:40px;background:rgba(154,123,63,0.12);border:1px solid rgba(154,123,63,0.3);border-radius:2px;display:flex;align-items:center;justify-content:center;color:#9a7b3f;flex-shrink:0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <div style="font-family:'Jost',sans-serif;font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:#9a7b3f;margin-bottom:4px;">{{ t.pwaTitle }}</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.7);line-height:1.5;max-width:700px;margin-bottom:14px;">{{ t.pwaIosSub }}</div>
+            
+            <div style="display:flex;flex-direction:column;gap:10px;background:rgba(255,255,255,0.05);padding:14px 16px;border-radius:3px;border:1px solid rgba(255,255,255,0.05);max-width:550px;font-size:12.5px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="width:20px;height:20px;background:rgba(255,255,255,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">1</span>
+                <span>{{ t.pwaIosStep1 }}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span style="width:20px;height:20px;background:rgba(255,255,255,0.12);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">2</span>
+                <span>{{ t.pwaIosStep2 }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
 
       <!-- KPI -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;">
@@ -1486,7 +1541,28 @@ class Component extends DCLogic {
     invEditMode: false, invEditIds: [],
     productDetailModalOpen: false,
     detailProduct: null,
-    detailProductActiveImageIdx: 0
+    detailProductActiveImageIdx: 0,
+    deferredPrompt: null,
+    showPwaBanner: false,
+    showPwaIosHint: false
+  };
+
+  triggerPwaInstall = async () => {
+    const prompt = this.state.deferredPrompt;
+    if (!prompt) return;
+    prompt.prompt();
+    const result = await prompt.userChoice;
+    console.log('User PWA install outcome:', result.outcome);
+    this.setState({ deferredPrompt: null, showPwaBanner: false });
+  };
+
+  dismissPwaBanner = () => {
+    this.setState({ showPwaBanner: false });
+  };
+
+  dismissPwaIosHint = () => {
+    this.setState({ showPwaIosHint: false });
+    sessionStorage.setItem('pwa-admin-ios-hint-dismissed', 'true');
   };
 
   componentWillMount() { this.build(); }
@@ -1547,6 +1623,31 @@ class Component extends DCLogic {
   }
 
   async componentDidMount() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('Admin Service Worker registered successfully:', reg))
+        .catch(err => console.error('Admin Service Worker registration failed:', err));
+    }
+
+    // Capture browser PWA installation trigger
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.setState({
+        deferredPrompt: e,
+        showPwaBanner: true
+      });
+    });
+
+    // Detect if running on iOS outside PWA standalone mode
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (ios && !isStandalone) {
+      const hintDismissed = sessionStorage.getItem('pwa-admin-ios-hint-dismissed');
+      if (!hintDismissed) {
+        this.setState({ showPwaIosHint: true });
+      }
+    }
+
     await this.fetchInventory();
     await this.fetchDashboardData();
     await this.fetchAgentsData();
@@ -2588,6 +2689,12 @@ class Component extends DCLogic {
       loginHeading:'Accedi alla dashboard', loginSub:'Riservato ad area manager e direzione vendite Liu Jo.',
       emailLabel:'Email aziendale', passwordLabel:'Password', signIn:'Accedi',
       forgot:'Password dimenticata?', demoHint:'Demo: accesso libero',
+      pwaTitle: 'Installa ShelfScan Admin',
+      pwaSub: 'Aggiungi il pannello admin alla schermata home per supporto offline ed un avvio fulmineo.',
+      pwaInstallBtn: 'Installa Ora',
+      pwaIosSub: 'Installa l\'applicazione sul tuo iPhone per l\'avvio rapido e il supporto offline.',
+      pwaIosStep1: 'Premi il pulsante Condividi (in basso nel browser Safari).',
+      pwaIosStep2: 'Seleziona l\'opzione "Aggiungi alla schermata Home".',
       appName:'Visual Management', navOverview:'Panoramica', navJewelers:'Gioiellerie',
       logout:'Esci', userRole:'Area Manager',
       overviewTitle:'Panoramica nazionale', overviewSub:`Stato della rete di ${this.fmtNum(this.totalStoresCount)} gioiellerie Liu Jo in Italia.`,
@@ -2705,6 +2812,12 @@ class Component extends DCLogic {
       loginHeading:'Sign in to the dashboard', loginSub:'Reserved for Liu Jo area managers and sales management.',
       emailLabel:'Company email', passwordLabel:'Password', signIn:'Sign in',
       forgot:'Forgot password?', demoHint:'Demo: open access',
+      pwaTitle: 'Install ShelfScan Admin',
+      pwaSub: 'Add the admin dashboard to your home screen for offline support and faster access.',
+      pwaInstallBtn: 'Install Now',
+      pwaIosSub: 'Install the application on your iPhone for quick access and offline support.',
+      pwaIosStep1: 'Press the Share button (at the bottom of Safari browser).',
+      pwaIosStep2: 'Select "Add to Home Screen" option.',
       appName:'Visual Management', navOverview:'Overview', navJewelers:'Stores',
       logout:'Sign out', userRole:'Area Manager',
       overviewTitle:'National overview', overviewSub:`Status of the network of ${this.fmtNum(this.totalStoresCount)} Liu Jo jewelry stores in Italy.`,

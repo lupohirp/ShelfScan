@@ -15,6 +15,9 @@ import AdminStores from './pages/admin/AdminStores'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminChecks from './pages/admin/AdminChecks'
 
+import { useEffect } from 'react'
+import { usePwa } from './store/pwa'
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuth((s) => s.isAuthenticated)
   if (!isAuthenticated) return <Navigate to="/login" replace />
@@ -22,6 +25,29 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const setDeferredPrompt = usePwa((s) => s.setDeferredPrompt)
+  const setShowInstallBanner = usePwa((s) => s.setShowInstallBanner)
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setShowInstallBanner(true)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+
+    // Check if already running standalone
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+    if (isStandalone) {
+      setShowInstallBanner(false)
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    }
+  }, [setDeferredPrompt, setShowInstallBanner])
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
