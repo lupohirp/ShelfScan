@@ -186,7 +186,7 @@ export default function Camera() {
 
       const analyzedImages = analysisData.imageResults.map((ir, idx) => ({
         capturedImage: capturedImages[idx],
-        detections: ir.detections.map(d => ({
+        detections: (ir.detections || []).map(d => ({
           desc: d.desc,
           box: d.box || d.box_2d || [],
           crop_url: d.crop_url || '',
