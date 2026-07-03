@@ -10,3 +10,4 @@ server/uploads/*
 /logs
 server/db/shelfscan.db-shm
 server/db/shelfscan.db-wal
+*.db-shm

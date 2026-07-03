@@ -135,9 +135,9 @@ func (h *Handler) StoresHandler(w http.ResponseWriter, r *http.Request) {
 		var args []any
 
 		if q != "" {
-			queryStr += " AND (name LIKE ? OR city LIKE ? OR province_name LIKE ? OR code LIKE ?)"
+			queryStr += " AND (name LIKE ? OR code LIKE ? OR city LIKE ? OR province LIKE ? OR province_name LIKE ? OR address LIKE ? OR region LIKE ? OR region_code LIKE ?)"
 			likeQ := "%" + q + "%"
-			args = append(args, likeQ, likeQ, likeQ, likeQ)
+			args = append(args, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ)
 		}
 		if region != "" {
 			queryStr += " AND (region = ? OR region_code = ?)"
