@@ -903,9 +903,20 @@
               <sc-for list="{{ sel.photos }}" as="ph" hint-placeholder-count="4">
                 <div style="border-radius:3px;overflow:hidden;border:1px solid #e7e6e2;background:#fff;position:relative;">
                   <div style="aspect-ratio:4/3;background:{{ ph.tone }};position:relative;display:flex;align-items:center;justify-content:center;">
+                    
+                    <!-- If photo exists: clicking it opens/downloads it in a new tab -->
                     <sc-if value="{{ ph.url }}">
-                      <img src="{{ ph.url }}" style="width:100%;height:100%;object-fit:cover;" />
+                      <a href="{{ ph.url }}" target="_blank" download style="display:block;width:100%;height:100%;z-index:5;position:relative;">
+                        <img src="{{ ph.url }}" style="width:100%;height:100%;object-fit:cover;" />
+                      </a>
+                      <!-- Small edit overlay button to replace photo -->
+                      <div style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);width:26px;height:26px;border-radius:2px;display:flex;align-items:center;justify-content:center;z-index:15;border:1px solid #e7e6e2;cursor:pointer;" style-hover="background:#141414;border-color:#141414;color:#fff;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        <input type="file" onChange="{{ ph.upload }}" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:20;" />
+                      </div>
                     </sc-if>
+
+                    <!-- If photo does not exist -->
                     <sc-if value="{{ !ph.url }}">
                       <sc-if value="{{ ph.loading }}">
                         <span style="font-size:18px;color:#8c8a85;">⌛</span>
@@ -914,10 +925,11 @@
                         <span style="width:30px;height:30px;border:1.5px solid rgba(20,20,20,.22);border-radius:50%;display:flex;align-items:center;justify-content:center;">
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(20,20,20,.3)" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                         </span>
+                        <input type="file" onChange="{{ ph.upload }}" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:10;" />
                       </sc-if>
                     </sc-if>
+
                     <span style="position:absolute;top:8px;left:8px;background:rgba(255,255,255,.85);font-size:10px;letter-spacing:.06em;color:#4a4843;padding:3px 7px;border-radius:2px;">{{ ph.tag }}</span>
-                    <input type="file" onChange="{{ ph.upload }}" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:10;" />
                   </div>
                   <div style="padding:9px 11px;">
                     <div style="font-size:12.5px;font-weight:600;">{{ ph.label }}</div>
@@ -2395,10 +2407,34 @@ class Component extends DCLogic {
         tone: tones[idx % tones.length]
       }));
 
-      visit.exposed = mappedFound;
-      visit.missing = mappedMissing;
-      visit.missingCount = mappedMissing.length;
-      visit.coverage = result.coverage || 0;
+      // Merge newly found items with existing ones
+      const existingExposed = visit.exposed || [];
+      const mergedExposedMap = {};
+      existingExposed.forEach(p => {
+        if (p && p.sku) mergedExposedMap[p.sku] = p;
+      });
+      mappedFound.forEach(p => {
+        if (p && p.sku) mergedExposedMap[p.sku] = p;
+      });
+      const combinedExposed = Object.values(mergedExposedMap);
+
+      // Re-calculate missing items from total inventory catalog
+      const exposedSkus = new Set(combinedExposed.map(p => p.sku));
+      const combinedMissing = this.products.filter(p => !exposedSkus.has(p.sku)).map((p, idx) => ({
+        sku: p.sku || '',
+        name: p.name || '',
+        cat: p.sku?.toLowerCase().startsWith('tlj') ? 'Orologi' : 'Gioielli',
+        imageUrl: p.imageUrl || p.image_url || '',
+        cropUrl: '',
+        tone: tones[idx % tones.length]
+      }));
+
+      visit.exposed = combinedExposed;
+      visit.missing = combinedMissing;
+      visit.missingCount = combinedMissing.length;
+
+      const totalProds = combinedExposed.length + combinedMissing.length;
+      visit.coverage = totalProds > 0 ? Math.round((combinedExposed.length / totalProds) * 100) : 0;
 
       const objectUrl = URL.createObjectURL(file);
       visit.photos[photoIdx] = { ...visit.photos[photoIdx], loading: false, url: objectUrl };
@@ -2482,9 +2518,24 @@ class Component extends DCLogic {
         const order = this.products.map((p,idx)=>({ p, k:this.rng(i*131 + v*53 + idx*13 + 3)() }))
           .sort((a,b)=>b.k-a.k).map(o=>o.p);
         const expCount = Math.max(5, Math.min(12, Math.round(coverage/100*13)));
-        const exposed = order.slice(0, expCount);
+        const sampleImages = [
+          '/uploads/2924864010416167745_TLJ2200_0.jpg',
+          '/uploads/2924864010416170697_TLJ2527_3.jpeg',
+          '/uploads/2924864010416167748_TLJ2203_0.jpg',
+          '/uploads/2924864010416167751_TLJ2206_0.jpg',
+          '/uploads/2924864010416170631_TLJ2503_0.jpg',
+          '/uploads/2924864010416170661_TLJ2512_0.jpg'
+        ];
+        const exposed = order.slice(0, expCount).map((p, idx) => ({
+          ...p,
+          imageUrl: sampleImages[(i + v + idx) % sampleImages.length],
+          cropUrl: sampleImages[(i + v + idx + 1) % sampleImages.length]
+        }));
         const exSet = new Set(exposed.map(p=>p.sku));
-        const missing = order.filter(p=>!exSet.has(p.sku)).slice(0,6);
+        const missing = order.filter(p=>!exSet.has(p.sku)).slice(0,6).map((p, idx) => ({
+          ...p,
+          imageUrl: sampleImages[(i + v + idx + 3) % sampleImages.length]
+        }));
         const nPhotos = 2 + Math.floor(vr()*3); // 2-4
         const photos = [];
         for (let k=0;k<nPhotos;k++) photos.push({ tone: tones[(i+v+k)%tones.length] });
@@ -2915,14 +2966,27 @@ class Component extends DCLogic {
         sel.vCoverageLabel = v.coverage+'%';
         sel.vCoverageColor = this.covColor(v.coverage);
         sel.vMissingLabel = String(v.missingCount);
-        sel.photos = v.photos.map((p,i)=>({
-          tone: p.tone,
+
+        const photosList = (v.photos || []).map((p, i) => ({
+          tone: p.tone || 'neutral',
           url: p.url || '',
           loading: !!p.loading,
-          label: t.photoLabel+' '+(i+1),
-          tag: (i===0?(s.lang==='en'?'Front':'Frontale'):''),
+          label: t.photoLabel + ' ' + (i + 1),
+          tag: (i === 0 ? (s.lang === 'en' ? 'Front' : 'Frontale') : ''),
           upload: (e) => this.handlePhotoUpload(e, s.selectedId, s.selectedVisit, i)
         }));
+
+        if (photosList.length < 4) {
+          photosList.push({
+            tone: '#eaeaef',
+            url: '',
+            loading: false,
+            label: s.lang === 'en' ? 'Add Photo' : 'Aggiungi Foto',
+            tag: s.lang === 'en' ? 'New' : 'Nuova',
+            upload: (e) => this.handlePhotoUpload(e, s.selectedId, s.selectedVisit, v.photos.length)
+          });
+        }
+        sel.photos = photosList;
         const groupProducts = (products) => {
           const grouped = {};
           (products || []).forEach(p => {
