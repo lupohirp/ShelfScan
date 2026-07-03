@@ -1388,6 +1388,7 @@ func (h *Handler) CustomizationsHandler(w http.ResponseWriter, r *http.Request) 
 			results := []CustomizationResponse{}
 			for rows.Next() {
 				var cr CustomizationResponse
+				var startD, endD sql.NullString
 				var agentIdVal sql.NullInt64
 				var cust2Sub, cust2Type, cust2Mat sql.NullString
 				var cust3Sub, cust3Type, cust3Mat sql.NullString
@@ -1400,7 +1401,7 @@ func (h *Handler) CustomizationsHandler(w http.ResponseWriter, r *http.Request) 
 					&cr.Cust1Subject, &cr.Cust1Type, &cr.Cust1WidthCm, &cr.Cust1HeightCm, &cr.Cust1Material,
 					&cust2Sub, &cust2Type, &cust2W, &cust2H, &cust2Mat,
 					&cust3Sub, &cust3Type, &cust3W, &cust3H, &cust3Mat,
-					&cr.StartDate, &cr.EndDate,
+					&startD, &endD,
 					&cr.PrintingCostResponsibility, &cr.AssemblyCostResponsibility,
 					&cr.ShippingAddress, &cr.ShippingCivic, &cr.ShippingCity, &cr.ShippingProvince, &cr.ShippingCap,
 					&cr.PhotoURL, &cr.CreatedAt,
@@ -1443,6 +1444,12 @@ func (h *Handler) CustomizationsHandler(w http.ResponseWriter, r *http.Request) 
 				}
 				if cust3H.Valid {
 					cr.Cust3HeightCm = &cust3H.Float64
+				}
+				if startD.Valid {
+					cr.StartDate = startD.String
+				}
+				if endD.Valid {
+					cr.EndDate = endD.String
 				}
 
 				results = append(results, cr)

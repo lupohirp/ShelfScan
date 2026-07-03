@@ -728,18 +728,19 @@
       <div style="background:#fff;border:1px solid #e7e6e2;border-radius:3px;overflow:hidden;">
         <div style="overflow-x:auto;">
           <div style="min-width:1100px;">
-            <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1.8fr 3fr 2.2fr 1fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
+            <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1.8fr 2.6fr 2.2fr 1.0fr 0.8fr;gap:14px;padding:14px 22px;background:#faf9f7;border-bottom:1px solid #e7e6e2;font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;">
               <span>{{ t.colCustDate }}</span>
               <span>{{ t.colCustAgent }}</span>
               <span>{{ t.colCustStore }}</span>
               <span>{{ t.colCustDetails }}</span>
               <span>{{ t.colCustShipping }}</span>
-              <span style="text-align:right;">{{ t.colCustPhoto }}</span>
+              <span>{{ t.colCustPhoto }}</span>
+              <span style="text-align:right;">{{ t.colCustActions }}</span>
             </div>
             
             <sc-if value="{{ hasCustResults }}" hint-placeholder-val="{{ true }}">
             <sc-for list="{{ custResults }}" as="row" hint-placeholder-count="5">
-              <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1.8fr 3fr 2.2fr 1fr;gap:14px;padding:18px 22px;border-top:1px solid #f0efec;align-items:start;font-size:13.5px;" style-hover="background:#faf9f7;">
+              <div style="display:grid;grid-template-columns:1.2fr 1.2fr 1.8fr 2.6fr 2.2fr 1.0fr 0.8fr;gap:14px;padding:18px 22px;border-top:1px solid #f0efec;align-items:start;font-size:13.5px;" style-hover="background:#faf9f7;">
                 <span style="color:#141414;">{{ row.dateFormatted }}</span>
                 <span style="font-family:'Jost',sans-serif;font-weight:600;color:#141414;">{{ row.agentName }}</span>
                 <div>
@@ -781,10 +782,15 @@
                   <div style="font-weight:500;color:#141414;">{{ row.shippingAddress }} {{ row.shippingCivic }}</div>
                   <div style="font-size:12.5px;color:#8c8a85;margin-top:1px;">{{ row.shippingCap }} {{ row.shippingCity }} ({{ row.shippingProvince }})</div>
                 </div>
-                <div style="display:flex;justify-content:flex-end;">
+                <div>
                   <a href="{{ row.photoUrlCleaned }}" target="_blank" style="display:block;width:70px;height:70px;border:1px solid #e7e6e2;border-radius:2px;overflow:hidden;background:#faf9f7;" title="Clicca per ingrandire">
                     <img src="{{ row.photoUrlCleaned }}" style="width:100%;height:100%;object-fit:cover;" />
                   </a>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:flex-end;">
+                  <button onClick="{{ row.viewDetail }}" style="cursor:pointer;background:#141414;color:#fff;border:none;border-radius:2px;font-family:'Jost',sans-serif;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;font-weight:500;" style-hover="background:#3a3834;">
+                    {{ t.viewBtn }}
+                  </button>
                 </div>
               </div>
             </sc-for>
@@ -1246,6 +1252,157 @@
   </div>
   </sc-if>
 
+  <!-- ===================== CUSTOMIZATION DETAIL MODAL ===================== -->
+  <sc-if value="{{ custDetailModalOpen }}" hint-placeholder-val="">
+  <div>
+    <!-- Backdrop -->
+    <div onClick="{{ closeCustDetailModal }}" style="position:fixed;inset:0;background:rgba(20,20,20,.34);z-index:100;backdrop-filter:blur(2px);"></div>
+    
+    <!-- Modal content container -->
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(900px, 95vw);max-height:90vh;background:#fff;z-index:101;box-shadow:0 24px 60px rgba(20,20,20,.25);display:flex;flex-direction:column;border-radius:6px;overflow:hidden;border:1px solid #e7e6e2;font-family:'Jost',sans-serif;">
+      <!-- Modal Header -->
+      <div style="padding:18px 24px;border-bottom:1px solid #e7e6e2;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#fff;">
+        <div style="font-weight:600;font-size:19px;color:#141414;">Dettaglio Richiesta Allestimento</div>
+        <div onClick="{{ closeCustDetailModal }}" style="cursor:pointer;color:#8c8a85;width:30px;height:30px;border:1px solid #e7e6e2;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:all .15s;" style-hover="border-color:#141414;color:#141414;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      
+      <!-- Modal Body -->
+      <div style="padding:24px;overflow-y:auto;flex-grow:1;background:#faf9f7;display:flex;gap:24px;flex-direction:row;flex-wrap:wrap;">
+        
+        <!-- Left: Customer & Agent Info -->
+        <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:16px;">
+          <!-- Section: Store Details -->
+          <div style="background:#fff;border:1px solid #e7e6e2;border-radius:4px;padding:18px;">
+            <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#9a7b3f;font-weight:600;border-bottom:1px solid #f0efec;padding-bottom:6px;margin-bottom:12px;">Dati Cliente</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px;">
+              <div>
+                <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Codice Cliente</span>
+                <span style="font-weight:600;color:#141414;">{{ selectedCustomization.customerCode }}</span>
+              </div>
+              <div>
+                <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Ragione Sociale</span>
+                <span style="font-weight:600;color:#141414;">{{ selectedCustomization.customerBusinessName }}</span>
+              </div>
+              <div>
+                <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Insegna / Negozio</span>
+                <span style="font-weight:600;color:#141414;">{{ selectedCustomization.customerStoreName }}</span>
+              </div>
+              <div>
+                <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Indirizzo Cliente</span>
+                <span style="font-weight:500;color:#141414;">{{ selectedCustomization.customerAddress }}, {{ selectedCustomization.customerCap }} {{ selectedCustomization.customerCity }}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div>
+                  <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Email</span>
+                  <span style="font-weight:500;color:#141414;">{{ selectedCustomization.customerEmail }}</span>
+                </div>
+                <div>
+                  <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Telefono</span>
+                  <span style="font-weight:500;color:#141414;">{{ selectedCustomization.customerPhone }}</span>
+                </div>
+              </div>
+              <div>
+                <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Stima Annuale Sell-In</span>
+                <span style="font-weight:600;color:#141414;">{{ selectedCustomization.annualSellInEstimate }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Request Meta -->
+          <div style="background:#fff;border:1px solid #e7e6e2;border-radius:4px;padding:18px;">
+            <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;font-weight:600;border-bottom:1px solid #f0efec;padding-bottom:6px;margin-bottom:12px;">Dettaglio Richiesta</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px;">
+              <div>
+                <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Agente</span>
+                <span style="font-weight:600;color:#141414;">{{ selectedCustomization.agentName }}</span>
+              </div>
+              <div>
+                <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Data Richiesta</span>
+                <span style="font-weight:500;color:#141414;">{{ selectedCustomization.dateFormatted }}</span>
+              </div>
+              <sc-if value="{{ selectedCustomization.periodText }}">
+                <div>
+                  <span style="color:#8c8a85;display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Periodo Esposizione</span>
+                  <span style="font-weight:600;color:#9a7b3f;">{{ selectedCustomization.periodText }}</span>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Right: Customizations, Costs, Shipping & Photo -->
+        <div style="flex:1.2;min-width:320px;display:flex;flex-direction:column;gap:16px;">
+          <!-- Section: Customizations -->
+          <div style="background:#fff;border:1px solid #e7e6e2;border-radius:4px;padding:18px;">
+            <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#9a7b3f;font-weight:600;border-bottom:1px solid #f0efec;padding-bottom:6px;margin-bottom:12px;">Dettaglio Allestimenti</div>
+            
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <!-- Cust 1 -->
+              <div style="border-left:3px solid #9a7b3f;padding-left:10px;">
+                <div style="font-weight:600;font-size:14px;color:#141414;">1. {{ selectedCustomization.cust1Subject }}</div>
+                <div style="font-size:12.5px;color:#4a4843;margin-top:2px;">Tipologia: <strong>{{ selectedCustomization.cust1Type }}</strong></div>
+                <div style="font-size:12.5px;color:#8c8a85;margin-top:2px;">Misure: {{ selectedCustomization.cust1WidthCm }}x{{ selectedCustomization.cust1HeightCm }} cm | Materiale: {{ selectedCustomization.cust1Material }}</div>
+              </div>
+              
+              <!-- Cust 2 -->
+              <sc-if value="{{ selectedCustomization.hasCust2 }}">
+                <div style="border-left:3px solid #ccc;padding-left:10px;">
+                  <div style="font-weight:600;font-size:14px;color:#141414;">2. {{ selectedCustomization.cust2Subject }}</div>
+                  <div style="font-size:12.5px;color:#4a4843;margin-top:2px;">Tipologia: <strong>{{ selectedCustomization.cust2Type }}</strong></div>
+                  <div style="font-size:12.5px;color:#8c8a85;margin-top:2px;">Misure: {{ selectedCustomization.cust2WidthCm }}x{{ selectedCustomization.cust2HeightCm }} cm | Materiale: {{ selectedCustomization.cust2Material }}</div>
+                </div>
+              </sc-if>
+              
+              <!-- Cust 3 -->
+              <sc-if value="{{ selectedCustomization.hasCust3 }}">
+                <div style="border-left:3px solid #ccc;padding-left:10px;">
+                  <div style="font-weight:600;font-size:14px;color:#141414;">3. {{ selectedCustomization.cust3Subject }}</div>
+                  <div style="font-size:12.5px;color:#4a4843;margin-top:2px;">Tipologia: <strong>{{ selectedCustomization.cust3Type }}</strong></div>
+                  <div style="font-size:12.5px;color:#8c8a85;margin-top:2px;">Misure: {{ selectedCustomization.cust3WidthCm }}x{{ selectedCustomization.cust3HeightCm }} cm | Materiale: {{ selectedCustomization.cust3Material }}</div>
+                </div>
+              </sc-if>
+            </div>
+            
+            <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #f0efec;font-size:13px;color:#4a4843;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>Stampa: <strong>{{ selectedCustomization.printingCostResponsibility }}</strong></div>
+              <div>Montaggio: <strong>{{ selectedCustomization.assemblyCostResponsibility }}</strong></div>
+            </div>
+          </div>
+
+          <!-- Section: Shipping Address -->
+          <div style="background:#fff;border:1px solid #e7e6e2;border-radius:4px;padding:18px;">
+            <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;font-weight:600;border-bottom:1px solid #f0efec;padding-bottom:6px;margin-bottom:12px;">Indirizzo di Spedizione</div>
+            <div style="font-size:13.5px;color:#141414;">
+              <div style="font-weight:600;">{{ selectedCustomization.shippingAddress }} {{ selectedCustomization.shippingCivic }}</div>
+              <div style="color:#8c8a85;margin-top:2px;">{{ selectedCustomization.shippingCap }} {{ selectedCustomization.shippingCity }} ({{ selectedCustomization.shippingProvince }})</div>
+            </div>
+          </div>
+
+          <!-- Section: Photo -->
+          <div style="background:#fff;border:1px solid #e7e6e2;border-radius:4px;padding:18px;">
+            <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;font-weight:600;border-bottom:1px solid #f0efec;padding-bottom:6px;margin-bottom:12px;">Foto Spazi</div>
+            <sc-if value="{{ selectedCustomization.photoUrlCleaned }}">
+              <a href="{{ selectedCustomization.photoUrlCleaned }}" target="_blank" style="display:block;width:100%;aspect-ratio:16/9;border:1px solid #e7e6e2;border-radius:3px;overflow:hidden;background:#faf9f7;box-shadow:inset 0 0 8px rgba(0,0,0,.02);">
+                <img src="{{ selectedCustomization.photoUrlCleaned }}" style="width:100%;height:100%;object-fit:cover;" />
+              </a>
+            </sc-if>
+          </div>
+        </div>
+        
+      </div>
+      
+      <!-- Modal Footer -->
+      <div style="padding:16px 24px;border-top:1px solid #e7e6e2;display:flex;justify-content:flex-end;flex-shrink:0;background:#fff;">
+        <button onClick="{{ closeCustDetailModal }}" style="cursor:pointer;background:#141414;border:none;color:#fff;padding:10px 24px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.08em;text-transform:uppercase;border-radius:2px;font-weight:500;transition:all .15s;" style-hover="background:#3a3834;">
+          Chiudi
+        </button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -1253,6 +1410,8 @@ class Component extends DCLogic {
   state = {
     screen: 'login', view: 'overview', lang: 'it',
     fCustQuery: '',
+    custDetailModalOpen: false,
+    selectedCustomization: null,
     mobileMenuOpen: false,
     email: '', password: '', loginError: '',
     fCodice: '', fNome: '', fProvincia: '', fCitta: '', fSku: '',
@@ -1333,6 +1492,20 @@ class Component extends DCLogic {
     this.setState({
       productDetailModalOpen: false,
       detailProduct: null
+    });
+  }
+
+  openCustDetail(cust) {
+    this.setState({
+      custDetailModalOpen: true,
+      selectedCustomization: cust
+    });
+  }
+
+  closeCustDetailModal() {
+    this.setState({
+      custDetailModalOpen: false,
+      selectedCustomization: null
     });
   }
 
@@ -2416,6 +2589,8 @@ class Component extends DCLogic {
       colCustShipping:'Indirizzo Spedizione',
       colCustPhoto:'Foto Spazi',
       colCustCosts:'Costi stampa/montaggio',
+      colCustActions:'Azioni',
+      viewBtn:'Dettagli',
       agentsTitle:'Anagrafica agenti',
       agentsSub:'Elenco e contatti degli agenti commerciali Liu Jo sul territorio.',
       fAgentQueryLabel:'Ricerca agente',
@@ -2530,6 +2705,8 @@ class Component extends DCLogic {
       colCustShipping:'Shipping address',
       colCustPhoto:'Photo',
       colCustCosts:'Costs',
+      colCustActions:'Actions',
+      viewBtn:'Details',
       agentsTitle:'Agents Registry',
       agentsSub:'List and contacts of Liu Jo commercial agents in the field.',
       fAgentQueryLabel:'Search agent',
@@ -2807,7 +2984,7 @@ class Component extends DCLogic {
       const periodText = (c.start_date || c.end_date) ? 
         `${c.start_date ? new Date(c.start_date).toLocaleDateString('it-IT') : ''} - ${c.end_date ? new Date(c.end_date).toLocaleDateString('it-IT') : ''}` : '';
 
-      return {
+      const mappedRow = {
         id: c.id,
         agentName: c.agent_name || '-',
         customerCode: c.customer_code || '-',
@@ -2841,8 +3018,14 @@ class Component extends DCLogic {
         shippingCap: c.shipping_cap || '-',
         photoUrlCleaned: this.cleanImgUrl(c.photo_url),
         dateFormatted,
-        periodText
+        periodText,
+        customerEmail: c.customer_email || '-',
+        customerPhone: c.customer_phone || '-',
+        customerAddress: c.customer_address || '-',
+        customerCap: c.customer_cap || '-'
       };
+      mappedRow.viewDetail = () => this.openCustDetail(mappedRow);
+      return mappedRow;
     });
     const agentsList = this.filteredAgents();
     const agentsResults = agentsList.map(a => ({
@@ -3045,6 +3228,10 @@ class Component extends DCLogic {
       hasMultipleImages: (s.detailProduct && s.detailProduct.imageUrls && s.detailProduct.imageUrls.length > 1) || false,
       showNoSpecsPlaceholder: (s.detailProduct && !s.detailProduct.color && !s.detailProduct.material) || false,
       closeProductDetailModal: () => this.setState({ productDetailModalOpen: false }),
+
+      custDetailModalOpen: s.custDetailModalOpen,
+      selectedCustomization: s.selectedCustomization || {},
+      closeCustDetailModal: () => this.setState({ custDetailModalOpen: false, selectedCustomization: null }),
 
       onInvName: this.setField('invName'),
       onInvSku: this.setField('invSku'),
