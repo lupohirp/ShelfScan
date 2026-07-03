@@ -32,7 +32,10 @@ export default function App() {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e)
-      setShowInstallBanner(true)
+      const bannerDismissed = sessionStorage.getItem('pwa-android-banner-dismissed')
+      if (!bannerDismissed) {
+        setShowInstallBanner(true)
+      }
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)

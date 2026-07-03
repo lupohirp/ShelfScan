@@ -44,6 +44,7 @@ export default function PwaInstallBanner() {
 
   const handleDismissAndroid = () => {
     setShowInstallBanner(false)
+    sessionStorage.setItem('pwa-android-banner-dismissed', 'true')
   }
 
   // iOS Instruction Card

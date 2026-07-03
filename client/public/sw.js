@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shelfscan-client-cache-v1';
+const CACHE_NAME = 'shelfscan-client-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -12,7 +12,6 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Allow caching to fail gracefully on some assets if they are dynamic/missing
       return Promise.allSettled(
         ASSETS_TO_CACHE.map(url => cache.add(url).catch(err => console.log('Failed caching asset:', url, err)))
       );
@@ -37,30 +36,61 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  // Skip dynamic API and chrome extensions
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/stats') || !url.protocol.startsWith('http')) {
+  
+  // Skip cross-origin requests, dynamic APIs, and non-http protocols
+  if (
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/stats') ||
+    !url.protocol.startsWith('http')
+  ) {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((response) => {
-        if (url.origin === self.location.origin && response.status === 200) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
+  const isHashedAsset = url.pathname.includes('/assets/');
+
+  if (isHashedAsset) {
+    // Cache-First strategy for hashed assets (safe because name includes hash)
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((response) => {
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        });
+      })
+    );
+  } else {
+    // Network-First strategy for non-hashed assets (allows instant app updates)
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            if (event.request.mode === 'navigate') {
+              return caches.match('/index.html');
+            }
           });
-        }
-        return response;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-      });
-    })
-  );
+        })
+    );
+  }
 });
