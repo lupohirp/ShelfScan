@@ -14,6 +14,8 @@ interface StoreSearchResult {
   address: string
   city: string
   agent_name: string
+  region?: string
+  region_code?: string
 }
 
 export default function CustomizationForm() {
@@ -29,6 +31,7 @@ export default function CustomizationForm() {
   const [customerAddress, setCustomerAddress] = useState('')
   const [customerCap, setCustomerCap] = useState('')
   const [customerCity, setCustomerCity] = useState('')
+  const [customerProvince, setCustomerProvince] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [annualSellInEstimate, setAnnualSellInEstimate] = useState('< 2.000')
@@ -128,6 +131,7 @@ export default function CustomizationForm() {
       setShippingAddress(customerAddress)
       setShippingCity(customerCity)
       setShippingCap(customerCap)
+      setShippingProvince(customerProvince.toUpperCase())
       // Attempt to extract civic if present in address
       const parts = customerAddress.split(',')
       if (parts.length > 1) {
@@ -135,7 +139,7 @@ export default function CustomizationForm() {
         setShippingCivic(parts[1].trim())
       }
     }
-  }, [autofillShipping, customerAddress, customerCity, customerCap])
+  }, [autofillShipping, customerAddress, customerCity, customerCap, customerProvince])
 
   const handleSelectStore = (store: StoreSearchResult) => {
     setCustomerCode(store.code)
@@ -143,6 +147,10 @@ export default function CustomizationForm() {
     setCustomerStoreName(store.name)
     setCustomerAddress(store.address)
     setCustomerCity(store.city)
+    setCustomerProvince(store.province || '')
+    if (store.province) {
+      setShippingProvince(store.province.toUpperCase())
+    }
     // CAP and Phone aren't always present in the stores list, but we set what we have
     setSearchQuery('')
     setShowSearchResults(false)
@@ -352,7 +360,9 @@ export default function CustomizationForm() {
                     className="w-full px-4 py-3 text-left hover:bg-gray-50 flex flex-col transition-colors"
                   >
                     <span className="text-[12px] font-black uppercase tracking-wider">{store.name}</span>
-                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">{store.code} - {store.city}</span>
+                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">
+                      {store.code} - {store.address}, {store.city} ({store.province}) {store.region ? `— ${store.region}` : ''}
+                    </span>
                   </button>
                 ))}
               </div>
