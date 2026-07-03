@@ -49,7 +49,7 @@ export default function PwaInstallBanner() {
   // iOS Instruction Card
   if (showIOSHint) {
     return (
-      <div className="bg-gradient-to-br from-black to-gray-900 text-white rounded-2xl p-5 shadow-xl relative overflow-hidden border border-white/10 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="fixed bottom-6 left-6 right-6 md:left-auto md:right-6 md:w-[360px] z-50 bg-gradient-to-br from-black to-gray-900 text-white rounded-2xl p-5 shadow-2xl overflow-hidden border border-white/10 animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div className="absolute top-0 right-0 p-3">
           <button 
             onClick={handleDismissIOS} 
@@ -90,7 +90,7 @@ export default function PwaInstallBanner() {
   // Android / Chrome Custom Install Banner
   if (showInstallBanner && deferredPrompt) {
     return (
-      <div className="bg-gradient-to-br from-black to-gray-900 text-white rounded-2xl p-5 shadow-xl relative overflow-hidden border border-white/10 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="fixed bottom-6 left-6 right-6 md:left-auto md:right-6 md:w-[360px] z-50 bg-gradient-to-br from-black to-gray-900 text-white rounded-2xl p-5 shadow-2xl overflow-hidden border border-white/10 animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div className="absolute top-0 right-0 p-3">
           <button 
             onClick={handleDismissAndroid} 
