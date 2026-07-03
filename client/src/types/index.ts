@@ -22,6 +22,7 @@ export interface Product {
   category: string
   subcategory?: string
   imageUrl: string
+  cropUrl?: string
   status: 'active' | 'discontinued'
   confidence?: number
   count?: number
@@ -43,7 +44,7 @@ export interface Scan {
 
 export interface AnalyzedImage {
   capturedImage: string
-  detections: { desc: string, box?: number[], box_2d?: number[] }[]
+  detections: { desc: string, box?: number[], box_2d?: number[], crop_url?: string, sku?: string }[]
 }
 
 export interface CheckSession {
