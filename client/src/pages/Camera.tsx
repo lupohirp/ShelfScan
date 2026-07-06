@@ -23,6 +23,7 @@ export default function Camera() {
   const [showWarning, setShowWarning] = useState(false)
   const [realtimeFeedback, setRealtimeFeedback] = useState<string>('Align with guide')
   const [realtimeFeedbackType, setRealtimeFeedbackType] = useState<'info' | 'warning' | 'success'>('info')
+  const [cameraError, setCameraError] = useState<string | null>(null)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -34,6 +35,9 @@ export default function Camera() {
     let currentStream: MediaStream | null = null
     async function setupCamera() {
       try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("navigator.mediaDevices is undefined. Secure context (HTTPS) or localhost is required.")
+        }
         currentStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'environment',
@@ -48,6 +52,12 @@ export default function Camera() {
         }
       } catch (err) {
         console.error('Error accessing camera:', err)
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.toLowerCase().includes("secure context") || msg.toLowerCase().includes("undefined")) {
+          setCameraError("Camera access requires a secure context (HTTPS) or localhost. Please open this app using localhost or a secure connection.")
+        } else {
+          setCameraError("Camera access denied or unavailable. Please verify browser permissions.")
+        }
       }
     }
     setupCamera()
@@ -489,6 +499,18 @@ export default function Camera() {
           </div>
         )}
       </div>
+
+      {/* Camera Access Error Overlay */}
+      {cameraError && (
+        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-40 flex flex-col items-center justify-center p-6 text-center text-white">
+          <div className="bg-red-950/40 text-red-200 border border-red-500/30 p-5 rounded-2xl max-w-xs shadow-2xl">
+            <X size={28} className="mx-auto mb-3 text-red-500" />
+            <h3 className="font-bold text-sm mb-2">Camera Unreachable</h3>
+            <p className="text-xs text-white/70 leading-relaxed">{cameraError}</p>
+            <p className="text-xs text-white/50 mt-4 font-semibold">You can still upload photos from your library using the icon below.</p>
+          </div>
+        </div>
+      )}
 
       {/* Error Handling and Retake / Skip Overlay */}
       {showWarning && pendingImage && (
