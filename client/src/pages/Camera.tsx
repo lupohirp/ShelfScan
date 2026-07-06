@@ -54,9 +54,9 @@ export default function Camera() {
         console.error('Error accessing camera:', err)
         const msg = err instanceof Error ? err.message : String(err)
         if (msg.toLowerCase().includes("secure context") || msg.toLowerCase().includes("undefined")) {
-          setCameraError("Camera access requires a secure context (HTTPS) or localhost. Please open this app using localhost or a secure connection.")
+          setCameraError("L'accesso alla fotocamera richiede una connessione sicura (HTTPS) o localhost. Apri l'app tramite localhost o una connessione HTTPS.")
         } else {
-          setCameraError("Camera access denied or unavailable. Please verify browser permissions.")
+          setCameraError("Accesso alla fotocamera negato o non disponibile. Verifica i permessi del browser.")
         }
       }
     }
@@ -505,9 +505,9 @@ export default function Camera() {
         <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-40 flex flex-col items-center justify-center p-6 text-center text-white">
           <div className="bg-red-950/40 text-red-200 border border-red-500/30 p-5 rounded-2xl max-w-xs shadow-2xl">
             <X size={28} className="mx-auto mb-3 text-red-500" />
-            <h3 className="font-bold text-sm mb-2">Camera Unreachable</h3>
+            <h3 className="font-bold text-sm mb-2">Fotocamera non raggiungibile</h3>
             <p className="text-xs text-white/70 leading-relaxed">{cameraError}</p>
-            <p className="text-xs text-white/50 mt-4 font-semibold">You can still upload photos from your library using the icon below.</p>
+            <p className="text-xs text-white/50 mt-4 font-semibold">Puoi comunque caricare una foto dalla galleria usando l'icona in basso.</p>
           </div>
         </div>
       )}
