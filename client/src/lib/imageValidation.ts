@@ -19,7 +19,6 @@ export function validateCapturedImage(
   img.src = imageSrc;
   
   img.onload = () => {
-    // Downsample image for quick processing
     const width = 300;
     const height = 300;
     const canvas = document.createElement('canvas');
@@ -28,7 +27,6 @@ export function validateCapturedImage(
     const ctx = canvas.getContext('2d');
     
     if (!ctx) {
-      // Fallback if context is not available
       onComplete({
         isValid: true,
         errors: [],
@@ -39,12 +37,20 @@ export function validateCapturedImage(
       return;
     }
     
-    ctx.drawImage(img, 0, 0, width, height);
-    let imgData;
+    // --- PASS 1: 1:1 Center Crop for High-Accuracy Blur Detection ---
+    const cropSize = 300;
+    const cropLeft = Math.max(0, Math.floor((img.width - cropSize) / 2));
+    const cropTop = Math.max(0, Math.floor((img.height - cropSize) / 2));
+    const actualCropW = Math.min(img.width, cropSize);
+    const actualCropH = Math.min(img.height, cropSize);
+    
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(img, cropLeft, cropTop, actualCropW, actualCropH, 0, 0, actualCropW, actualCropH);
+    
+    let cropImgData;
     try {
-      imgData = ctx.getImageData(0, 0, width, height);
+      cropImgData = ctx.getImageData(0, 0, width, height);
     } catch (e) {
-      // CORS or canvas error fallback
       onComplete({
         isValid: true,
         errors: [],
@@ -55,35 +61,24 @@ export function validateCapturedImage(
       return;
     }
     
-    const data = imgData.data;
-    
-    // 1. Grayscale Conversion
-    const gray = new Float32Array(width * height);
-    let brightnessSum = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      // Luminance formula
-      const grayVal = 0.299 * r + 0.587 * g + 0.114 * b;
-      gray[i / 4] = grayVal;
-      brightnessSum += grayVal;
+    const cropData = cropImgData.data;
+    const cropGray = new Float32Array(width * height);
+    for (let i = 0; i < cropData.length; i += 4) {
+      cropGray[i / 4] = 0.299 * cropData[i] + 0.587 * cropData[i + 1] + 0.114 * cropData[i + 2];
     }
-    const brightness = brightnessSum / gray.length;
     
-    // 2. Blur Detection (Laplacian Variance)
+    // Compute Laplacian variance on center crop (excluding borders)
     const laplacian = new Float32Array(width * height);
     let laplacianSum = 0;
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
         const idx = y * width + x;
-        // Laplacian kernel: [[0, 1, 0], [1, -4, 1], [0, 1, 0]]
         const val = 
-          gray[idx - width] + 
-          gray[idx - 1] + 
-          -4 * gray[idx] + 
-          gray[idx + 1] + 
-          gray[idx + width];
+          cropGray[idx - width] + 
+          cropGray[idx - 1] + 
+          -4 * cropGray[idx] + 
+          cropGray[idx + 1] + 
+          cropGray[idx + width];
         laplacian[idx] = val;
         laplacianSum += val;
       }
@@ -100,22 +95,48 @@ export function validateCapturedImage(
     }
     const blurScore = varianceSum / ((width - 2) * (height - 2));
     
-    // 3. Sobel Edge Density (Distance & Framing Check)
-    let edgeCount = 0;
-    const edgeThreshold = 35; // Gradient magnitude threshold
+    // --- PASS 2: Downsampled Full Image for Brightness and Edge Density/Framing ---
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
     
+    let fullImgData;
+    try {
+      fullImgData = ctx.getImageData(0, 0, width, height);
+    } catch (e) {
+      onComplete({
+        isValid: true,
+        errors: [],
+        blurScore: blurScore,
+        brightness: 128,
+        edgeDensity: 0.15
+      });
+      return;
+    }
+    
+    const fullData = fullImgData.data;
+    const fullGray = new Float32Array(width * height);
+    let brightnessSum = 0;
+    for (let i = 0; i < fullData.length; i += 4) {
+      const grayVal = 0.299 * fullData[i] + 0.587 * fullData[i + 1] + 0.114 * fullData[i + 2];
+      fullGray[i / 4] = grayVal;
+      brightnessSum += grayVal;
+    }
+    const brightness = brightnessSum / fullGray.length;
+    
+    // Sobel Edge Density on full downsampled image
+    let edgeCount = 0;
+    const edgeThreshold = 35;
     for (let y = 1; y < height - 1; y++) {
       for (let x = 1; x < width - 1; x++) {
         const idx = y * width + x;
-        
         const gx = 
-          -1 * gray[idx - width - 1] + 1 * gray[idx - width + 1] +
-          -2 * gray[idx - 1]         + 2 * gray[idx + 1] +
-          -1 * gray[idx + width - 1] + 1 * gray[idx + width + 1];
+          -1 * fullGray[idx - width - 1] + 1 * fullGray[idx - width + 1] +
+          -2 * fullGray[idx - 1]         + 2 * fullGray[idx + 1] +
+          -1 * fullGray[idx + width - 1] + 1 * fullGray[idx + width + 1];
           
         const gy = 
-          -1 * gray[idx - width - 1] - 2 * gray[idx - width] - 1 * gray[idx - width + 1] +
-          1 * gray[idx + width - 1]  + 2 * gray[idx + width]  + 1 * gray[idx + width + 1];
+          -1 * fullGray[idx - width - 1] - 2 * fullGray[idx - width] - 1 * fullGray[idx - width + 1] +
+          1 * fullGray[idx + width - 1]  + 2 * fullGray[idx + width]  + 1 * fullGray[idx + width + 1];
           
         const mag = Math.sqrt(gx * gx + gy * gy);
         if (mag > edgeThreshold) {
@@ -129,19 +150,19 @@ export function validateCapturedImage(
     
     // Brightness Check
     if (brightness < 45) {
-      errors.push("The photo is too dark. Please hold steady, turn on flash, or improve lighting.");
+      errors.push("La foto è troppo buia. Assicurati che lo scaffale sia ben illuminato o attiva il flash.");
     } else if (brightness > 225) {
-      errors.push("The photo is too bright / has too much glare. Please change your position.");
+      errors.push("La foto è troppo luminosa o presenta riflessi. Cambia angolazione per ridurre il riflesso.");
     }
     
-    // Blur Check
-    if (blurScore < 85) {
-      errors.push("The photo is blurry. Please hold the phone steady and try again.");
+    // Blur Check (Using 1:1 Crop Laplacian Variance with threshold of 160)
+    if (blurScore < 160) {
+      errors.push("La foto è sfocata. Tieni il telefono più fermo e riprova.");
     }
     
     // Edge Density Check (Too far or empty framing)
     if (edgeDensity < 0.055) {
-      errors.push("Too far or empty. Please move closer and align the shelf inside the guide box.");
+      errors.push("Troppo distante o inquadratura vuota. Avvicinati allo scaffale ed allinealo nel box guida.");
     }
     
     onComplete({
