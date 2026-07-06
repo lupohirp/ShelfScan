@@ -411,7 +411,10 @@
                 <span style="font-size:13px;color:#8c8a85;word-break:break-all;">{{ row.email }}</span>
                 <span style="font-size:13px;color:#8c8a85;word-break:break-all;">{{ row.emailPersonal }}</span>
                 <span style="font-size:13px;color:#8c8a85;">{{ row.note }}</span>
-                <div style="display:flex;justify-content:flex-end;">
+                <div style="display:flex;justify-content:flex-end;gap:6px;">
+                  <button onClick="{{ row.edit }}" style="cursor:pointer;background:transparent;border:1px solid #e2e1dc;color:#4a4843;padding:6px;border-radius:2px;display:flex;align-items:center;justify-content:center;transition:all .15s;" style-hover="background:#faf9f7;border-color:#141414;color:#141414;" title="{{ t.editBtn }}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
                   <button onClick="{{ row.delete }}" style="cursor:pointer;background:transparent;border:1px solid #efd9d2;color:#b25540;padding:6px;border-radius:2px;display:flex;align-items:center;justify-content:center;transition:all .15s;" style-hover="background:#f7ebe7;border-color:#b25540;" title="{{ t.deleteBtn }}">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                   </button>
@@ -1195,6 +1198,80 @@
   </div>
   </sc-if>
 
+  <!-- ===================== EDIT AGENT MODAL ===================== -->
+  <sc-if value="{{ editAgentModalOpen }}" hint-placeholder-val="">
+  <div>
+    <!-- Backdrop -->
+    <div onClick="{{ closeEditAgentModal }}" style="position:fixed;inset:0;background:rgba(20,20,20,.34);z-index:100;backdrop-filter:blur(2px);"></div>
+    
+    <!-- Modal content container -->
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(600px, 90vw);max-height:90vh;background:#fff;z-index:101;box-shadow:0 24px 60px rgba(20,20,20,.2);display:flex;flex-direction:column;border-radius:4px;overflow:hidden;border:1px solid #e7e6e2;">
+      <!-- Modal Header -->
+      <div style="padding:20px 24px;border-bottom:1px solid #e7e6e2;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+        <div style="font-family:'Jost',sans-serif;font-weight:500;font-size:20px;letter-spacing:-.01em;color:#141414;">{{ t.editAgentTitle }}</div>
+        <div onClick="{{ closeEditAgentModal }}" style="cursor:pointer;color:#8c8a85;width:28px;height:28px;border:1px solid #e7e6e2;border-radius:2px;display:flex;align-items:center;justify-content:center;" style-hover="border-color:#141414;color:#141414;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      
+      <!-- Modal Body -->
+      <div style="padding:24px;overflow-y:auto;flex-grow:1;background:#faf9f7;">
+        <sc-if value="{{ editAgentError }}" hint-placeholder-val="">
+          <div style="background:#f7ebe7;border:1px solid #efd9d2;color:#b25540;font-size:13.5px;padding:12px;border-radius:2px;margin-bottom:18px;display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            {{ editAgentError }}
+          </div>
+        </sc-if>
+        
+        <!-- Form fields -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colAgente }} *</label>
+            <input value="{{ editAgentName }}" onInput="{{ onEditAgentName }}" placeholder="es. Marco Ferraro" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colZona }} *</label>
+            <input value="{{ editAgentZona }}" onInput="{{ onEditAgentZona }}" placeholder="es. Lombardia" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colTel }}</label>
+            <input value="{{ editAgentTel }}" onInput="{{ onEditAgentTel }}" placeholder="es. +39 333 1234567" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colEmail }}</label>
+            <input value="{{ editAgentEmail }}" onInput="{{ onEditAgentEmail }}" placeholder="es. marco.ferraro@liujo.it" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colEmailPersonal }}</label>
+            <input value="{{ editAgentEmailPersonal }}" onInput="{{ onEditAgentEmailPersonal }}" placeholder="es. m.ferraro@gmail.com" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colPassword }}</label>
+            <input type="password" value="{{ editAgentPassword }}" onInput="{{ onEditAgentPassword }}" placeholder="{{ t.editPasswordPlaceholder }}" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+          </div>
+        </div>
+
+        <div style="margin-bottom:8px;">
+          <label style="display:block;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#8c8a85;margin-bottom:6px;font-family:'Jost',sans-serif;">{{ t.colNote }}</label>
+          <input value="{{ editAgentNote }}" onInput="{{ onEditAgentNote }}" placeholder="es. Agente principale per il nord Italia" style="width:100%;height:40px;border:1px solid #e2e1dc;border-radius:2px;padding:0 12px;font-size:14px;outline:none;background:#fafaf9;color:#141414;font-family:'Jost',sans-serif;" />
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div style="padding:16px 24px;border-top:1px solid #e7e6e2;display:flex;justify-content:flex-end;gap:12px;flex-shrink:0;">
+        <button onClick="{{ closeEditAgentModal }}" style="cursor:pointer;background:transparent;border:1px solid #e7e6e2;color:#8c8a85;padding:8px 16px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;border-radius:2px;transition:all .15s;" style-hover="border-color:#141414;color:#141414;">{{ t.cancelBtn }}</button>
+        <button onClick="{{ submitEditAgent }}" style="cursor:pointer;background:#141414;border:1px solid #141414;color:#fff;padding:8px 20px;font-family:'Jost',sans-serif;font-size:13px;letter-spacing:.04em;text-transform:uppercase;border-radius:2px;transition:all .15s;" style-hover="background:#3a3834;border-color:#3a3834;">{{ t.confirmBtn }}</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
   <!-- ===================== PRODUCT DETAIL MODAL ===================== -->
   <sc-if value="{{ productDetailModalOpen }}" hint-placeholder-val="">
   <div>
@@ -1477,6 +1554,16 @@ class Component extends DCLogic {
     newAgentEmailPersonal: '',
     newAgentPassword: '',
     newAgentNote: '',
+    editAgentModalOpen: false,
+    editAgentError: '',
+    editAgentId: '',
+    editAgentName: '',
+    editAgentZona: '',
+    editAgentTel: '',
+    editAgentEmail: '',
+    editAgentEmailPersonal: '',
+    editAgentPassword: '',
+    editAgentNote: '',
     selectedId: null, selectedVisit: null, tab: 'photos',
     searchTick: 0,
     invName: '', invSku: '', invCategory: 'watch',
@@ -2077,6 +2164,75 @@ class Component extends DCLogic {
     } catch(err) {
       console.error('Error creating agent:', err);
       this.setState({ addAgentError: 'Error: ' + err.message });
+    }
+  }
+
+  openEditAgentModal(agent) {
+    this.setState({
+      editAgentModalOpen: true,
+      editAgentError: '',
+      editAgentId: agent.id || '',
+      editAgentName: agent.agente || '',
+      editAgentZona: agent.zona || '',
+      editAgentTel: agent.tel || '',
+      editAgentEmail: agent.email || '',
+      editAgentEmailPersonal: agent.email_personal || '',
+      editAgentPassword: '',
+      editAgentNote: agent.note || ''
+    });
+  }
+
+  async doEditAgent() {
+    const s = this.state;
+    const agentId = s.editAgentId;
+    const agente = (s.editAgentName || '').trim();
+    const zona = (s.editAgentZona || '').trim();
+    const note = (s.editAgentNote || '').trim();
+    const tel = (s.editAgentTel || '').trim();
+    const email = (s.editAgentEmail || '').trim();
+    const email_personal = (s.editAgentEmailPersonal || '').trim();
+    const password = (s.editAgentPassword || '').trim();
+
+    if (!agente || !zona) {
+      this.setState({ editAgentError: s.lang === 'en' ? 'Please fill in name and zone.' : 'Compila nome e zona.' });
+      return;
+    }
+
+    try {
+      const payload = {
+        agente, zona, note, tel, email, email_personal
+      };
+      if (password) {
+        payload.password = password;
+      }
+
+      const res = await fetch(this.getUrl(`/agents/${agentId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res && res.ok) {
+        this.setState({
+          editAgentModalOpen: false,
+          editAgentError: '',
+          editAgentId: '',
+          editAgentName: '',
+          editAgentZona: '',
+          editAgentTel: '',
+          editAgentEmail: '',
+          editAgentEmailPersonal: '',
+          editAgentPassword: '',
+          editAgentNote: ''
+        });
+        await this.fetchAgentsData();
+      } else {
+        const text = await res.text();
+        this.setState({ editAgentError: (s.lang === 'en' ? 'Failed to update agent: ' : 'Impossibile aggiornare l\'agente: ') + text });
+      }
+    } catch(err) {
+      console.error('Error updating agent:', err);
+      this.setState({ editAgentError: 'Error: ' + err.message });
     }
   }
 
@@ -2700,7 +2856,10 @@ class Component extends DCLogic {
       colPassword:'Password',
       colNote:'Note di copertura',
       addAgentBtn: 'Aggiungi agente',
-      addAgentTitle: 'Nuovo agente commerciale'
+      addAgentTitle: 'Nuovo agente commerciale',
+      editAgentTitle: 'Modifica agente commerciale',
+      editPasswordPlaceholder: 'Lascia vuoto per non modificare',
+      editBtn: 'Modifica'
     };
     const en = {
       brandLine1:'Visual', brandLine2:'Management',
@@ -2817,7 +2976,10 @@ class Component extends DCLogic {
       colPassword:'Password',
       colNote:'Coverage notes',
       addAgentBtn: 'Add agent',
-      addAgentTitle: 'New commercial agent'
+      addAgentTitle: 'New commercial agent',
+      editAgentTitle: 'Edit commercial agent',
+      editPasswordPlaceholder: 'Leave blank to keep unchanged',
+      editBtn: 'Edit'
     };
     return this.state.lang==='en' ? en : it;
   }
@@ -3155,6 +3317,7 @@ class Component extends DCLogic {
       tel: a.tel || '-',
       email: a.email || '-',
       emailPersonal: a.email_personal || '-',
+      edit: () => this.openEditAgentModal(a),
       delete: () => this.doDeleteAgent(a.id)
     }));
 
@@ -3281,6 +3444,16 @@ class Component extends DCLogic {
       newAgentPassword: s.newAgentPassword,
       newAgentNote: s.newAgentNote,
 
+      editAgentModalOpen: s.editAgentModalOpen,
+      editAgentError: s.editAgentError,
+      editAgentName: s.editAgentName,
+      editAgentZona: s.editAgentZona,
+      editAgentTel: s.editAgentTel,
+      editAgentEmail: s.editAgentEmail,
+      editAgentEmailPersonal: s.editAgentEmailPersonal,
+      editAgentPassword: s.editAgentPassword,
+      editAgentNote: s.editAgentNote,
+
       onNewAgentName: this.setField('newAgentName'),
       onNewAgentZona: this.setField('newAgentZona'),
       onNewAgentTel: this.setField('newAgentTel'),
@@ -3288,6 +3461,14 @@ class Component extends DCLogic {
       onNewAgentEmailPersonal: this.setField('newAgentEmailPersonal'),
       onNewAgentPassword: this.setField('newAgentPassword'),
       onNewAgentNote: this.setField('newAgentNote'),
+
+      onEditAgentName: this.setField('editAgentName'),
+      onEditAgentZona: this.setField('editAgentZona'),
+      onEditAgentTel: this.setField('editAgentTel'),
+      onEditAgentEmail: this.setField('editAgentEmail'),
+      onEditAgentEmailPersonal: this.setField('editAgentEmailPersonal'),
+      onEditAgentPassword: this.setField('editAgentPassword'),
+      onEditAgentNote: this.setField('editAgentNote'),
 
       openAddAgentModal: () => this.setState({
         addAgentModalOpen: true,
@@ -3302,6 +3483,9 @@ class Component extends DCLogic {
       }),
       closeAddAgentModal: () => this.setState({ addAgentModalOpen: false, addAgentError: '' }),
       submitAddAgent: () => this.doAddAgent(),
+
+      closeEditAgentModal: () => this.setState({ editAgentModalOpen: false, editAgentError: '' }),
+      submitEditAgent: () => this.doEditAgent(),
       
       // inventory specific views/variables
       isInventory,

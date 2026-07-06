@@ -1051,7 +1051,7 @@ func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
 			res, err := h.db.Exec("DELETE FROM agents WHERE id = ?", agentID)
 			if err != nil {
 				log.Printf("Error deleting agent: %v", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, "Failed to delete agent", http.StatusInternalServerError)
 				return
 			}
 			rowsAffected, _ := res.RowsAffected()
@@ -1064,6 +1064,92 @@ func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]any{
 				"status": "deleted",
+			})
+			return
+		}
+
+		if r.Method == http.MethodPut {
+			parts := strings.Split(r.URL.Path, "/")
+			if len(parts) < 3 || parts[2] == "" {
+				http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+				return
+			}
+			agentIDStr := parts[2]
+			agentID, err := strconv.Atoi(agentIDStr)
+			if err != nil {
+				http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+				return
+			}
+
+			type UpdateAgentPayload struct {
+				Zona          string `json:"zona"`
+				Agente        string `json:"agente"`
+				Note          string `json:"note"`
+				Tel           string `json:"tel"`
+				Email         string `json:"email"`
+				EmailPersonal string `json:"email_personal"`
+				Password      string `json:"password"`
+			}
+
+			var p UpdateAgentPayload
+			if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+				http.Error(w, "Invalid request body", http.StatusBadRequest)
+				return
+			}
+
+			if p.Agente == "" || p.Zona == "" {
+				http.Error(w, "Missing required fields (agente, zona)", http.StatusBadRequest)
+				return
+			}
+
+			cleanedZona := strings.ToUpper(strings.TrimSpace(p.Zona))
+			cleanedAgente := strings.ToUpper(strings.TrimSpace(p.Agente))
+
+			var res sql.Result
+			if p.Password != "" {
+				var hashedPassword []byte
+				hashedPassword, err = bcrypt.GenerateFromPassword([]byte(p.Password), bcrypt.DefaultCost)
+				if err != nil {
+					log.Printf("Error hashing password: %v", err)
+					http.Error(w, "Error processing password", http.StatusInternalServerError)
+					return
+				}
+				res, err = h.db.Exec(`
+					UPDATE agents 
+					SET zona = ?, agente = ?, note = ?, tel = ?, email = ?, email_personal = ?, password = ?
+					WHERE id = ?
+				`, cleanedZona, cleanedAgente, p.Note, p.Tel, p.Email, p.EmailPersonal, string(hashedPassword), agentID)
+			} else {
+				res, err = h.db.Exec(`
+					UPDATE agents 
+					SET zona = ?, agente = ?, note = ?, tel = ?, email = ?, email_personal = ?
+					WHERE id = ?
+				`, cleanedZona, cleanedAgente, p.Note, p.Tel, p.Email, p.EmailPersonal, agentID)
+			}
+
+			if err != nil {
+				log.Printf("Error updating agent: %v", err)
+				http.Error(w, "Failed to update agent", http.StatusInternalServerError)
+				return
+			}
+
+			rowsAffected, _ := res.RowsAffected()
+			if rowsAffected == 0 {
+				http.Error(w, "Agent not found", http.StatusNotFound)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]any{
+				"id":             strconv.Itoa(agentID),
+				"zona":           cleanedZona,
+				"agente":         cleanedAgente,
+				"note":           p.Note,
+				"tel":            p.Tel,
+				"email":          p.Email,
+				"email_personal": p.EmailPersonal,
+				"status":         "updated",
 			})
 			return
 		}
