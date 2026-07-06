@@ -1128,7 +1128,7 @@ func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 			if err != nil {
 				log.Printf("Error updating agent: %v", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, "Failed to update agent", http.StatusInternalServerError)
 				return
 			}
 
