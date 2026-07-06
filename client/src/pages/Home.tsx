@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import PageShell from '../components/PageShell'
 import { ScanLine, Palette, LogOut } from 'lucide-react'
+import PwaInstallBanner from '../components/PwaInstallBanner'
 
 export default function Home() {
   const user = useAuth((s) => s.user)
@@ -71,6 +72,9 @@ export default function Home() {
               </span>
             </div>
           </button>
+
+          {/* PWA Install Banner */}
+          <PwaInstallBanner />
         </div>
       </div>
     </PageShell>
