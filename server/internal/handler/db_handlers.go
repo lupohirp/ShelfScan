@@ -1051,7 +1051,7 @@ func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
 			res, err := h.db.Exec("DELETE FROM agents WHERE id = ?", agentID)
 			if err != nil {
 				log.Printf("Error deleting agent: %v", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, "Failed to delete agent", http.StatusInternalServerError)
 				return
 			}
 			rowsAffected, _ := res.RowsAffected()
@@ -1107,7 +1107,8 @@ func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 			var res sql.Result
 			if p.Password != "" {
-				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(p.Password), bcrypt.DefaultCost)
+				var hashedPassword []byte
+				hashedPassword, err = bcrypt.GenerateFromPassword([]byte(p.Password), bcrypt.DefaultCost)
 				if err != nil {
 					log.Printf("Error hashing password: %v", err)
 					http.Error(w, "Error processing password", http.StatusInternalServerError)
@@ -1128,7 +1129,7 @@ func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 			if err != nil {
 				log.Printf("Error updating agent: %v", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, "Failed to update agent", http.StatusInternalServerError)
 				return
 			}
 
