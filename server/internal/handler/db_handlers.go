@@ -1068,7 +1068,7 @@ func (h *Handler) AgentsDetailHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if r.Method == http.MethodPut || r.Method == http.MethodPatch {
+		if r.Method == http.MethodPut {
 			parts := strings.Split(r.URL.Path, "/")
 			if len(parts) < 3 || parts[2] == "" {
 				http.Error(w, "Invalid agent ID", http.StatusBadRequest)
