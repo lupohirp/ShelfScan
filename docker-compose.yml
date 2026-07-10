@@ -34,6 +34,7 @@ services:
 
   embeddings:
     build: ./embeddings
+    restart: unless-stopped
     ports:
       - "8001:8001"
 

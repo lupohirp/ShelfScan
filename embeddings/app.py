@@ -1,3 +1,4 @@
+import gc
 import io
 import logging
 import traceback
@@ -9,6 +10,7 @@ from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
 MODEL_ID = "google/siglip2-base-patch16-224"
+MAX_SIDE = 512  # cap PIL decode footprint before the processor resizes to 224
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("shelfscan-embeddings")
@@ -31,16 +33,26 @@ def _decode(data: bytes) -> Image.Image:
     if not data:
         raise HTTPException(status_code=400, detail="empty image body")
     try:
-        return Image.open(io.BytesIO(data)).convert("RGB")
+        image = Image.open(io.BytesIO(data)).convert("RGB")
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"invalid image: {exc}") from exc
+    if max(image.size) > MAX_SIDE:
+        image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.BILINEAR)
+    return image
 
 
 def _embed_one(image: Image.Image) -> list[float]:
     inputs = processor(images=[image], return_tensors="pt")
-    with torch.no_grad():
-        features = model.get_image_features(**inputs)
-    return features[0].tolist()
+    try:
+        with torch.no_grad():
+            features = model.get_image_features(**inputs)
+        vec = features[0].tolist()
+    finally:
+        del inputs
+        if "features" in locals():
+            del features
+        gc.collect()
+    return vec
 
 
 @app.get("/health")

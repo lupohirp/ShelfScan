@@ -38,7 +38,7 @@ func main() {
 	qdrantPort := flag.Int("qdrant-port", 6334, "Qdrant gRPC port")
 	embedURL := flag.String("embed-url", "http://embeddings:8001", "SigLIP2 sidecar base URL")
 	uploadsDir := flag.String("uploads-dir", "/app/uploads", "Root directory holding the images referenced by imageUrl payloads")
-	batchSize := flag.Int("batch", 8, "Images per /embed_batch request")
+	batchSize := flag.Int("batch", 4, "Images per /embed_batch request")
 	sampleN := flag.Int("self-check", 3, "How many random points to re-verify at the end")
 	dryRun := flag.Bool("dry-run", false, "Scroll + fetch files but skip embed/upsert")
 	flag.Parse()
