@@ -70,9 +70,9 @@ func main() {
 			ok += len(kept)
 			continue
 		}
-		vectors, err := embedBatch(hc, *embedURL, files, kept)
+		vectors, err := embedBatchWithRetry(hc, *embedURL, files, kept, bi+1, len(batches))
 		if err != nil {
-			log.Printf("[batch %d/%d] embed failed: %v — points skipped", bi+1, len(batches), err)
+			log.Printf("[batch %d/%d] embed failed after retries: %v — points skipped", bi+1, len(batches), err)
 			failed += len(kept)
 			continue
 		}
@@ -185,6 +185,46 @@ type batchResponse struct {
 	Embeddings [][]float32 `json:"embeddings"`
 }
 
+// embedBatchWithRetry wraps embedBatch. If the sidecar dies (OOM) mid-request,
+// docker's restart policy brings it back in ~10-15s (model reload). We ping
+// /health with backoff, then retry the batch up to N times.
+func embedBatchWithRetry(hc *http.Client, base string, bodies [][]byte, kept []*point, bi, total int) ([][]float32, error) {
+	const maxAttempts = 4
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		vec, err := embedBatch(hc, base, bodies, kept)
+		if err == nil {
+			return vec, nil
+		}
+		lastErr = err
+		if attempt == maxAttempts {
+			break
+		}
+		log.Printf("[batch %d/%d] attempt %d failed (%v); waiting for sidecar to come back", bi, total, attempt, err)
+		if !waitHealthy(hc, base, 90*time.Second) {
+			log.Printf("[batch %d/%d] sidecar still unhealthy after wait — will retry anyway", bi, total)
+		}
+	}
+	return nil, lastErr
+}
+
+func waitHealthy(hc *http.Client, base string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	url := strings.TrimRight(base, "/") + "/health"
+	for time.Now().Before(deadline) {
+		resp, err := hc.Get(url)
+		if err == nil {
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return true
+			}
+		}
+		time.Sleep(3 * time.Second)
+	}
+	return false
+}
+
 func embedBatch(hc *http.Client, base string, bodies [][]byte, kept []*point) ([][]float32, error) {
 	buf := &bytes.Buffer{}
 	mw := multipart.NewWriter(buf)
@@ -284,7 +324,15 @@ func selfCheck(ctx context.Context, client *qdrant.Client, hc *http.Client, embe
 		if err != nil {
 			return fmt.Errorf("point %d: cannot re-read %s: %w", p.ID, fp, err)
 		}
-		vec, err := embedOne(hc, embedBase, data)
+		var vec []float32
+		for attempt := 1; attempt <= 3; attempt++ {
+			vec, err = embedOne(hc, embedBase, data)
+			if err == nil {
+				break
+			}
+			log.Printf("self-check %d/%d: attempt %d failed (%v); waiting for sidecar", i+1, n, attempt, err)
+			waitHealthy(hc, embedBase, 90*time.Second)
+		}
 		if err != nil {
 			return fmt.Errorf("point %d: re-embed failed: %w", p.ID, err)
 		}
