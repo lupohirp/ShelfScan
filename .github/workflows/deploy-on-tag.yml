@@ -11,6 +11,8 @@ env:
   CLIENT_IMAGE: shelfscan-client
   ADMIN_CLIENT_IMAGE: shelfscan-admin-client
   MCP_IMAGE: shelfscan-mcp
+  EMBEDDINGS_IMAGE: shelfscan-embeddings
+  REEMBED_IMAGE: shelfscan-reembed
 
 jobs:
   prepare:
@@ -19,6 +21,7 @@ jobs:
     outputs:
       tag_name: ${{ steps.meta.outputs.tag_name }}
       environment: ${{ steps.meta.outputs.environment }}
+      run_reembed: ${{ steps.meta.outputs.run_reembed }}
 
     steps:
       - name: Extract tag and determine environment
@@ -35,6 +38,12 @@ jobs:
           else
             echo "Tag format not recognized. Use v*.dev or v*.prod"
             exit 1
+          fi
+
+          if [[ "$TAG_NAME" == *".reembed"* ]]; then
+            echo "run_reembed=true" >> $GITHUB_OUTPUT
+          else
+            echo "run_reembed=false" >> $GITHUB_OUTPUT
           fi
 
   build-api:
@@ -68,6 +77,79 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.environment }}-latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-embeddings:
+    name: Build Embeddings Image
+    runs-on: ubuntu-latest
+    needs: prepare
+    environment: ${{ needs.prepare.outputs.environment }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Embeddings image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./embeddings
+          file: ./embeddings/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${{ needs.prepare.outputs.tag_name }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${{ needs.prepare.outputs.environment }}-latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-reembed:
+    name: Build Reembed Image
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.run_reembed == 'true'
+    environment: ${{ needs.prepare.outputs.environment }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Reembed image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile.reembed
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${{ needs.prepare.outputs.tag_name }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${{ needs.prepare.outputs.environment }}-latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha
@@ -188,7 +270,7 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    needs: [prepare, build-api, build-mcp, build-client, build-admin-client]
+    needs: [prepare, build-api, build-embeddings, build-mcp, build-client, build-admin-client]
     environment: ${{ needs.prepare.outputs.environment }}
 
     steps:
@@ -212,6 +294,7 @@ jobs:
             sed -i "s|image: .*shelfscan-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
             sed -i "s|image: .*shelfscan-admin-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
             sed -i "s|image: .*shelfscan-mcp.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-embeddings.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
           else
             if [[ -f "docker-compose.yml" ]]; then
               cp docker-compose.yml docker-compose.deploy.yml
@@ -227,6 +310,7 @@ jobs:
             sed -i "s|build: ./client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
             sed -i "s|build: ./admin-client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
             sed -i "s|build: ./mcp|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./embeddings|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
           fi
 
       - name: Setup SSH with password
@@ -314,10 +398,36 @@ jobs:
 
           sleep 5
           if curl -f http://localhost:8080/health > /dev/null 2>&1; then
-            echo "Health check passed"
+            echo "API health check passed"
           else
-            echo "Health check failed - please verify manually"
+            echo "API health check failed - please verify manually"
           fi
+          if curl -f http://localhost:8001/health > /dev/null 2>&1; then
+            echo "Embeddings health check passed"
+          else
+            echo "Embeddings health check failed - please verify manually"
+          fi
+          EOF
+
+      - name: Run reembed-inventory (tag *.reembed* only)
+        if: needs.prepare.outputs.run_reembed == 'true'
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          REEMBED_TAG: ${{ needs.prepare.outputs.tag_name }}
+        shell: bash
+        run: |
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << EOF
+          set -e
+          cd /shelfscan
+          NET=\$(docker network ls --format '{{.Name}}' | grep -E 'shelfscan|smartjewelry' | head -n1)
+          echo "Using docker network: \$NET"
+          docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${REEMBED_TAG}
+          docker run --rm --network "\$NET" \
+            -v /shelfscan/server/uploads:/app/uploads:ro \
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${REEMBED_TAG} \
+            --qdrant-host qdrant --qdrant-port 6334 \
+            --embed-url http://embeddings:8001 \
+            --uploads-dir /app/uploads
           EOF
 
       - name: Cleanup Docker dangling images

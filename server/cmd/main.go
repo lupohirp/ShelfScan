@@ -74,8 +74,7 @@ Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscine
 
 	embeddingClient := embedding.NewEmbedding().
 		WithHost(embeddingsHost).
-		WithPort(embeddingsPort).
-		WithApiKey(apiKey)
+		WithPort(embeddingsPort)
 
 	mcpClient := mcp.NewMCPClient().
 		WithURL(mcpUrl)

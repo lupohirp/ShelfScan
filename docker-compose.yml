@@ -30,6 +30,12 @@ services:
       - 8.8.4.4
     depends_on:
       - qdrant
+      - embeddings
+
+  embeddings:
+    build: ./embeddings
+    ports:
+      - "8001:8001"
 
   mcp:
     build: ./mcp

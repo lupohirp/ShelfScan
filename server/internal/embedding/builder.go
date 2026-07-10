@@ -1,9 +1,8 @@
 package embedding
 
 type EmbeddingClient struct {
-	host   string
-	port   string
-	apiKey string
+	host string
+	port string
 }
 
 func NewEmbedding() *EmbeddingClient {
@@ -17,10 +16,5 @@ func (e *EmbeddingClient) WithHost(url string) *EmbeddingClient {
 
 func (e *EmbeddingClient) WithPort(port string) *EmbeddingClient {
 	e.port = port
-	return e
-}
-
-func (e *EmbeddingClient) WithApiKey(key string) *EmbeddingClient {
-	e.apiKey = key
 	return e
 }

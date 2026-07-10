@@ -1,0 +1,11 @@
+FROM golang:1.26-alpine AS builder
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags='-s -w' -trimpath -o /out/reembed ./cmd/reembed-inventory
+
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+COPY --from=builder /out/reembed /usr/local/bin/reembed
+ENTRYPOINT ["/usr/local/bin/reembed"]
