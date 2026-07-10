@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu 
  && pip install --no-cache-dir \
         "fastapi==0.115.*" \
         "uvicorn[standard]==0.32.*" \
+        "python-multipart==0.0.*" \
         "transformers==4.51.*" \
         "Pillow==11.*"
 
