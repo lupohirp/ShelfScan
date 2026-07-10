@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 from PIL import Image
 from transformers import AutoModel, AutoProcessor
 
-MODEL_ID = "google/siglip2-base-patch16-224"
-MAX_SIDE = 512  # cap PIL decode footprint before the processor resizes to 224
+MODEL_ID = "google/siglip2-base-patch16-384"
+MAX_SIDE = 768  # cap PIL decode footprint before the processor resizes to 384
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("shelfscan-embeddings")

@@ -20,8 +20,8 @@ RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu 
         "Pillow==11.*"
 
 RUN python -c "from transformers import AutoProcessor, AutoModel; \
-AutoProcessor.from_pretrained('google/siglip2-base-patch16-224'); \
-AutoModel.from_pretrained('google/siglip2-base-patch16-224')"
+AutoProcessor.from_pretrained('google/siglip2-base-patch16-384'); \
+AutoModel.from_pretrained('google/siglip2-base-patch16-384')"
 
 ENV TRANSFORMERS_OFFLINE=1
 
