@@ -5,6 +5,17 @@ on:
     tags:
       - "*"
 
+concurrency:
+  group: >-
+    deploy-${{
+      contains(github.ref_name, '.reembed.prod') && 'reembed-prod' ||
+      contains(github.ref_name, '.reembed.dev') && 'reembed-dev' ||
+      contains(github.ref_name, '.prod') && 'prod' ||
+      contains(github.ref_name, '.dev') && 'dev' ||
+      'other'
+    }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   API_IMAGE: shelfscan-api
@@ -22,8 +33,17 @@ jobs:
       tag_name: ${{ steps.meta.outputs.tag_name }}
       environment: ${{ steps.meta.outputs.environment }}
       run_reembed: ${{ steps.meta.outputs.run_reembed }}
+      api_changed: ${{ steps.changes.outputs.api }}
+      embeddings_changed: ${{ steps.changes.outputs.embeddings }}
+      mcp_changed: ${{ steps.changes.outputs.mcp }}
+      client_changed: ${{ steps.changes.outputs.client }}
+      admin_changed: ${{ steps.changes.outputs.admin }}
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need history + tags for diff vs previous tag
+
       - name: Extract tag and determine environment
         id: meta
         shell: bash
@@ -46,10 +66,46 @@ jobs:
             echo "run_reembed=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Detect changed paths vs previous tag
+        id: changes
+        shell: bash
+        run: |
+          set -e
+          # Compare against the previous tag on the same reachable history.
+          # Fallback to "everything changed" if there is no previous tag or the
+          # tag lives on a detached commit with no prior tag.
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [[ -z "$PREV_TAG" ]]; then
+            echo "No previous tag found — building everything"
+            for k in api embeddings mcp client admin; do
+              echo "$k=true" >> $GITHUB_OUTPUT
+            done
+            exit 0
+          fi
+          echo "Diffing $PREV_TAG..HEAD"
+          CHANGED=$(git diff --name-only "$PREV_TAG" HEAD)
+          echo "$CHANGED"
+
+          set_flag() {
+            local key=$1 pattern=$2
+            if echo "$CHANGED" | grep -qE "$pattern"; then
+              echo "$key=true" >> $GITHUB_OUTPUT
+            else
+              echo "$key=false" >> $GITHUB_OUTPUT
+            fi
+          }
+
+          set_flag api          '^server/'
+          set_flag embeddings   '^embeddings/'
+          set_flag mcp          '^mcp/'
+          set_flag client       '^client/'
+          set_flag admin        '^admin-client/'
+
   build-api:
     name: Build API Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.api_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -86,6 +142,7 @@ jobs:
     name: Build Embeddings Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.embeddings_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -159,6 +216,7 @@ jobs:
     name: Build MCP Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.mcp_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -195,6 +253,7 @@ jobs:
     name: Build Client Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.client_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -233,6 +292,7 @@ jobs:
     name: Build Admin Client Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.admin_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -270,7 +330,8 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    needs: [prepare, build-api, build-embeddings, build-mcp, build-client, build-admin-client]
+    needs: [prepare, build-api, build-embeddings, build-mcp, build-client, build-admin-client, build-reembed]
+    if: ${{ !failure() && !cancelled() }}
     environment: ${{ needs.prepare.outputs.environment }}
 
     steps:
@@ -290,11 +351,12 @@ jobs:
             fi
 
             # Replace placeholder images with the actual built image and tag for dev
-            sed -i "s|image: .*shelfscan-api.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|image: .*shelfscan-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|image: .*shelfscan-admin-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|image: .*shelfscan-mcp.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|image: .*shelfscan-embeddings.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            ENV_TAG="${{ needs.prepare.outputs.environment }}-latest"
+            sed -i "s|image: .*shelfscan-api.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-admin-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-mcp.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-embeddings.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
           else
             if [[ -f "docker-compose.yml" ]]; then
               cp docker-compose.yml docker-compose.deploy.yml
@@ -306,11 +368,12 @@ jobs:
             fi
 
             # Replace local build tags with remote registry images for production
-            sed -i "s|build: ./server|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|build: ./client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|build: ./admin-client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|build: ./mcp|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|build: ./embeddings|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            ENV_TAG="${{ needs.prepare.outputs.environment }}-latest"
+            sed -i "s|build: ./server|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./admin-client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./mcp|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./embeddings|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
           fi
 
       - name: Setup SSH with password
