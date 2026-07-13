@@ -64,6 +64,7 @@ tar -xzf "$BACKUP_FILE" -C "$TEMP_RESTORE_DIR"
 if [ -d "$TEMP_RESTORE_DIR/backup/db" ]; then
   echo "Restoring SQLite database..."
   mkdir -p ./server/db
+  rm -f ./server/db/shelfscan.db*
   cp -rf "$TEMP_RESTORE_DIR/backup/db/." ./server/db/
 else
   echo "Warning: No SQLite database folder found in backup."
