@@ -1,0 +1,15 @@
+meta {
+  name: Image Search
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/search
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  image: @file()
+}

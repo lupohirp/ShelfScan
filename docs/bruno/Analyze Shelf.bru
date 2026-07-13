@@ -1,0 +1,15 @@
+meta {
+  name: Analyze Shelf
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/analyze
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  images: @file()
+}
