@@ -9,8 +9,15 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 BACKUP_DIR="./backups"
-TEMP_RESTORE_DIR="./tmp_restore"
+TEMP_RESTORE_DIR=""
 
+# Check for required dependencies
+for cmd in docker tar jq; do
+  if ! command -v "$cmd" &> /dev/null; then
+    echo "Error: Required command '$cmd' is not installed." >&2
+    exit 1
+  fi
+done
 # Check if a backup file is provided
 if [ $# -eq 0 ]; then
   echo "=== ShelfScan Backup Restore Utility ==="
