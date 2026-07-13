@@ -8,6 +8,8 @@ services:
       - "6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
+    labels:
+      - "docker-volume-backup.stop-during-backup=true"
 
   api:
     build: ./server
@@ -28,6 +30,8 @@ services:
       - 8.8.4.4
     depends_on:
       - qdrant
+    labels:
+      - "docker-volume-backup.stop-during-backup=true"
 
   mcp:
     build: ./mcp
@@ -47,6 +51,21 @@ services:
     build: ./admin-client
     ports:
       - "5174:80"
+
+  backup:
+    image: offen/docker-volume-backup:v2
+    restart: unless-stopped
+    environment:
+      - BACKUP_CRON_EXPRESSION=0 3 * * *
+      - BACKUP_RETENTION_DAYS=14
+      - BACKUP_FILENAME=shelfscan-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      - BACKUP_PRUNING_PREFIX=shelfscan-backup-
+    volumes:
+      - ./server/db:/backup/db:ro
+      - ./server/uploads:/backup/uploads:ro
+      - qdrant_storage:/backup/qdrant:ro
+      - ./backups:/archive
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
   qdrant_storage:

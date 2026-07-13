@@ -20,3 +20,4 @@ server/db/shelfscan.db-shm
 server/db/shelfscan.db-wal
 server/upload-catalog
 server/prod_catalog.json
+backups/
