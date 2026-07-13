@@ -21,15 +21,12 @@ services:
       - shelfscan-network
     depends_on:
       - qdrant
-      - embeddings
     env_file:
       - .env
     environment:
       - ENVIRONMENT=development
       - QDRANT_HOST=http://qdrant
       - QDRANT_PORT=6333
-      - EMBEDDINGS_HOST=http://embeddings
-      - EMBEDDINGS_PORT=8001
       - MCP_URL=ws://mcp:8081/ws
     ports:
       - "${API_PORT:-8080}:8080"
@@ -37,15 +34,6 @@ services:
       - ./server/uploads:/app/uploads
       - ./server/db:/app/db
       - ./logs:/app/logs
-
-  embeddings:
-    image: ghcr.io/${GHCR_OWNER:-lupohirp}/${EMBEDDINGS_IMAGE:-shelfscan-embeddings}:dev-latest
-    container_name: shelfscan-embeddings
-    restart: unless-stopped
-    networks:
-      - shelfscan-network
-    ports:
-      - "${EMBEDDINGS_PORT_HOST:-8001}:8001"
 
   mcp:
     image: ghcr.io/${GHCR_OWNER:-lupohirp}/${MCP_IMAGE:-shelfscan-mcp}:dev-latest

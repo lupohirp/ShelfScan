@@ -22,7 +22,6 @@ env:
   CLIENT_IMAGE: shelfscan-client
   ADMIN_CLIENT_IMAGE: shelfscan-admin-client
   MCP_IMAGE: shelfscan-mcp
-  EMBEDDINGS_IMAGE: shelfscan-embeddings
   REEMBED_IMAGE: shelfscan-reembed
 
 jobs:
@@ -34,7 +33,6 @@ jobs:
       environment: ${{ steps.meta.outputs.environment }}
       run_reembed: ${{ steps.meta.outputs.run_reembed }}
       api_changed: ${{ steps.changes.outputs.api }}
-      embeddings_changed: ${{ steps.changes.outputs.embeddings }}
       mcp_changed: ${{ steps.changes.outputs.mcp }}
       client_changed: ${{ steps.changes.outputs.client }}
       admin_changed: ${{ steps.changes.outputs.admin }}
@@ -77,7 +75,7 @@ jobs:
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [[ -z "$PREV_TAG" ]]; then
             echo "No previous tag found — building everything"
-            for k in api embeddings mcp client admin; do
+            for k in api mcp client admin; do
               echo "$k=true" >> $GITHUB_OUTPUT
             done
             exit 0
@@ -96,7 +94,6 @@ jobs:
           }
 
           set_flag api          '^server/'
-          set_flag embeddings   '^embeddings/'
           set_flag mcp          '^mcp/'
           set_flag client       '^client/'
           set_flag admin        '^admin-client/'
@@ -133,43 +130,6 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.environment }}-latest
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  build-embeddings:
-    name: Build Embeddings Image
-    runs-on: ubuntu-latest
-    needs: prepare
-    if: needs.prepare.outputs.embeddings_changed == 'true'
-    environment: ${{ needs.prepare.outputs.environment }}
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push Embeddings image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./embeddings
-          file: ./embeddings/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${{ needs.prepare.outputs.tag_name }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${{ needs.prepare.outputs.environment }}-latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha
@@ -330,7 +290,7 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    needs: [prepare, build-api, build-embeddings, build-mcp, build-client, build-admin-client, build-reembed]
+    needs: [prepare, build-api, build-mcp, build-client, build-admin-client, build-reembed]
     if: ${{ !failure() && !cancelled() }}
     environment: ${{ needs.prepare.outputs.environment }}
 
@@ -356,7 +316,6 @@ jobs:
             sed -i "s|image: .*shelfscan-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
             sed -i "s|image: .*shelfscan-admin-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
             sed -i "s|image: .*shelfscan-mcp.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
-            sed -i "s|image: .*shelfscan-embeddings.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
           else
             if [[ -f "docker-compose.yml" ]]; then
               cp docker-compose.yml docker-compose.deploy.yml
@@ -373,7 +332,6 @@ jobs:
             sed -i "s|build: ./client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
             sed -i "s|build: ./admin-client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
             sed -i "s|build: ./mcp|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
-            sed -i "s|build: ./embeddings|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.EMBEDDINGS_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
           fi
 
       - name: Setup SSH with password
@@ -465,11 +423,6 @@ jobs:
           else
             echo "API health check failed - please verify manually"
           fi
-          if curl -f http://localhost:8001/health > /dev/null 2>&1; then
-            echo "Embeddings health check passed"
-          else
-            echo "Embeddings health check failed - please verify manually"
-          fi
           EOF
 
       - name: Run reembed-inventory (tag *.reembed* only)
@@ -477,6 +430,7 @@ jobs:
         env:
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
           REEMBED_TAG: ${{ needs.prepare.outputs.tag_name }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         shell: bash
         run: |
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << EOF
@@ -487,9 +441,9 @@ jobs:
           docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${REEMBED_TAG}
           docker run --rm --network "\$NET" \
             -v /shelfscan/server/uploads:/app/uploads:ro \
+            -e GEMINI_API_KEY='${GEMINI_API_KEY}' \
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${REEMBED_TAG} \
             --qdrant-host qdrant --qdrant-port 6334 \
-            --embed-url http://embeddings:8001 \
             --uploads-dir /app/uploads
           EOF
 
