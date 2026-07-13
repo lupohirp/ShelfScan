@@ -1,23 +1,44 @@
-client/node_modules/*
-client/dist
-admin-client/node_modules/*
+# Node dependencies & build outputs
+client/node_modules/
+client/dist/
+admin-client/node_modules/
+
+# Go compiled binaries
 mcp/main
 server/main
+server/audit
+server/dump-catalog
+server/reembed-inventory
+server/scrape-gioiapura
+server/upload-catalog
+
+# Debug binaries
 server/__debug_*
 mcp/__debug_*
+
+# Data and logs
 server/uploads/*
-.antigravitycli/ba541ced-6c4e-47ff-b8a7-e2f26ca815ec.json
 /logs
+*.log
+
+# SQLite database files
+server/db/shelfscan.db
 server/db/shelfscan.db-shm
 server/db/shelfscan.db-wal
 *.db-shm
-server/cmd/audit/main.go
-server/cmd/audit/sku_photo_counts.csv
-server/cmd/dump-catalog/main.go
-server/cmd/scrape-gioiapura/main.go
-server/cmd/upload-catalog/main.go
-server/db/shelfscan.db-shm
-server/db/shelfscan.db-wal
-server/upload-catalog
+*.db-wal
+
+# Custom catalogs and temp files
 server/prod_catalog.json
+server/catalog_metadata.json
+server/sku_urls.tsv
+server/scraped/
+
+# Backups directory
 backups/
+
+# IDE/Tool configs
+.antigravitycli/
+.claude/
+.vscode/
+

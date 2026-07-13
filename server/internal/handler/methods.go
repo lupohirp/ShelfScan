@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"shelfscan-api/internal/domain"
-	subdomain "shelfscan-api/internal/domain/sub"
 	"strings"
 	"sync"
 	"time"
@@ -400,7 +399,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			Score    float32
 		}
 		var acceptedMatches []AcceptedMatch
-		allImageResults := make([]subdomain.ImageResult, len(imageFiles))
+		allImageResults := make([]domain.ImageResult, len(imageFiles))
 
 		imageLogs := make([]ImageLog, len(imageFiles))
 		var logMu sync.Mutex
@@ -508,7 +507,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				var wg sync.WaitGroup
 				for detIdx, det := range detections {
 					wg.Add(1)
-					go func(detIdx int, det subdomain.Detection) {
+					go func(detIdx int, det domain.Detection) {
 						defer wg.Done()
 
 						box := det.Box
@@ -712,14 +711,14 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 					}(detIdx, det)
 				}
 				wg.Wait()
-				allImageResults[imgIdx] = subdomain.ImageResult{Detections: detections}
+				allImageResults[imgIdx] = domain.ImageResult{Detections: detections}
 			}(imgIdx, fileHeader)
 		}
 		outerWg.Wait()
 
 		inventory, _ := h.qdrantClient.ListInventory()
-		foundResults := []subdomain.ProductResult{}
-		missingItems := []subdomain.MissingItem{}
+		foundResults := []domain.ProductResult{}
+		missingItems := []domain.MissingItem{}
 
 		// Set of all found SKUs (matched by AI)
 		foundSkus := make(map[string]bool)
@@ -765,7 +764,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Compile found results from groupedMatches
 		for _, gm := range groupedMatches {
-			foundResults = append(foundResults, subdomain.ProductResult{
+			foundResults = append(foundResults, domain.ProductResult{
 				Name:     gm.Name,
 				Sku:      gm.Sku,
 				ImageURL: fixURL(gm.ImageURL, r.Host),
@@ -793,7 +792,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				if !addedMissingSkus[sku] {
 					addedMissingSkus[sku] = true
 					imgUrl, _ := payload["imageUrl"].(string)
-					missingItems = append(missingItems, subdomain.MissingItem{
+					missingItems = append(missingItems, domain.MissingItem{
 						Name:     name,
 						Sku:      sku,
 						ImageURL: fixURL(imgUrl, r.Host),
@@ -1072,9 +1071,9 @@ func hasColorConflict(detDesc string, productName string, hitColor string) bool 
 	return false
 }
 
-func parseDetections(responseText string) []subdomain.Detection {
+func parseDetections(responseText string) []domain.Detection {
 	// 1. Try standard unmarshal of a direct array (backward compatibility)
-	var detections []subdomain.Detection
+	var detections []domain.Detection
 	if err := json.Unmarshal([]byte(responseText), &detections); err == nil {
 		return detections
 	}
@@ -1083,10 +1082,10 @@ func parseDetections(responseText string) []subdomain.Detection {
 	var objResp struct {
 		ScaffaleVuoto bool                  `json:"scaffale_vuoto"`
 		Spiegazione   string                `json:"spiegazione"`
-		Articoli      []subdomain.Detection `json:"articoli"`
-		Empty         bool                  `json:"empty"`
-		Reasoning     string                `json:"reasoning"`
-		Items         []subdomain.Detection `json:"items"`
+		Articoli      []domain.Detection `json:"articoli"`
+		Empty         bool               `json:"empty"`
+		Reasoning     string             `json:"reasoning"`
+		Items         []domain.Detection `json:"items"`
 	}
 	if err := json.Unmarshal([]byte(responseText), &objResp); err == nil {
 		if len(objResp.Articoli) > 0 {
@@ -1095,11 +1094,11 @@ func parseDetections(responseText string) []subdomain.Detection {
 		if len(objResp.Items) > 0 {
 			return objResp.Items
 		}
-		return []subdomain.Detection{}
+		return []domain.Detection{}
 	}
 
 	// 3. Fallback: parse any completed Detection sub-objects in a possibly truncated/malformed JSON string
-	var recovered []subdomain.Detection
+	var recovered []domain.Detection
 	type bracePos struct {
 		index int
 		depth int
@@ -1124,7 +1123,7 @@ func parseDetections(responseText string) []subdomain.Detection {
 				objStr := responseText[startBrace.index : i+1]
 				// Only parse if it looks like a Detection object (contains desc and box)
 				if strings.Contains(objStr, "\"desc\"") && (strings.Contains(objStr, "\"box\"") || strings.Contains(objStr, "\"box_2d\"")) {
-					var det subdomain.Detection
+					var det domain.Detection
 					if err := json.Unmarshal([]byte(objStr), &det); err == nil {
 						// Ensure we got a valid box
 						box := det.Box

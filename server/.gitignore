@@ -1,8 +1,0 @@
-
-# One-shot tool binaries and outputs
-/audit
-/dump-catalog
-/scrape-gioiapura
-catalog_metadata.json
-sku_urls.tsv
-/scraped/
