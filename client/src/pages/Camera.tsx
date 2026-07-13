@@ -21,14 +21,16 @@ export default function Camera() {
   const [pendingImage, setPendingImage] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [showWarning, setShowWarning] = useState(false)
-  const [realtimeFeedback, setRealtimeFeedback] = useState<string>('Align with guide')
+  const [realtimeFeedback, setRealtimeFeedback] = useState<string>('Allinea lo scaffale nel riquadro')
   const [realtimeFeedbackType, setRealtimeFeedbackType] = useState<'info' | 'warning' | 'success'>('info')
   const [cameraError, setCameraError] = useState<string | null>(null)
-  
+  const [torchSupported, setTorchSupported] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const stabilityTimerRef = useRef<any>(null)
+  const stabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Request 4K Camera & Lifecycle Management
   useEffect(() => {
@@ -50,6 +52,10 @@ export default function Camera() {
         if (videoRef.current) {
           videoRef.current.srcObject = currentStream
         }
+        const track = currentStream.getVideoTracks()[0]
+        // getCapabilities().torch is Android-only (Chromium). Safari has no torch API.
+        const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean }
+        setTorchSupported(Boolean(caps.torch))
       } catch (err) {
         console.error('Error accessing camera:', err)
         const msg = err instanceof Error ? err.message : String(err)
@@ -147,19 +153,19 @@ export default function Camera() {
         const isLevel = Math.abs(pitch - 90) < 7 && Math.abs(roll) < 7
         
         if (brightness < 45) {
-          setRealtimeFeedback("Too dark. Turn on flash or improve lighting.")
+          setRealtimeFeedback(torchSupported ? "Troppo buio: attiva il flash o cerca più luce." : "Troppo buio: cerca una zona più illuminata.")
           setRealtimeFeedbackType("warning")
         } else if (brightness > 225) {
-          setRealtimeFeedback("Too bright / glare. Change camera angle.")
+          setRealtimeFeedback("Troppo luminoso o riflesso: cambia angolazione.")
           setRealtimeFeedbackType("warning")
         } else if (!isLevel) {
-          setRealtimeFeedback("Align leveling bar to center.")
+          setRealtimeFeedback("Allinea la livella al centro.")
           setRealtimeFeedbackType("info")
         } else if (edgeDensity < 0.055) {
-          setRealtimeFeedback("Move closer to the shelf.")
+          setRealtimeFeedback("Avvicinati allo scaffale.")
           setRealtimeFeedbackType("warning")
         } else {
-          setRealtimeFeedback("Perfect alignment! Hold steady...")
+          setRealtimeFeedback("Ottimo! Tieni fermo...")
           setRealtimeFeedbackType("success")
         }
       } catch (e) {
@@ -168,7 +174,7 @@ export default function Camera() {
     }, 500)
 
     return () => clearInterval(interval)
-  }, [pitch, roll, analyzing, showWarning])
+  }, [pitch, roll, analyzing, showWarning, torchSupported])
 
   const captureImage = useCallback(async () => {
     console.log('Capture triggered')
@@ -388,9 +394,27 @@ export default function Camera() {
           </div>
         )}
 
-        <button className="w-12 h-12 bg-black/50 backdrop-blur-xl rounded-full flex items-center justify-center text-white pointer-events-auto">
-          <Zap size={20} />
-        </button>
+        {torchSupported ? (
+          <button
+            onClick={async () => {
+              const track = stream?.getVideoTracks?.()[0]
+              if (!track) return
+              try {
+                const next = !torchOn
+                await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
+                setTorchOn(next)
+              } catch (err) {
+                console.warn('Torch toggle failed:', err)
+              }
+            }}
+            className={`w-12 h-12 backdrop-blur-xl rounded-full flex items-center justify-center pointer-events-auto active:scale-95 transition-colors ${torchOn ? 'bg-amber-400 text-black' : 'bg-black/50 text-white'}`}
+            aria-label={torchOn ? 'Disattiva flash' : 'Attiva flash'}
+          >
+            <Zap size={20} />
+          </button>
+        ) : (
+          <div className="w-12 h-12" />
+        )}
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
@@ -477,10 +501,19 @@ export default function Camera() {
 
         <button
           onClick={captureImage}
-          className={`w-24 h-24 rounded-full border-[6px] flex items-center justify-center transition-all pointer-events-auto active:scale-90 ${isStable ? 'border-green-500 scale-110 shadow-[0_0_30px_rgba(34,197,94,0.4)]' : 'border-white shadow-lg'}`}
+          aria-disabled={realtimeFeedbackType === 'warning'}
+          className={`w-24 h-24 rounded-full border-[6px] flex items-center justify-center transition-all pointer-events-auto active:scale-90 ${
+            realtimeFeedbackType === 'warning'
+              ? 'border-white/30 opacity-50'
+              : isStable
+                ? 'border-green-500 scale-110 shadow-[0_0_30px_rgba(34,197,94,0.4)]'
+                : 'border-white shadow-lg'
+          }`}
           style={{ backgroundColor: 'transparent' }}
         >
-          <div className={`w-18 h-18 rounded-full transition-colors ${isStable ? 'bg-green-500' : 'bg-white'}`} />
+          <div className={`w-18 h-18 rounded-full transition-colors ${
+            realtimeFeedbackType === 'warning' ? 'bg-white/40' : isStable ? 'bg-green-500' : 'bg-white'
+          }`} />
         </button>
 
         {capturedImages.length > 0 ? (
@@ -518,10 +551,10 @@ export default function Camera() {
           <div className="text-center pt-8">
             <div className="inline-flex items-center gap-2 bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              Image Quality Warning
+              Qualità immagine
             </div>
-            <h3 className="text-white text-lg font-bold mt-4">Photo doesn't meet quality standards</h3>
-            <p className="text-white/60 text-xs mt-2 px-6">We detected issues that could affect the accuracy of the AI product identification.</p>
+            <h3 className="text-white text-lg font-bold mt-4">La foto non soddisfa gli standard di qualità</h3>
+            <p className="text-white/60 text-xs mt-2 px-6">Abbiamo rilevato problemi che possono influire sull'accuratezza del riconoscimento.</p>
           </div>
 
           <div className="max-w-xs w-full mx-auto my-auto flex flex-col gap-6">
@@ -552,9 +585,9 @@ export default function Camera() {
               className="w-full py-3.5 bg-white text-black font-semibold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_25px_rgba(255,255,255,0.15)]"
             >
               <CameraIcon size={16} />
-              Retake Photo
+              Rifai la foto
             </button>
-            
+
             <button
               onClick={() => {
                 if (pendingImage) {
@@ -566,7 +599,7 @@ export default function Camera() {
               }}
               className="w-full py-3 bg-white/10 text-white/70 hover:text-white font-medium rounded-xl active:scale-95 transition-all border border-white/10 text-xs"
             >
-              Bypass warnings & keep photo
+              Ignora avvisi e mantieni comunque
             </button>
           </div>
         </div>
