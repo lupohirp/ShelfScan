@@ -68,5 +68,29 @@ The repository includes a pre-configured `launch.json`. You can debug the **Full
 - `mcp/`: Go implementation of Model Context Protocol tools.
 - `embeddings/`: Python ML service for CLIP embeddings.
 
+## 💾 Backup & Restore
+
+A reliable, automatic backup sidecar service is integrated into the Docker Compose stack using `offen/docker-volume-backup`.
+
+### 1. How it Works
+- **Schedule**: The backup runs daily at **3:00 AM** (`0 3 * * *`).
+- **Data Covered**: SQLite Database, media uploads (`/app/uploads`), and Qdrant storage.
+- **Consistency**: To prevent database lockups and ensure consistent backups, the `api` and `qdrant` containers are automatically paused during the backup window (usually takes < 5 seconds).
+- **Retention**: Only the last **14 days** of backups are kept.
+- **File Location**: Saved as `shelfscan-backup-YYYY-MM-DDTHH-MM-SS.tar.gz` inside the `./backups` directory on the host.
+
+### 2. Manual Backup Trigger
+You can force a backup to run immediately at any time by running:
+```bash
+docker compose exec backup backup
+```
+
+### 3. Restore Procedure
+To restore a backup file:
+```bash
+./restore.sh ./backups/shelfscan-backup-YYYY-MM-DDTHH-MM-SS.tar.gz
+```
+The script will automatically stop the services, extract files, overwrite the SQLite database and uploads directory, copy files back into the Qdrant named storage volume, and restart the services.
+
 ## 📝 License
 This project is for internal use. See the project specification document for further details.

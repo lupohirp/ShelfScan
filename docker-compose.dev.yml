@@ -12,6 +12,8 @@ services:
       - "${QDRANT_PORT_GRPC:-6334}:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
+    labels:
+      - "docker-volume-backup.stop-during-backup=true"
 
   api:
     image: ghcr.io/${GHCR_OWNER:-lupohirp}/${API_IMAGE:-shelfscan-api}:dev-latest
@@ -34,6 +36,8 @@ services:
       - ./server/uploads:/app/uploads
       - ./server/db:/app/db
       - ./logs:/app/logs
+    labels:
+      - "docker-volume-backup.stop-during-backup=true"
 
   mcp:
     image: ghcr.io/${GHCR_OWNER:-lupohirp}/${MCP_IMAGE:-shelfscan-mcp}:dev-latest
@@ -69,6 +73,22 @@ services:
       - "${ADMIN_CLIENT_PORT:-5174}:80"
     depends_on:
       - api
+
+  backup:
+    image: offen/docker-volume-backup:v2
+    container_name: shelfscan-backup
+    restart: unless-stopped
+    environment:
+      - BACKUP_CRON_EXPRESSION=0 3 * * *
+      - BACKUP_RETENTION_DAYS=14
+      - BACKUP_FILENAME=shelfscan-backup-%Y-%m-%dT%H-%M-%S.tar.gz
+      - BACKUP_PRUNING_PREFIX=shelfscan-backup-
+    volumes:
+      - ./server/db:/backup/db:ro
+      - ./server/uploads:/backup/uploads:ro
+      - qdrant_storage:/backup/qdrant:ro
+      - ./backups:/archive
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
   qdrant_storage:
