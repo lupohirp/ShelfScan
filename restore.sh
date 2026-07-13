@@ -54,7 +54,7 @@ echo "Stopping api and qdrant services..."
 docker compose stop api qdrant
 
 # Create temp restore staging directory
-mkdir -p "$TEMP_RESTORE_DIR"
+TEMP_RESTORE_DIR=$(mktemp -d ./tmp_restore.XXXXXX)
 
 # Cleanup trap to ensure staging is deleted on exit/error
 trap 'rm -rf "$TEMP_RESTORE_DIR"' EXIT
