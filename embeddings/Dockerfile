@@ -1,9 +1,22 @@
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /export
+
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.7.1 \
+ && pip install --no-cache-dir "transformers==4.51.*"
+
+COPY export_onnx.py .
+RUN python export_onnx.py /export/vision_encoder.onnx
+
+# ---------------------------------------------------------------------------
+
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    HF_HOME=/opt/hf-cache \
-    TRANSFORMERS_OFFLINE=0
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -11,20 +24,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.7.1 \
- && pip install --no-cache-dir \
+RUN pip install --no-cache-dir \
         "fastapi==0.115.*" \
         "uvicorn[standard]==0.32.*" \
         "python-multipart==0.0.*" \
-        "transformers==4.51.*" \
-        "Pillow==11.*"
+        "onnxruntime==1.19.*" \
+        "Pillow==11.*" \
+        "numpy==2.1.*"
 
-RUN python -c "from transformers import AutoProcessor, AutoModel; \
-AutoProcessor.from_pretrained('google/siglip2-base-patch16-384'); \
-AutoModel.from_pretrained('google/siglip2-base-patch16-384')"
-
-ENV TRANSFORMERS_OFFLINE=1
-
+COPY --from=builder /export/vision_encoder.onnx /app/vision_encoder.onnx
 COPY app.py .
 
 EXPOSE 8001

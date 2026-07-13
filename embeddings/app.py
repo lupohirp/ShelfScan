@@ -1,26 +1,33 @@
-import gc
 import io
 import logging
 import traceback
 
-import torch
+import numpy as np
+import onnxruntime as ort
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from PIL import Image
-from transformers import AutoModel, AutoProcessor
 
-MODEL_ID = "google/siglip2-base-patch16-384"
-MAX_SIDE = 768  # cap PIL decode footprint before the processor resizes to 384
+MODEL_ID = "google/siglip2-base-patch16-224"
+MODEL_PATH = "/app/vision_encoder.onnx"
+IMAGE_SIZE = 224
+# SigLIP2 preprocessing: rescale 1/255, then normalize with mean=std=0.5 → [-1, 1]
+NORM_MEAN = np.float32(0.5)
+NORM_STD = np.float32(0.5)
+MAX_SIDE = 1024  # cap PIL decode footprint before the final 224 resize
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("shelfscan-embeddings")
 
-processor = AutoProcessor.from_pretrained(MODEL_ID)
-model = AutoModel.from_pretrained(MODEL_ID)
-model.eval()
-logger.info("model loaded: %s", MODEL_ID)
+session_options = ort.SessionOptions()
+session_options.intra_op_num_threads = 1
+session_options.inter_op_num_threads = 1
+session = ort.InferenceSession(MODEL_PATH, sess_options=session_options, providers=["CPUExecutionProvider"])
+INPUT_NAME = session.get_inputs()[0].name
+OUTPUT_NAME = session.get_outputs()[0].name
+logger.info("loaded ONNX model %s (input=%s, output=%s)", MODEL_ID, INPUT_NAME, OUTPUT_NAME)
 
-app = FastAPI(title="shelfscan-embeddings", version="1.0")
+app = FastAPI(title="shelfscan-embeddings", version="2.0")
 
 
 @app.exception_handler(Exception)
@@ -41,23 +48,26 @@ def _decode(data: bytes) -> Image.Image:
     return image
 
 
+def _preprocess(image: Image.Image) -> np.ndarray:
+    resized = image.resize((IMAGE_SIZE, IMAGE_SIZE), Image.Resampling.BICUBIC)
+    arr = np.asarray(resized, dtype=np.float32) / 255.0
+    arr = (arr - NORM_MEAN) / NORM_STD
+    arr = arr.transpose(2, 0, 1)  # HWC → CHW
+    return arr
+
+
 def _embed_one(image: Image.Image) -> list[float]:
-    inputs = processor(images=[image], return_tensors="pt")
+    tensor = _preprocess(image)[np.newaxis, ...]  # 1×3×224×224
     try:
-        with torch.no_grad():
-            features = model.get_image_features(**inputs)
-        vec = features[0].tolist()
+        outputs = session.run([OUTPUT_NAME], {INPUT_NAME: tensor})
+        return outputs[0][0].tolist()
     finally:
-        del inputs
-        if "features" in locals():
-            del features
-        gc.collect()
-    return vec
+        del tensor
 
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "model": MODEL_ID}
+    return {"status": "ok", "model": MODEL_ID, "runtime": "onnxruntime"}
 
 
 @app.post("/embed")
