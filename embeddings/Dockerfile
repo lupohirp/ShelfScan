@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /export
 
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.7.1 \
- && pip install --no-cache-dir "transformers==4.51.*"
+ && pip install --no-cache-dir "transformers==4.51.*" "onnx==1.17.*"
 
 COPY export_onnx.py .
 RUN python export_onnx.py /export/vision_encoder.onnx
