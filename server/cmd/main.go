@@ -35,12 +35,6 @@ func main() {
 	qdrantHost := os.Getenv("QDRANT_HOST")
 	qdrantPort := os.Getenv("QDRANT_PORT")
 
-	embeddingsHost := os.Getenv("EMBEDDINGS_HOST")
-	if embeddingsHost == "" {
-		embeddingsHost = os.Getenv("EMBEDDINGS_URL")
-	}
-	embeddingsPort := os.Getenv("EMBEDDINGS_PORT")
-
 	prompt := os.Getenv("GEMINI_PROMPT")
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	generativeModel := os.Getenv("GEMINI_MODEL")
@@ -73,8 +67,6 @@ Attenzione: non inventare oggetti inesistenti e non scambiare supporti o cuscine
 	}
 
 	embeddingClient := embedding.NewEmbedding().
-		WithHost(embeddingsHost).
-		WithPort(embeddingsPort).
 		WithApiKey(apiKey)
 
 	mcpClient := mcp.NewMCPClient().

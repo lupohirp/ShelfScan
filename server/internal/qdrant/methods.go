@@ -88,6 +88,12 @@ func (q *QdrantClient) DeleteFromQdrant(idStr string) error {
 }
 
 func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls []string, thumbUrls []string, color string, material string, aiDescription string, vectors [][]float32) error {
+	return q.SaveMultipleToQdrantAt(name, sku, imageUrls, thumbUrls, color, material, aiDescription, vectors, 0)
+}
+
+// SaveMultipleToQdrantAt writes vectors with IDs derived from name+"_{startIndex+i}",
+// so existing points (indices 0..startIndex-1) are preserved rather than overwritten.
+func (q *QdrantClient) SaveMultipleToQdrantAt(name string, sku string, imageUrls []string, thumbUrls []string, color string, material string, aiDescription string, vectors [][]float32, startIndex int) error {
 	client, err := q.getClient()
 	if err != nil {
 		return err
@@ -96,7 +102,8 @@ func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls [
 
 	var points []*qdrant.PointStruct
 	for i, vector := range vectors {
-		id := uint64(systemID(fmt.Sprintf("%s_%d", name, i)))
+		idx := startIndex + i
+		id := uint64(systemID(fmt.Sprintf("%s_%d", name, idx)))
 		payload := map[string]any{
 			"name":           name,
 			"sku":            sku,
@@ -116,6 +123,42 @@ func (q *QdrantClient) SaveMultipleToQdrant(name string, sku string, imageUrls [
 	}
 	_, err = client.Upsert(context.Background(), &qdrant.UpsertPoints{CollectionName: "jewelry_inventory", Points: points})
 	return err
+}
+
+// CountPointsBySKU returns how many points currently exist for the given SKU.
+// Used by append-mode uploads to compute the next free index.
+func (q *QdrantClient) CountPointsBySKU(sku string) (int, error) {
+	client, err := q.getClient()
+	if err != nil {
+		return 0, err
+	}
+	defer client.Close()
+
+	filter := &qdrant.Filter{
+		Must: []*qdrant.Condition{
+			qdrant.NewMatch("sku", sku),
+		},
+	}
+	count := 0
+	var offset *qdrant.PointId
+	for {
+		points, next, err := client.ScrollAndOffset(context.Background(), &qdrant.ScrollPoints{
+			CollectionName: "jewelry_inventory",
+			Filter:         filter,
+			Limit:          qdrant.PtrOf(uint32(200)),
+			WithPayload:    qdrant.NewWithPayload(false),
+			Offset:         offset,
+		})
+		if err != nil {
+			return 0, err
+		}
+		count += len(points)
+		if next == nil || len(points) == 0 {
+			break
+		}
+		offset = next
+	}
+	return count, nil
 }
 
 func (q *QdrantClient) PerformVectorSearch(vector []float32) ([]map[string]any, error) {

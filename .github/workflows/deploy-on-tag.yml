@@ -5,12 +5,24 @@ on:
     tags:
       - "*"
 
+concurrency:
+  group: >-
+    deploy-${{
+      contains(github.ref_name, '.reembed.prod') && 'reembed-prod' ||
+      contains(github.ref_name, '.reembed.dev') && 'reembed-dev' ||
+      contains(github.ref_name, '.prod') && 'prod' ||
+      contains(github.ref_name, '.dev') && 'dev' ||
+      'other'
+    }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   API_IMAGE: shelfscan-api
   CLIENT_IMAGE: shelfscan-client
   ADMIN_CLIENT_IMAGE: shelfscan-admin-client
   MCP_IMAGE: shelfscan-mcp
+  REEMBED_IMAGE: shelfscan-reembed
 
 jobs:
   prepare:
@@ -19,8 +31,17 @@ jobs:
     outputs:
       tag_name: ${{ steps.meta.outputs.tag_name }}
       environment: ${{ steps.meta.outputs.environment }}
+      run_reembed: ${{ steps.meta.outputs.run_reembed }}
+      api_changed: ${{ steps.changes.outputs.api }}
+      mcp_changed: ${{ steps.changes.outputs.mcp }}
+      client_changed: ${{ steps.changes.outputs.client }}
+      admin_changed: ${{ steps.changes.outputs.admin }}
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need history + tags for diff vs previous tag
+
       - name: Extract tag and determine environment
         id: meta
         shell: bash
@@ -37,10 +58,51 @@ jobs:
             exit 1
           fi
 
+          if [[ "$TAG_NAME" == *".reembed"* ]]; then
+            echo "run_reembed=true" >> $GITHUB_OUTPUT
+          else
+            echo "run_reembed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Detect changed paths vs previous tag
+        id: changes
+        shell: bash
+        run: |
+          set -e
+          # Compare against the previous tag on the same reachable history.
+          # Fallback to "everything changed" if there is no previous tag or the
+          # tag lives on a detached commit with no prior tag.
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [[ -z "$PREV_TAG" ]]; then
+            echo "No previous tag found — building everything"
+            for k in api mcp client admin; do
+              echo "$k=true" >> $GITHUB_OUTPUT
+            done
+            exit 0
+          fi
+          echo "Diffing $PREV_TAG..HEAD"
+          CHANGED=$(git diff --name-only "$PREV_TAG" HEAD)
+          echo "$CHANGED"
+
+          set_flag() {
+            local key=$1 pattern=$2
+            if echo "$CHANGED" | grep -qE "$pattern"; then
+              echo "$key=true" >> $GITHUB_OUTPUT
+            else
+              echo "$key=false" >> $GITHUB_OUTPUT
+            fi
+          }
+
+          set_flag api          '^server/'
+          set_flag mcp          '^mcp/'
+          set_flag client       '^client/'
+          set_flag admin        '^admin-client/'
+
   build-api:
     name: Build API Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.api_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -73,10 +135,48 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build-reembed:
+    name: Build Reembed Image
+    runs-on: ubuntu-latest
+    needs: prepare
+    if: needs.prepare.outputs.run_reembed == 'true'
+    environment: ${{ needs.prepare.outputs.environment }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Reembed image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile.reembed
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${{ needs.prepare.outputs.tag_name }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${{ needs.prepare.outputs.environment }}-latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build-mcp:
     name: Build MCP Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.mcp_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -113,6 +213,7 @@ jobs:
     name: Build Client Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.client_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -151,6 +252,7 @@ jobs:
     name: Build Admin Client Image
     runs-on: ubuntu-latest
     needs: prepare
+    if: needs.prepare.outputs.admin_changed == 'true'
     environment: ${{ needs.prepare.outputs.environment }}
     permissions:
       contents: read
@@ -188,7 +290,8 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    needs: [prepare, build-api, build-mcp, build-client, build-admin-client]
+    needs: [prepare, build-api, build-mcp, build-client, build-admin-client, build-reembed]
+    if: ${{ !failure() && !cancelled() }}
     environment: ${{ needs.prepare.outputs.environment }}
 
     steps:
@@ -208,10 +311,11 @@ jobs:
             fi
 
             # Replace placeholder images with the actual built image and tag for dev
-            sed -i "s|image: .*shelfscan-api.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|image: .*shelfscan-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|image: .*shelfscan-admin-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|image: .*shelfscan-mcp.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            ENV_TAG="${{ needs.prepare.outputs.environment }}-latest"
+            sed -i "s|image: .*shelfscan-api.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-admin-client.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|image: .*shelfscan-mcp.*|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
           else
             if [[ -f "docker-compose.yml" ]]; then
               cp docker-compose.yml docker-compose.deploy.yml
@@ -223,10 +327,11 @@ jobs:
             fi
 
             # Replace local build tags with remote registry images for production
-            sed -i "s|build: ./server|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|build: ./client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|build: ./admin-client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
-            sed -i "s|build: ./mcp|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${{ needs.prepare.outputs.tag_name }}|g" docker-compose.deploy.yml
+            ENV_TAG="${{ needs.prepare.outputs.environment }}-latest"
+            sed -i "s|build: ./server|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.API_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./admin-client|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.ADMIN_CLIENT_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
+            sed -i "s|build: ./mcp|image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.MCP_IMAGE }}:${ENV_TAG}|g" docker-compose.deploy.yml
           fi
 
       - name: Setup SSH with password
@@ -314,10 +419,32 @@ jobs:
 
           sleep 5
           if curl -f http://localhost:8080/health > /dev/null 2>&1; then
-            echo "Health check passed"
+            echo "API health check passed"
           else
-            echo "Health check failed - please verify manually"
+            echo "API health check failed - please verify manually"
           fi
+          EOF
+
+      - name: Run reembed-inventory (tag *.reembed* only)
+        if: needs.prepare.outputs.run_reembed == 'true'
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
+          REEMBED_TAG: ${{ needs.prepare.outputs.tag_name }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        shell: bash
+        run: |
+          sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" << EOF
+          set -e
+          cd /shelfscan
+          NET=\$(docker network ls --format '{{.Name}}' | grep -E 'shelfscan|smartjewelry' | head -n1)
+          echo "Using docker network: \$NET"
+          docker pull ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${REEMBED_TAG}
+          docker run --rm --network "\$NET" \
+            -v /shelfscan/server/uploads:/app/uploads:ro \
+            -e GEMINI_API_KEY='${GEMINI_API_KEY}' \
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.REEMBED_IMAGE }}:${REEMBED_TAG} \
+            --qdrant-host qdrant --qdrant-port 6334 \
+            --uploads-dir /app/uploads
           EOF
 
       - name: Cleanup Docker dangling images

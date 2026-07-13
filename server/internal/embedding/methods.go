@@ -11,33 +11,32 @@ import (
 	"strings"
 )
 
-type GeminiEmbedRequest struct {
-	Content              GeminiContent `json:"content"`
+type geminiEmbedRequest struct {
+	Content              geminiContent `json:"content"`
 	OutputDimensionality int           `json:"outputDimensionality"`
 }
 
-type GeminiContent struct {
-	Parts []GeminiPart `json:"parts"`
+type geminiContent struct {
+	Parts []geminiPart `json:"parts"`
 }
 
-type GeminiPart struct {
-	InlineData *GeminiInlineData `json:"inlineData,omitempty"`
+type geminiPart struct {
+	InlineData *geminiInlineData `json:"inlineData,omitempty"`
 }
 
-type GeminiInlineData struct {
+type geminiInlineData struct {
 	MimeType string `json:"mimeType"`
-	Data     string `json:"data"` // base64 encoded
+	Data     string `json:"data"`
 }
 
-type GeminiEmbedResponse struct {
+type geminiEmbedResponse struct {
 	Embedding struct {
 		Values []float32 `json:"values"`
 	} `json:"embedding"`
 }
 
 func detectMimeType(filename string) string {
-	ext := strings.ToLower(filepath.Ext(filename))
-	switch ext {
+	switch strings.ToLower(filepath.Ext(filename)) {
 	case ".png":
 		return "image/png"
 	case ".gif":
@@ -59,26 +58,20 @@ func (e *EmbeddingClient) GetEmbedding(file io.Reader, filename string) ([]float
 
 func (e *EmbeddingClient) GetEmbeddingBytes(imgData []byte, filename string) ([]float32, error) {
 	if e.apiKey == "" {
-		return nil, fmt.Errorf("gemini API key is not configured for EmbeddingClient")
+		return nil, fmt.Errorf("GEMINI_API_KEY is not configured for EmbeddingClient")
 	}
 
-	encoded := base64.StdEncoding.EncodeToString(imgData)
-	mimeType := detectMimeType(filename)
-
-	reqBody := GeminiEmbedRequest{
-		Content: GeminiContent{
-			Parts: []GeminiPart{
-				{
-					InlineData: &GeminiInlineData{
-						MimeType: mimeType,
-						Data:     encoded,
-					},
+	reqBody := geminiEmbedRequest{
+		Content: geminiContent{
+			Parts: []geminiPart{{
+				InlineData: &geminiInlineData{
+					MimeType: detectMimeType(filename),
+					Data:     base64.StdEncoding.EncodeToString(imgData),
 				},
-			},
+			}},
 		},
 		OutputDimensionality: 768,
 	}
-
 	jsonBytes, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -87,23 +80,24 @@ func (e *EmbeddingClient) GetEmbeddingBytes(imgData []byte, filename string) ([]
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=%s", e.apiKey)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBytes))
 	if err != nil {
-		return nil, fmt.Errorf("failed to make HTTP post to Gemini: %w", err)
+		return nil, fmt.Errorf("failed to POST to Gemini: %w", err)
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read Gemini response: %w", err)
 	}
-
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("gemini API returned status %s: %s", resp.Status, string(bodyBytes))
+		return nil, fmt.Errorf("Gemini returned %s: %s", resp.Status, string(body))
 	}
 
-	var geminiResp GeminiEmbedResponse
-	if err := json.Unmarshal(bodyBytes, &geminiResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	var parsed geminiEmbedResponse
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return nil, fmt.Errorf("failed to parse Gemini response: %w", err)
 	}
-
-	return geminiResp.Embedding.Values, nil
+	if len(parsed.Embedding.Values) == 0 {
+		return nil, fmt.Errorf("Gemini returned empty vector")
+	}
+	return parsed.Embedding.Values, nil
 }

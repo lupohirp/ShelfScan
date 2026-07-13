@@ -188,6 +188,8 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		color := r.FormValue("color")
 		material := r.FormValue("material")
+		appendMode := r.FormValue("append") == "true" || r.URL.Query().Get("append") == "true"
+		existingAiDesc := strings.TrimSpace(r.FormValue("ai_description"))
 
 		files := r.MultipartForm.File["images"]
 		if len(files) == 0 {
@@ -195,12 +197,23 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		startIndex := 0
+		if appendMode {
+			n, err := h.qdrantClient.CountPointsBySKU(sku)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Error counting existing points for SKU %s: %v", sku, err), http.StatusInternalServerError)
+				return
+			}
+			startIndex = n
+			log.Printf("Append mode: SKU %s has %d existing point(s); new indices will start at %d", sku, n, startIndex)
+		}
+
 		os.MkdirAll("uploads", 0755)
 		var savedURLs []string
 		var savedThumbURLs []string
 
 		var embeddings [][]float32
-		var aiDesc string
+		aiDesc := existingAiDesc
 		for i, fileHeader := range files {
 			file, err := fileHeader.Open()
 			if err != nil {
@@ -208,7 +221,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if i == 0 {
+			if i == 0 && aiDesc == "" {
 				imgBytes, readErr := io.ReadAll(file)
 				if readErr == nil {
 					prompt := "Descrivi brevemente l'articolo di gioielleria o orologio in questa immagine specificando esplicitamente la categoria (es. orologio, collana, anello, bracciale, orecchini), lo stile e i colori rilevanti in italiano."
@@ -226,7 +239,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 				file.Seek(0, 0)
 			}
 
-			filename := fmt.Sprintf("%d_%s", systemID(name), fileHeader.Filename)
+			filename := fmt.Sprintf("%d_%s_%d_%s", systemID(name), sku, startIndex+i, fileHeader.Filename)
 			thumbFilename := "thumb_" + filename
 
 			// 1. Save original file
@@ -268,14 +281,18 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			embeddings = append(embeddings, embedding)
 		}
 
-		err = h.qdrantClient.SaveMultipleToQdrant(name, sku, savedURLs, savedThumbURLs, color, material, aiDesc, embeddings)
+		err = h.qdrantClient.SaveMultipleToQdrantAt(name, sku, savedURLs, savedThumbURLs, color, material, aiDesc, embeddings, startIndex)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error saving to Qdrant: %v", err), http.StatusInternalServerError)
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Successfully uploaded and indexed %d views for %s", len(embeddings), name)
+		mode := "indexed"
+		if appendMode {
+			mode = fmt.Sprintf("appended (starting at index %d)", startIndex)
+		}
+		fmt.Fprintf(w, "Successfully uploaded and %s %d view(s) for %s", mode, len(embeddings), name)
 	})
 
 	if h.corsMiddleware != nil {

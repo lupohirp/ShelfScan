@@ -11,3 +11,12 @@ server/uploads/*
 server/db/shelfscan.db-shm
 server/db/shelfscan.db-wal
 *.db-shm
+server/cmd/audit/main.go
+server/cmd/audit/sku_photo_counts.csv
+server/cmd/dump-catalog/main.go
+server/cmd/scrape-gioiapura/main.go
+server/cmd/upload-catalog/main.go
+server/db/shelfscan.db-shm
+server/db/shelfscan.db-wal
+server/upload-catalog
+server/prod_catalog.json

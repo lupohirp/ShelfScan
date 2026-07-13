@@ -18,8 +18,6 @@ services:
     environment:
       - QDRANT_HOST=http://qdrant
       - QDRANT_PORT=6333
-      - EMBEDDINGS_HOST=http://embeddings
-      - EMBEDDINGS_PORT=8001
       - MCP_URL=ws://mcp:8081/ws
     volumes:
       - ./server/uploads:/app/uploads
