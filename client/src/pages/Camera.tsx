@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useScan } from '../store/scan'
 import { X, Zap, ImageIcon, ScanLine, Camera as CameraIcon, Send } from 'lucide-react'
 import type { CheckSession } from '../types'
+import { validateCapturedImage } from '../lib/imageValidation'
 
 export default function Camera() {
   const navigate = useNavigate()
@@ -16,16 +17,29 @@ export default function Camera() {
   const [isStable, setIsStable] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
   
+  // Validation and guidance states
+  const [pendingImage, setPendingImage] = useState<string | null>(null)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [showWarning, setShowWarning] = useState(false)
+  const [realtimeFeedback, setRealtimeFeedback] = useState<string>('Allinea lo scaffale nel riquadro')
+  const [realtimeFeedbackType, setRealtimeFeedbackType] = useState<'info' | 'warning' | 'success'>('info')
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const [torchSupported, setTorchSupported] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const stabilityTimerRef = useRef<any>(null)
+  const stabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Request 4K Camera & Lifecycle Management
   useEffect(() => {
     let currentStream: MediaStream | null = null
     async function setupCamera() {
       try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("navigator.mediaDevices is undefined. Secure context (HTTPS) or localhost is required.")
+        }
         currentStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'environment',
@@ -38,8 +52,18 @@ export default function Camera() {
         if (videoRef.current) {
           videoRef.current.srcObject = currentStream
         }
+        const track = currentStream.getVideoTracks()[0]
+        // getCapabilities().torch is Android-only (Chromium). Safari has no torch API.
+        const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean }
+        setTorchSupported(Boolean(caps.torch))
       } catch (err) {
         console.error('Error accessing camera:', err)
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.toLowerCase().includes("secure context") || msg.toLowerCase().includes("undefined")) {
+          setCameraError("L'accesso alla fotocamera richiede una connessione sicura (HTTPS) o localhost. Apri l'app tramite localhost o una connessione HTTPS.")
+        } else {
+          setCameraError("Accesso alla fotocamera negato o non disponibile. Verifica i permessi del browser.")
+        }
       }
     }
     setupCamera()
@@ -71,6 +95,87 @@ export default function Camera() {
     return () => window.removeEventListener('deviceorientation', handleOrientation)
   }, [])
 
+  // Real-time Preview Analytics and guidance feedback
+  useEffect(() => {
+    if (analyzing || showWarning) return
+
+    const interval = setInterval(() => {
+      if (!videoRef.current) return
+      const video = videoRef.current
+      if (video.videoWidth === 0) return
+
+      // Downsample and process on small offscreen canvas
+      const canvas = document.createElement('canvas')
+      canvas.width = 120
+      canvas.height = 120
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.drawImage(video, 0, 0, 120, 120)
+      
+      try {
+        const imgData = ctx.getImageData(0, 0, 120, 120)
+        const data = imgData.data
+        
+        let brightnessSum = 0
+        const gray = new Float32Array(120 * 120)
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i]
+          const g = data[i+1]
+          const b = data[i+2]
+          const grayVal = 0.299 * r + 0.587 * g + 0.114 * b
+          gray[i/4] = grayVal
+          brightnessSum += grayVal
+        }
+        const brightness = brightnessSum / gray.length
+        
+        let edgeCount = 0
+        const edgeThreshold = 30
+        const width = 120
+        const height = 120
+        for (let y = 1; y < height - 1; y++) {
+          for (let x = 1; x < width - 1; x++) {
+            const idx = y * width + x
+            const gx = 
+              -1 * gray[idx - width - 1] + 1 * gray[idx - width + 1] +
+              -2 * gray[idx - 1]         + 2 * gray[idx + 1] +
+              -1 * gray[idx + width - 1] + 1 * gray[idx + width + 1]
+            const gy = 
+              -1 * gray[idx - width - 1] - 2 * gray[idx - width] - 1 * gray[idx - width + 1] +
+              1 * gray[idx + width - 1]  + 2 * gray[idx + width]  + 1 * gray[idx + width + 1]
+            const mag = Math.sqrt(gx*gx + gy*gy)
+            if (mag > edgeThreshold) {
+              edgeCount++
+            }
+          }
+        }
+        const edgeDensity = edgeCount / ((width-2)*(height-2))
+        
+        const isLevel = Math.abs(pitch - 90) < 7 && Math.abs(roll) < 7
+        
+        if (brightness < 45) {
+          setRealtimeFeedback(torchSupported ? "Troppo buio: attiva il flash o cerca più luce." : "Troppo buio: cerca una zona più illuminata.")
+          setRealtimeFeedbackType("warning")
+        } else if (brightness > 225) {
+          setRealtimeFeedback("Troppo luminoso o riflesso: cambia angolazione.")
+          setRealtimeFeedbackType("warning")
+        } else if (!isLevel) {
+          setRealtimeFeedback("Allinea la livella al centro.")
+          setRealtimeFeedbackType("info")
+        } else if (edgeDensity < 0.055) {
+          setRealtimeFeedback("Avvicinati allo scaffale.")
+          setRealtimeFeedbackType("warning")
+        } else {
+          setRealtimeFeedback("Ottimo! Tieni fermo...")
+          setRealtimeFeedbackType("success")
+        }
+      } catch (e) {
+        // Skip analytics errors during canvas read
+      }
+    }, 500)
+
+    return () => clearInterval(interval)
+  }, [pitch, roll, analyzing, showWarning, torchSupported])
+
   const captureImage = useCallback(async () => {
     console.log('Capture triggered')
     if (!videoRef.current || !canvasRef.current) {
@@ -89,13 +194,21 @@ export default function Camera() {
     ctx.drawImage(video, 0, 0)
     const imageData = canvas.toDataURL('image/jpeg', 0.8)
     
-    setCapturedImages(prev => [...prev, imageData])
-
-    // Visual flash effect
-    const flash = document.createElement('div')
-    flash.className = 'fixed inset-0 bg-white z-[200] animate-out fade-out duration-300'
-    document.body.appendChild(flash)
-    setTimeout(() => flash.remove(), 300)
+    // Validate image quality
+    validateCapturedImage(imageData, (result) => {
+      if (result.isValid) {
+        setCapturedImages(prev => [...prev, imageData])
+        // Visual flash effect on success
+        const flash = document.createElement('div')
+        flash.className = 'fixed inset-0 bg-white z-[200] animate-out fade-out duration-300'
+        document.body.appendChild(flash)
+        setTimeout(() => flash.remove(), 300)
+      } else {
+        setPendingImage(imageData)
+        setValidationErrors(result.errors)
+        setShowWarning(true)
+      }
+    })
   }, [videoRef, canvasRef])
 
   // Stability Detection & Auto-capture
@@ -103,7 +216,7 @@ export default function Camera() {
     const isLevel = Math.abs(pitch - 90) < 7 && Math.abs(roll) < 7
     setIsStable(isLevel)
 
-    if (isLevel && !analyzing && capturedImages.length === 0) { 
+    if (isLevel && !analyzing && capturedImages.length === 0 && !showWarning) { 
       if (!stabilityTimerRef.current) {
         stabilityTimerRef.current = setTimeout(() => {
           captureImage()
@@ -115,7 +228,7 @@ export default function Camera() {
         stabilityTimerRef.current = null
       }
     }
-  }, [pitch, roll, captureImage, analyzing, capturedImages.length])
+  }, [pitch, roll, captureImage, analyzing, capturedImages.length, showWarning])
 
   const handleAnalysis = async () => {
     if (analyzing || capturedImages.length === 0) return
@@ -224,7 +337,16 @@ export default function Camera() {
       const reader = new FileReader()
       reader.onload = (ev) => {
         if (ev.target?.result) {
-          setCapturedImages(prev => [...prev, ev.target?.result as string])
+          const imageData = ev.target.result as string
+          validateCapturedImage(imageData, (result) => {
+            if (result.isValid) {
+              setCapturedImages(prev => [...prev, imageData])
+            } else {
+              setPendingImage(imageData)
+              setValidationErrors(result.errors)
+              setShowWarning(true)
+            }
+          })
         }
       }
       reader.readAsDataURL(file)
@@ -272,36 +394,80 @@ export default function Camera() {
           </div>
         )}
 
-        <button className="w-12 h-12 bg-black/50 backdrop-blur-xl rounded-full flex items-center justify-center text-white pointer-events-auto">
-          <Zap size={20} />
-        </button>
+        {torchSupported ? (
+          <button
+            onClick={async () => {
+              const track = stream?.getVideoTracks?.()[0]
+              if (!track) return
+              try {
+                const next = !torchOn
+                await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] })
+                setTorchOn(next)
+              } catch (err) {
+                console.warn('Torch toggle failed:', err)
+              }
+            }}
+            className={`w-12 h-12 backdrop-blur-xl rounded-full flex items-center justify-center pointer-events-auto active:scale-95 transition-colors ${torchOn ? 'bg-amber-400 text-black' : 'bg-black/50 text-white'}`}
+            aria-label={torchOn ? 'Disattiva flash' : 'Attiva flash'}
+          >
+            <Zap size={20} />
+          </button>
+        ) : (
+          <div className="w-12 h-12" />
+        )}
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-        <div className="mb-8 text-center px-6 transition-opacity duration-300">
-          <p className={`text-white text-lg font-medium drop-shadow-lg ${isStable ? 'opacity-50' : 'opacity-100'}`}>
-            {isStable ? 'Resta fermo...' : 'Inquadra la vetrina'}
-          </p>
-          {!isStable && (
-            <p className="text-white/60 text-xs mt-1 uppercase tracking-widest font-bold">
-              {capturedImages.length > 0 ? `${capturedImages.length} foto pronte` : 'Allinea il pallino al centro'}
-            </p>
-          )}
+        {/* Dynamic Status Banner */}
+        <div className="mb-6 text-center px-6 transition-all duration-300 max-w-[85%]">
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-md border text-xs font-semibold uppercase tracking-wider shadow-lg ${
+            realtimeFeedbackType === 'success' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+            realtimeFeedbackType === 'warning' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+            'bg-black/50 text-white/95 border-white/10'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${
+              realtimeFeedbackType === 'success' ? 'bg-green-500 animate-pulse' :
+              realtimeFeedbackType === 'warning' ? 'bg-amber-500 animate-bounce' :
+              'bg-white/60'
+            }`} />
+            {realtimeFeedback}
+          </div>
         </div>
 
-        <div className={`w-32 h-32 border-2 rounded-full flex items-center justify-center transition-all duration-500 mb-4 ${isStable ? 'border-green-500 bg-green-500/20 scale-100 opacity-40' : 'border-white/20'}`}>
+        {/* Leveling Indicator Bubble */}
+        <div className={`w-28 h-28 border-2 rounded-full flex items-center justify-center transition-all duration-500 mb-6 ${isStable ? 'border-green-500 bg-green-500/10 scale-95 opacity-55' : 'border-white/20'}`}>
           <div 
-            className={`w-4 h-4 rounded-full transition-colors duration-300 ${isStable ? 'bg-green-500' : 'bg-red-500'}`}
+            className={`w-3.5 h-3.5 rounded-full transition-colors duration-300 ${isStable ? 'bg-green-500' : 'bg-red-500'}`}
             style={{ transform: `translate(${roll * 2}px, ${(pitch - 90) * 2}px)` }}
           />
         </div>
 
-        <div className={`relative w-[90%] aspect-[4/5] border-2 rounded-3xl transition-all duration-500 ${isStable ? 'border-green-500 scale-105' : 'border-white/20'}`}>
+        {/* Framing Grid / Target Box */}
+        <div className={`relative w-[90%] aspect-[4/5] border-2 rounded-3xl transition-all duration-500 overflow-hidden ${isStable ? 'border-green-500 scale-105 shadow-[0_0_40px_rgba(34,197,94,0.15)]' : 'border-white/20'}`}>
           <div className={`absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 rounded-tl-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
           <div className={`absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 rounded-tr-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
           <div className={`absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 rounded-bl-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
           <div className={`absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 rounded-br-3xl transition-colors ${isStable ? 'border-green-500' : 'border-white/40'}`} />
           
+          {/* Rule of Thirds Grid Lines */}
+          <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-20">
+            <div className="border-r border-b border-white border-dashed" />
+            <div className="border-r border-b border-white border-dashed" />
+            <div className="border-b border-white border-dashed" />
+            <div className="border-r border-b border-white border-dashed" />
+            <div className="border-r border-b border-white border-dashed" />
+            <div className="border-b border-white border-dashed" />
+            <div className="border-r border-white border-dashed" />
+            <div className="border-r border-white border-dashed" />
+            <div />
+          </div>
+
+          {/* Leveling bar inside the guide box */}
+          <div 
+            className={`absolute left-6 right-6 h-[1.5px] top-1/2 -translate-y-1/2 transition-colors duration-300 pointer-events-none ${Math.abs(roll) < 5 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-white/30'}`}
+            style={{ transform: `rotate(${roll}deg)` }}
+          />
+
           {isStable && (
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-500/10 to-transparent animate-scan-line rounded-3xl" />
           )}
@@ -335,10 +501,19 @@ export default function Camera() {
 
         <button
           onClick={captureImage}
-          className={`w-24 h-24 rounded-full border-[6px] flex items-center justify-center transition-all pointer-events-auto active:scale-90 ${isStable ? 'border-green-500 scale-110 shadow-[0_0_30px_rgba(34,197,94,0.4)]' : 'border-white shadow-lg'}`}
+          aria-disabled={realtimeFeedbackType === 'warning'}
+          className={`w-24 h-24 rounded-full border-[6px] flex items-center justify-center transition-all pointer-events-auto active:scale-90 ${
+            realtimeFeedbackType === 'warning'
+              ? 'border-white/30 opacity-50'
+              : isStable
+                ? 'border-green-500 scale-110 shadow-[0_0_30px_rgba(34,197,94,0.4)]'
+                : 'border-white shadow-lg'
+          }`}
           style={{ backgroundColor: 'transparent' }}
         >
-          <div className={`w-18 h-18 rounded-full transition-colors ${isStable ? 'bg-green-500' : 'bg-white'}`} />
+          <div className={`w-18 h-18 rounded-full transition-colors ${
+            realtimeFeedbackType === 'warning' ? 'bg-white/40' : isStable ? 'bg-green-500' : 'bg-white'
+          }`} />
         </button>
 
         {capturedImages.length > 0 ? (
@@ -357,6 +532,79 @@ export default function Camera() {
           </div>
         )}
       </div>
+
+      {/* Camera Access Error Overlay */}
+      {cameraError && (
+        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-40 flex flex-col items-center justify-center p-6 text-center text-white">
+          <div className="bg-red-950/40 text-red-200 border border-red-500/30 p-5 rounded-2xl max-w-xs shadow-2xl">
+            <X size={28} className="mx-auto mb-3 text-red-500" />
+            <h3 className="font-bold text-sm mb-2">Fotocamera non raggiungibile</h3>
+            <p className="text-xs text-white/70 leading-relaxed">{cameraError}</p>
+            <p className="text-xs text-white/50 mt-4 font-semibold">Puoi comunque caricare una foto dalla galleria usando l'icona in basso.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Handling and Retake / Skip Overlay */}
+      {showWarning && pendingImage && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[200] flex flex-col justify-between p-6 animate-in fade-in duration-300">
+          <div className="text-center pt-8">
+            <div className="inline-flex items-center gap-2 bg-red-500/20 text-red-400 border border-red-500/30 px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              Qualità immagine
+            </div>
+            <h3 className="text-white text-lg font-bold mt-4">La foto non soddisfa gli standard di qualità</h3>
+            <p className="text-white/60 text-xs mt-2 px-6">Abbiamo rilevato problemi che possono influire sull'accuratezza del riconoscimento.</p>
+          </div>
+
+          <div className="max-w-xs w-full mx-auto my-auto flex flex-col gap-6">
+            {/* Captured Image Preview with overlayed errors */}
+            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+              <img src={pendingImage} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-5">
+                <div className="space-y-3">
+                  {validationErrors.map((err, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-white text-xs">
+                      <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" />
+                      <span className="font-medium text-left leading-relaxed">{err}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="max-w-xs w-full mx-auto flex flex-col gap-3 pb-6">
+            <button
+              onClick={() => {
+                setShowWarning(false)
+                setPendingImage(null)
+                setValidationErrors([])
+              }}
+              className="w-full py-3.5 bg-white text-black font-semibold rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_25px_rgba(255,255,255,0.15)]"
+            >
+              <CameraIcon size={16} />
+              Rifai la foto
+            </button>
+
+            <button
+              onClick={() => {
+                if (pendingImage) {
+                  setCapturedImages(prev => [...prev, pendingImage])
+                }
+                setShowWarning(false)
+                setPendingImage(null)
+                setValidationErrors([])
+              }}
+              className="w-full py-3 bg-white/10 text-white/70 hover:text-white font-medium rounded-xl active:scale-95 transition-all border border-white/10 text-xs"
+            >
+              Ignora avvisi e mantieni comunque
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
