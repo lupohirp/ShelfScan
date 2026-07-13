@@ -89,7 +89,7 @@ if [ -d "$TEMP_RESTORE_DIR/backup/qdrant" ]; then
   docker run --rm \
     -v "$QDRANT_VOLUME":/qdrant/storage \
     -v "$(pwd)/$TEMP_RESTORE_DIR/backup/qdrant":/restore \
-    alpine sh -c "rm -rf /qdrant/storage/* && cp -a /restore/. /qdrant/storage/"
+    alpine sh -c "find /qdrant/storage -mindepth 1 -delete && cp -a /restore/. /qdrant/storage/"
 else
   echo "Warning: No Qdrant volume data found in backup."
 fi
