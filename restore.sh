@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# Ensure the script runs from the repository root
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
 BACKUP_DIR="./backups"
 TEMP_RESTORE_DIR="./tmp_restore"
 
