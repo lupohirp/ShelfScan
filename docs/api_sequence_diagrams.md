@@ -5,7 +5,7 @@ This document contains detailed sequence diagrams for the primary API endpoints 
 ---
 
 ## 1. Automated Shelf Analysis (`POST /analyze`)
-This API endpoint receives one or more high-resolution shelf images, uses Gemini to locate items, crops detected bounding boxes, requests embeddings for each cropped item using the Gemini Embedding 2 API, queries Qdrant for matches, and returns an inventory comparison report (found vs. missing products).
+This API endpoint receives one or more high-resolution shelf images, uses Gemini to locate items, crops detected bounding boxes, requests embeddings for each cropped item using the Gemini Embedding 2 API, orchestrates the vector search via the Go MCP Server, and returns an inventory comparison report (found vs. missing products).
 
 ```mermaid
 sequenceDiagram
@@ -13,6 +13,7 @@ sequenceDiagram
     actor Client as PWA Client
     participant API as Go API (server)
     participant GeminiAPI as Google Gemini API
+    participant MCP as Go MCP Server (WebSocket)
     participant Qdrant as Qdrant DB
 
     Client->>API: POST /analyze {images: [...]}
@@ -34,8 +35,14 @@ sequenceDiagram
             Note over GeminiAPI: Gemini Embeddings 2
             GeminiAPI-->>API: 768-dim embedding vector
             
-            API->>Qdrant: Search collections/jewelry_inventory/points {vector}
-            Qdrant-->>API: Top-N match hits
+            API->>MCP: Call tools/call: vector_search(embedding)
+            activate MCP
+            Note over MCP: JSON-RPC over WebSocket
+            MCP->>Qdrant: PerformVectorSearch(embedding)
+            Qdrant-->>MCP: Nearest matches
+            MCP-->>API: Match results JSON
+            deactivate MCP
+            
             API->>API: Score & filter hits (category conflict, color conflict)
             API->>API: Save best match above threshold
         end
@@ -52,7 +59,7 @@ sequenceDiagram
 ---
 
 ## 2. Image-Based Vector Search (`POST /search`)
-This endpoint accepts a photo of a single jewelry item, generates its vector using Gemini Embeddings 2, and returns the closest matches from the Qdrant vector database.
+This endpoint accepts a photo of a single jewelry item, generates its vector using Gemini Embeddings 2, uses the Go MCP Server to perform the search, and returns the closest matches from the Qdrant vector database.
 
 ```mermaid
 sequenceDiagram
@@ -60,6 +67,7 @@ sequenceDiagram
     actor Client as PWA Client / Admin
     participant API as Go API (server)
     participant GeminiAPI as Google Gemini API
+    participant MCP as Go MCP Server (WebSocket)
     participant Qdrant as Qdrant DB
 
     Client->>API: POST /search {image}
@@ -70,10 +78,14 @@ sequenceDiagram
     GeminiAPI-->>API: 768-dim vector
     deactivate GeminiAPI
     
-    API->>Qdrant: Search collections/jewelry_inventory/points {vector}
+    API->>MCP: Call tools/call: vector_search(vector)
+    activate MCP
+    MCP->>Qdrant: Search collections/jewelry_inventory/points {vector}
     activate Qdrant
-    Qdrant-->>API: Nearest hits (SKUs, scores, payloads)
+    Qdrant-->>MCP: Nearest hits (SKUs, scores, payloads)
     deactivate Qdrant
+    MCP-->>API: Match results JSON
+    deactivate MCP
     
     API-->>Client: 200 OK [{sku, name, score, imageUrl}]
     deactivate API
