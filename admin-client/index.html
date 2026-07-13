@@ -576,7 +576,7 @@
                 *
               </sc-if>
             </label>
-            <div onClick="document.getElementById('inventory-file-input').click()" style="border:2px dashed #e2e1dc;border-radius:2px;padding:24px 14px;text-align:center;cursor:pointer;background:#fafaf9;transition:all .15s;" style-hover="border-color:#141414;background:#f5f4f2;">
+            <div style="position:relative;border:2px dashed #e2e1dc;border-radius:2px;padding:24px 14px;text-align:center;cursor:pointer;background:#fafaf9;transition:all .15s;" style-hover="border-color:#141414;background:#f5f4f2;">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8c8a85" stroke-width="1.6" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <div style="font-size:13px;font-weight:500;color:#141414;">{{ filesLabel }}</div>
               <div style="font-size:11px;color:#8c8a85;margin-top:4px;">
@@ -587,7 +587,7 @@
                   {{ t.addFilesSubtitle }}
                 </sc-if>
               </div>
-              <input id="inventory-file-input" type="file" multiple accept="image/*" onChange="{{ onInvFilesChange }}" style="display:none;" />
+              <input type="file" multiple accept="image/*" onChange="{{ onInvFilesChange }}" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:20;" />
             </div>
           </div>
 
