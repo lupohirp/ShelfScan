@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -440,6 +441,28 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					log.Printf("Error decoding image %d: %v", imgIdx, err)
 					return
+				}
+
+				// Apply EXIF auto-orientation
+				orientation := getOrientation(imgData)
+				if orientation > 1 {
+					log.Printf("Applying auto-orientation: %d for image %d", orientation, imgIdx)
+					switch orientation {
+					case 2:
+						img = imaging.FlipH(img)
+					case 3:
+						img = imaging.Rotate180(img)
+					case 4:
+						img = imaging.FlipV(img)
+					case 5:
+						img = imaging.Rotate90(imaging.FlipH(img))
+					case 6:
+						img = imaging.Rotate270(img) // imaging rotates counter-clockwise, so Rotate270 is 90 degrees CW
+					case 7:
+						img = imaging.Rotate90(imaging.FlipV(img))
+					case 8:
+						img = imaging.Rotate90(img) // imaging rotates counter-clockwise, so Rotate90 is 90 degrees CCW (270 CW)
+					}
 				}
 
 				bounds := img.Bounds()
@@ -1182,4 +1205,84 @@ func parseDetections(responseText string) []domain.Detection {
 	}
 
 	return recovered
+}
+
+func getOrientation(data []byte) int {
+	if len(data) < 4 {
+		return 1
+	}
+	if data[0] != 0xff || data[1] != 0xd8 {
+		return 1
+	}
+
+	idx := 2
+	for idx < len(data)-1 {
+		if data[idx] != 0xff {
+			return 1
+		}
+		marker := data[idx+1]
+		if marker == 0xd9 || marker == 0xda { // EOI or SOS
+			break
+		}
+		if marker == 0xe1 { // APP1 (usually Exif)
+			if idx+6+6 > len(data) {
+				return 1
+			}
+			if string(data[idx+4:idx+8]) == "Exif" && data[idx+8] == 0 && data[idx+9] == 0 {
+				tiffHeaderIdx := idx + 10
+				if tiffHeaderIdx+8 > len(data) {
+					return 1
+				}
+				byteOrder := string(data[tiffHeaderIdx : tiffHeaderIdx+2])
+				var isLittleEndian bool
+				if byteOrder == "II" {
+					isLittleEndian = true
+				} else if byteOrder == "MM" {
+					isLittleEndian = false
+				} else {
+					return 1
+				}
+
+				var readUint16 func([]byte) uint16
+				var readUint32 func([]byte) uint32
+				if isLittleEndian {
+					readUint16 = binary.LittleEndian.Uint16
+					readUint32 = binary.LittleEndian.Uint32
+				} else {
+					readUint16 = binary.BigEndian.Uint16
+					readUint32 = binary.BigEndian.Uint32
+				}
+
+				if readUint16(data[tiffHeaderIdx+2:tiffHeaderIdx+4]) != 42 {
+					return 1
+				}
+
+				ifdOffset := readUint32(data[tiffHeaderIdx+4:tiffHeaderIdx+8])
+				ifdIdx := tiffHeaderIdx + int(ifdOffset)
+				if ifdIdx+2 > len(data) {
+					return 1
+				}
+
+				numEntries := readUint16(data[ifdIdx : ifdIdx+2])
+				dirIdx := ifdIdx + 2
+				for i := 0; i < int(numEntries); i++ {
+					entryIdx := dirIdx + i*12
+					if entryIdx+12 > len(data) {
+						break
+					}
+					tag := readUint16(data[entryIdx : entryIdx+2])
+					if tag == 0x0112 { // Orientation Tag
+						val := readUint16(data[entryIdx+8 : entryIdx+10])
+						return int(val)
+					}
+				}
+			}
+		}
+		if idx+4 > len(data) {
+			break
+		}
+		segmentLength := int(binary.BigEndian.Uint16(data[idx+2 : idx+4]))
+		idx += 2 + segmentLength
+	}
+	return 1
 }
