@@ -713,6 +713,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 										verificationReason = reason
 										log.Printf("[Verification] Gemini Match Result for %s (%s): %t, Reason: %s", bestMatchName, bestMatchSku, match, reason)
 									} else {
+										log.Printf("[Verification Warning] Gemini match verification failed: %v", err)
 									}
 								} else {
 									log.Printf("[Verification Warning] Could not read database image file %s: %v", dbImgPath, err)
