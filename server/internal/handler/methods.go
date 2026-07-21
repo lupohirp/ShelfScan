@@ -329,13 +329,15 @@ type CandidateLog struct {
 }
 
 type DetectionLog struct {
-	Desc           string         `json:"desc"`
-	Box            []int          `json:"box"`
-	CropFilename   string         `json:"crop_filename,omitempty"`
-	BestMatch      string         `json:"best_match,omitempty"`
-	BestMatchScore float32        `json:"best_match_score,omitempty"`
-	Accepted       bool           `json:"accepted"`
-	Candidates     []CandidateLog `json:"candidates"`
+	Desc              string         `json:"desc"`
+	Box               []int          `json:"box"`
+	CropFilename      string         `json:"crop_filename,omitempty"`
+	BestMatch         string         `json:"best_match,omitempty"`
+	BestMatchScore    float32        `json:"best_match_score,omitempty"`
+	Accepted          bool           `json:"accepted"`
+	Verified          bool           `json:"verified,omitempty"`
+	VerificationNotes string         `json:"verification_notes,omitempty"`
+	Candidates        []CandidateLog `json:"candidates"`
 }
 
 type ImageLog struct {
@@ -696,17 +698,50 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 						// Require a final confidence score of at least 0.82
 						if bestMatchScore >= 0.82 {
-							mainMu.Lock()
-							acceptedMatches = append(acceptedMatches, AcceptedMatch{
-								Name:     bestMatchName,
-								Sku:      bestMatchSku,
-								ImageURL: bestMatchImgUrl,
-								CropURL:  cropURL,
-								Score:    bestMatchScore,
-							})
-							log.Printf("Match accepted from img %d: %s (%s, %f)", imgIdx, bestMatchName, bestMatchSku, bestMatchScore)
-							mainMu.Unlock()
-							detections[detIdx].SKU = bestMatchSku
+							verified := true
+							var verificationReason string
+							if bestMatchImgUrl != "" {
+								dbImgFilename := filepath.Base(bestMatchImgUrl)
+								dbImgPath := filepath.Join("uploads", dbImgFilename)
+
+								dbImgData, err := os.ReadFile(dbImgPath)
+								if err == nil {
+									log.Printf("[Verification] Calling Gemini to verify match for %s (%s)", bestMatchName, bestMatchSku)
+									match, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), dbImgData)
+									if err == nil {
+										verified = match
+										verificationReason = reason
+										log.Printf("[Verification] Gemini Match Result for %s (%s): %t, Reason: %s", bestMatchName, bestMatchSku, match, reason)
+									} else {
+									}
+								} else {
+									log.Printf("[Verification Warning] Could not read database image file %s: %v", dbImgPath, err)
+								}
+							}
+
+							logMu.Lock()
+							imageLogs[imgIdx].Detections[detIdx].Verified = verified
+							imageLogs[imgIdx].Detections[detIdx].VerificationNotes = verificationReason
+							if !verified {
+								imageLogs[imgIdx].Detections[detIdx].Accepted = false
+							}
+							logMu.Unlock()
+
+							if verified {
+								mainMu.Lock()
+								acceptedMatches = append(acceptedMatches, AcceptedMatch{
+									Name:     bestMatchName,
+									Sku:      bestMatchSku,
+									ImageURL: bestMatchImgUrl,
+									CropURL:  cropURL,
+									Score:    bestMatchScore,
+								})
+								log.Printf("Match accepted from img %d: %s (%s, %f)", imgIdx, bestMatchName, bestMatchSku, bestMatchScore)
+								mainMu.Unlock()
+								detections[detIdx].SKU = bestMatchSku
+							} else {
+								log.Printf("Match rejected by Gemini verification for %s (%s)", bestMatchName, bestMatchSku)
+							}
 						}
 					}(detIdx, det)
 				}

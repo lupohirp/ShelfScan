@@ -2,6 +2,7 @@ package gemini
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -148,4 +149,98 @@ func (g *GeminiClient) DescribeImageWithModel(ctx context.Context, modelName str
 	}
 	return "", fmt.Errorf("no text response generated")
 }
+
+func (g *GeminiClient) VerifyMatch(ctx context.Context, cropImg []byte, dbImg []byte) (bool, string, error) {
+	g.mu.Lock()
+	if g.client == nil {
+		c, err := genai.NewClient(context.Background(), option.WithAPIKey(g.Apikey))
+		if err != nil {
+			g.mu.Unlock()
+			return false, "", err
+		}
+		g.client = c
+	}
+	g.mu.Unlock()
+
+	prompt := `Compara queste due immagini. 
+L'Immagine 1 è il ritaglio di un articolo reale prelevato da uno scaffale/espositore (può presentare riflessi, angolazioni diverse o qualità inferiore).
+L'Immagine 2 è la foto ufficiale del prodotto presente nel catalogo/inventario.
+
+Devi determinare con assoluta precisione se mostrano lo STESSO IDENTICO modello (stesso design del quadrante, stesso stile del cinturino, stessa forma della cassa, stessi dettagli decorativi o brillanti) oppure se sono due modelli differenti.
+Presta attenzione a dettagli come:
+- La presenza o meno di datari, sotto-quadranti o cronografi.
+- I numeri sul quadrante (romani, arabi, o semplici trattini/brillanti).
+- Il colore esatto del quadrante e del cinturino.
+- La trama della maglia del cinturino.
+- La forma esatta della lunetta (liscia, zigrinata, con brillanti, ecc.).
+
+Se le immagini mostrano due articoli diversi o se hai dei dubbi significativi, rispondi con match: false.`
+
+	modelsToTry := []string{
+		"models/gemini-3.1-flash-lite",
+		"models/gemini-3-flash",
+		"models/gemini-2.5-flash",
+		"models/gemini-2.5-flash-lite",
+	}
+
+	var lastErr error
+	for _, modelName := range modelsToTry {
+		log.Printf("Attempting verification using model: %s", modelName)
+		model := g.client.GenerativeModel(modelName)
+		model.SetTemperature(0.1)
+
+		model.ResponseMIMEType = "application/json"
+		model.ResponseSchema = &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"match": {
+					Type:        genai.TypeBoolean,
+					Description: "Imposta su true se le due immagini mostrano lo STESSO IDENTICO modello di orologio o gioiello. Imposta su false se sono modelli differenti (anche se simili).",
+				},
+				"motivo": {
+					Type:        genai.TypeString,
+					Description: "Una breve spiegazione in italiano che descrive le differenze rilevate o i punti di corrispondenza che confermano l'identità del modello.",
+				},
+			},
+			Required: []string{"match", "motivo"},
+		}
+
+		resp, err := model.GenerateContent(ctx,
+			genai.Text(prompt),
+			genai.ImageData("jpeg", cropImg),
+			genai.ImageData("jpeg", dbImg),
+		)
+		if err == nil {
+			if len(resp.Candidates) > 0 && resp.Candidates[0].Content != nil && len(resp.Candidates[0].Content.Parts) > 0 {
+				var responseText string
+				for _, part := range resp.Candidates[0].Content.Parts {
+					if text, ok := part.(genai.Text); ok {
+						responseText += string(text)
+					}
+				}
+
+				type VerificationResult struct {
+					Match  bool   `json:"match"`
+					Motivo string `json:"motivo"`
+				}
+
+				var res VerificationResult
+				if err := json.Unmarshal([]byte(responseText), &res); err == nil {
+					return res.Match, res.Motivo, nil
+				} else {
+					log.Printf("Failed to parse verification json from model %s: %v", modelName, err)
+					lastErr = err
+				}
+			} else {
+				lastErr = fmt.Errorf("empty response from model %s", modelName)
+			}
+		} else {
+			log.Printf("Verification model %s failed: %v, skipping...", modelName, err)
+			lastErr = err
+		}
+	}
+
+	return false, "", fmt.Errorf("all verification models failed. Last error: %w", lastErr)
+}
+
 
