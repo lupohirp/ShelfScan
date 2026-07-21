@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
@@ -150,7 +151,7 @@ func (g *GeminiClient) DescribeImageWithModel(ctx context.Context, modelName str
 	return "", fmt.Errorf("no text response generated")
 }
 
-func (g *GeminiClient) VerifyMatch(ctx context.Context, cropImg []byte, dbImg []byte) (bool, string, error) {
+func (g *GeminiClient) VerifyMatch(ctx context.Context, cropImg []byte, dbImg []byte, category string) (bool, string, error) {
 	g.mu.Lock()
 	if g.client == nil {
 		c, err := genai.NewClient(context.Background(), option.WithAPIKey(g.Apikey))
@@ -162,19 +163,52 @@ func (g *GeminiClient) VerifyMatch(ctx context.Context, cropImg []byte, dbImg []
 	}
 	g.mu.Unlock()
 
-	prompt := `Compara queste due immagini. 
-L'Immagine 1 è il ritaglio di un articolo reale prelevato da uno scaffale/espositore (può presentare riflessi, angolazioni diverse o qualità inferiore).
-L'Immagine 2 è la foto ufficiale del prodotto presente nel catalogo/inventario.
-
-Devi determinare con assoluta precisione se mostrano lo STESSO IDENTICO modello (stesso design del quadrante, stesso stile del cinturino, stessa forma della cassa, stessi dettagli decorativi o brillanti) oppure se sono due modelli differenti.
-Presta attenzione a dettagli come:
+	categoryPrompt := ""
+	switch strings.ToLower(category) {
+	case "watch", "orologio", "cronografo", "smartwatch":
+		categoryPrompt = `Per gli orologi, presta attenzione a dettagli come:
 - La presenza o meno di datari, sotto-quadranti o cronografi.
 - I numeri sul quadrante (romani, arabi, o semplici trattini/brillanti).
 - Il colore esatto del quadrante e del cinturino.
 - La trama della maglia del cinturino.
-- La forma esatta della lunetta (liscia, zigrinata, con brillanti, ecc.).
+- La forma esatta della lunetta (liscia, zigrinata, con brillanti, ecc.).`
+	case "ring", "anello", "anelli", "fede", "fedina", "solitario", "veretta":
+		categoryPrompt = `Per gli anelli, presta attenzione a dettagli come:
+- Il tipo di anello (solitario, veretta, trilogy, fascia, fede).
+- La forma, il taglio e il colore della pietra centrale (rotondo, ovale, smeraldo, ecc.).
+- La presenza di piccoli diamanti sulla fascia.
+- Il colore e materiale del metallo (oro bianco, oro giallo, oro rosa, argento).`
+	case "earring", "orecchini", "orecchino", "lobo", "monachella":
+		categoryPrompt = `Per gli orecchini, presta attenzione a dettagli come:
+- Il tipo di orecchino (a lobo, pendente, a cerchio, monachella).
+- La forma geometrica e la simmetria del design.
+- La disposizione di pietre, brillanti o perle.
+- Il colore e materiale del metallo.`
+	case "necklace", "collana", "pendant", "pendente", "girocollo", "ciondolo", "collier", "catena", "catenina":
+		categoryPrompt = `Per le collane e ciondoli, presta attenzione a dettagli come:
+- La forma, dimensione e disegno del ciondolo/pendente.
+- Lo spessore e il tipo di maglia della catena (sottile, spessa, torchon, traversino).
+- La presenza di pietre o incisioni specifiche.
+- Il colore e materiale del metallo.`
+	case "bracelet", "bracciale", "braccialetto", "bangle":
+		categoryPrompt = `Per i bracciali, presta attenzione a dettagli come:
+- Il tipo di bracciale (rigido/bangle, a catena, tennis, multifilo).
+- Lo stile delle maglie e la chiusura.
+- La presenza di charm, pietre incastonate o pendenti.
+- Il colore e materiale del metallo.`
+	default:
+		categoryPrompt = `Presta attenzione a dettagli come la forma complessiva del gioiello, il tipo di metallo (oro, argento, ecc.), la presenza e disposizione di pietre preziose, perle o cristalli, e il design specifico del pezzo.`
+	}
 
-Se le immagini mostrano due articoli diversi o se hai dei dubbi significativi, rispondi con match: false.`
+	prompt := fmt.Sprintf(`Compara queste due immagini. 
+L'Immagine 1 è il ritaglio di un articolo reale prelevato da uno scaffale/espositore (può presentare riflessi, angolazioni diverse o qualità inferiore).
+L'Immagine 2 è la foto ufficiale del prodotto presente nel catalogo/inventario.
+
+Devi determinare con assoluta precisione se mostrano lo STESSO IDENTICO modello oppure se sono due modelli differenti (anche se simili).
+
+%s
+
+Se le immagini mostrano due articoli diversi o se hai dei dubbi significativi, rispondi con match: false.`, categoryPrompt)
 
 	modelsToTry := []string{
 		"models/gemini-3.1-flash-lite",

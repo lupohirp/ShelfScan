@@ -730,7 +730,8 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								dbImgData, err := os.ReadFile(dbImgPath)
 								if err == nil {
 									log.Printf("[Verification] Calling Gemini to verify match for %s (%s)", bestMatchName, bestMatchSku)
-									match, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), dbImgData)
+									category := getProductCategory(bestMatchName)
+									match, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), dbImgData, category)
 									if err == nil {
 										verified = match
 										verificationReason = reason
@@ -1286,3 +1287,25 @@ func getOrientation(data []byte) int {
 	}
 	return 1
 }
+
+func getProductCategory(productName string) string {
+	productName = strings.ToLower(productName)
+
+	if strings.Contains(productName, "watch") || strings.Contains(productName, "orologio") || strings.Contains(productName, "cronografo") || strings.Contains(productName, "smartwatch") {
+		return "orologio"
+	}
+	if strings.Contains(productName, "necklace") || strings.Contains(productName, "collana") || strings.Contains(productName, "pendant") || strings.Contains(productName, "pendente") || strings.Contains(productName, "girocollo") || strings.Contains(productName, "ciondolo") || strings.Contains(productName, "collier") || strings.Contains(productName, "catena") || strings.Contains(productName, "catenina") {
+		return "collana"
+	}
+	if strings.Contains(productName, "earring") || strings.Contains(productName, "orecchini") || strings.Contains(productName, "orecchino") || strings.Contains(productName, "lobo") || strings.Contains(productName, "monachella") {
+		return "orecchini"
+	}
+	if strings.Contains(productName, "bracelet") || strings.Contains(productName, "bracciale") || strings.Contains(productName, "braccialetto") || strings.Contains(productName, "bangle") {
+		return "bracciale"
+	}
+	if strings.Contains(productName, "ring") || strings.Contains(productName, "anello") || strings.Contains(productName, "anelli") || strings.Contains(productName, "fede") || strings.Contains(productName, "fedina") || strings.Contains(productName, "solitario") || strings.Contains(productName, "veretta") {
+		return "anello"
+	}
+	return "altro"
+}
+
