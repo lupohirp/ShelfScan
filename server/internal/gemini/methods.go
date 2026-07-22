@@ -78,17 +78,17 @@ func (g *GeminiClient) GetClientForModel(ctx context.Context, modelName string) 
 }
 
 func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt string, imgData []byte) (*genai.GenerateContentResponse, string, error) {
-	// Priority list of models to rotate/fall back to
+	// Priority list of models (Gemma 4 models specified for Free Tier)
 	baseModels := []string{
-		"models/gemini-3.6-flash",
-		"models/gemini-3.1-flash-lite",
-		"models/gemini-3.5-flash-lite",
-		"models/gemini-3-flash",
+		"models/gemma-4-31b-a4b-it",
+		"models/gemma-4-26b-a4b-it",
+		"gemma-4-31b-a4b-it",
+		"gemma-4-26b-a4b-it",
 	}
 
 	configuredModel := g.GenerativeModel
 	if configuredModel == "" {
-		configuredModel = "models/gemini-3.6-flash"
+		configuredModel = "models/gemma-4-31b-a4b-it"
 	}
 
 	modelsToTry := []string{configuredModel}
@@ -215,7 +215,10 @@ REGOLE DI VALUTAZIONE:
 Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categoryPrompt)
 
 	modelsToTry := []string{
+		"models/gemma-4-31b-a4b-it",
+		"models/gemma-4-26b-a4b-it",
 		"gemma-4-31b-a4b-it",
+		"gemma-4-26b-a4b-it",
 	}
 
 	var lastErr error

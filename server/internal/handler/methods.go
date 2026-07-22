@@ -226,7 +226,7 @@ func (h *Handler) UploadHandler(w http.ResponseWriter, r *http.Request) {
 				imgBytes, readErr := io.ReadAll(file)
 				if readErr == nil {
 					prompt := "Descrivi brevemente l'articolo di gioielleria o orologio in questa immagine specificando esplicitamente la categoria (es. orologio, collana, anello, bracciale, orecchini), lo stile e i colori rilevanti in italiano."
-					desc, err := h.geminiClient.DescribeImageWithModel(r.Context(), "gemma-4-26b-a4b-it", prompt, imgBytes)
+					desc, err := h.geminiClient.DescribeImageWithModel(r.Context(), "models/gemini-3.6-flash", prompt, imgBytes)
 					if err != nil {
 						log.Printf("Warning: failed to generate AI description with gemma4: %v", err)
 					} else {
