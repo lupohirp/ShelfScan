@@ -215,7 +215,7 @@ REGOLE DI VALUTAZIONE:
 Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categoryPrompt)
 
 	modelsToTry := []string{
-		"models/gemma-4-31b-a4b-it",
+		"gemma-4-31b-a4b-it",
 	}
 
 	var lastErr error
