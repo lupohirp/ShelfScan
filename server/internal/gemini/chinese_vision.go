@@ -3,6 +3,8 @@ package gemini
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -83,6 +85,29 @@ type ChatCompletionResponse struct {
 	} `json:"error,omitempty"`
 }
 
+func getZhipuAuthHeader(apiKey string) string {
+	lastDot := strings.LastIndex(apiKey, ".")
+	if lastDot <= 0 || lastDot == len(apiKey)-1 {
+		return apiKey
+	}
+	id := apiKey[:lastDot]
+	secret := apiKey[lastDot+1:]
+
+	now := time.Now().UnixNano() / 1e6
+	exp := now + 3600000 // 1 hour token validity
+
+	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","sign_type":"SIGN"}`))
+	payloadStr := fmt.Sprintf(`{"api_key":"%s","exp":%d,"timestamp":%d}`, id, exp, now)
+	payload := base64.RawURLEncoding.EncodeToString([]byte(payloadStr))
+
+	tokenToSign := header + "." + payload
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(tokenToSign))
+	sig := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+
+	return tokenToSign + "." + sig
+}
+
 func (c *ChineseVisionClient) GenerateContent(ctx context.Context, prompt string, imgData []byte) (string, error) {
 	if c.APIKey == "" {
 		return "", fmt.Errorf("Chinese Vision API Key is empty")
@@ -110,13 +135,15 @@ func (c *ChineseVisionClient) GenerateContent(ctx context.Context, prompt string
 		return "", err
 	}
 
+	jwtToken := getZhipuAuthHeader(c.APIKey)
+
 	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
 	if err != nil {
 		return "", err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	req.Header.Set("Authorization", "Bearer "+jwtToken)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -127,6 +154,21 @@ func (c *ChineseVisionClient) GenerateContent(ctx context.Context, prompt string
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		// Fallback: try raw key if JWT auth failed
+		reqRaw, _ := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
+		reqRaw.Header.Set("Content-Type", "application/json")
+		reqRaw.Header.Set("Authorization", "Bearer "+c.APIKey)
+		respRaw, errRaw := c.client.Do(reqRaw)
+		if errRaw == nil {
+			defer respRaw.Body.Close()
+			if respRaw.StatusCode == http.StatusOK {
+				bodyBytes, _ = io.ReadAll(respRaw.Body)
+				resp = respRaw
+			}
+		}
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -197,13 +239,15 @@ Rispondi TASSATIVAMENTE in formato JSON valido:
 		return false, "", err
 	}
 
+	jwtToken := getZhipuAuthHeader(c.APIKey)
+
 	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
 	if err != nil {
 		return false, "", err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	req.Header.Set("Authorization", "Bearer "+jwtToken)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -214,6 +258,20 @@ Rispondi TASSATIVAMENTE in formato JSON valido:
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, "", err
+	}
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		reqRaw, _ := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
+		reqRaw.Header.Set("Content-Type", "application/json")
+		reqRaw.Header.Set("Authorization", "Bearer "+c.APIKey)
+		respRaw, errRaw := c.client.Do(reqRaw)
+		if errRaw == nil {
+			defer respRaw.Body.Close()
+			if respRaw.StatusCode == http.StatusOK {
+				bodyBytes, _ = io.ReadAll(respRaw.Body)
+				resp = respRaw
+			}
+		}
 	}
 
 	if resp.StatusCode != http.StatusOK {
