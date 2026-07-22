@@ -704,7 +704,11 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						var verifiedCandidate ViableCandidate
 						var verificationReason string
 
-						for _, candidate := range viableCandidates {
+						for candIdx, candidate := range viableCandidates {
+							if candIdx >= 2 {
+								// Limit verification to top 2 candidates to avoid 429 rate limits
+								break
+							}
 							if candidate.ImgURL == "" {
 								continue
 							}
@@ -716,6 +720,9 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								log.Printf("[Verification Warning] Could not read database image file %s: %v", dbImgPath, err)
 								continue
 							}
+
+							// Throttle verification requests to respect API rate limits (30 RPM)
+							time.Sleep(350 * time.Millisecond)
 
 							log.Printf("[Verification] Calling Gemini to verify candidate %s (%s, score: %f)", candidate.Name, candidate.Sku, candidate.FinalScore)
 							category := getProductCategory(candidate.Name)

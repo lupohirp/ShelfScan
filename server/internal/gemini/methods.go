@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
@@ -217,8 +218,10 @@ Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categ
 	modelsToTry := []string{
 		"models/gemma-4-31b-a4b-it",
 		"models/gemma-4-26b-a4b-it",
-		"gemma-4-31b-a4b-it",
-		"gemma-4-26b-a4b-it",
+		"models/gemini-2.0-flash",
+		"models/gemini-1.5-flash",
+		"models/gemini-3.6-flash",
+		"models/gemini-3.1-flash-lite",
 	}
 
 	var lastErr error
@@ -273,8 +276,13 @@ Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categ
 				lastErr = fmt.Errorf("empty response from model %s", modelName)
 			}
 		} else {
-			log.Printf("Verification model %s failed: %v, skipping...", modelName, err)
+			log.Printf("Verification model %s failed: %v", modelName, err)
 			lastErr = err
+			errStr := err.Error()
+			if strings.Contains(errStr, "429") || strings.Contains(strings.ToLower(errStr), "quota") {
+				log.Printf("Quota limit exceeded for model %s. Pausing 2 seconds before fallback retry...", modelName)
+				time.Sleep(2 * time.Second)
+			}
 		}
 	}
 
