@@ -81,7 +81,6 @@ func (g *GeminiClient) GetClientForModel(ctx context.Context, modelName string) 
 func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt string, imgData []byte) (*genai.GenerateContentResponse, string, error) {
 	// Priority list of models (Gemma 4 models prioritized for Free Tier + Gemini 3 series)
 	baseModels := []string{
-		"models/gemma-4-31b-a4b-it",
 		"models/gemma-4-26b-a4b-it",
 		"models/gemini-3.6-flash",
 		"models/gemini-3.5-flash",
@@ -91,8 +90,8 @@ func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt s
 	}
 
 	configuredModel := g.GenerativeModel
-	if configuredModel == "" {
-		configuredModel = "models/gemma-4-31b-a4b-it"
+	if configuredModel == "" || configuredModel == "models/gemma-4-31b-a4b-it" || configuredModel == "gemma-4-31b-a4b-it" {
+		configuredModel = "models/gemma-4-26b-a4b-it"
 	}
 
 	modelsToTry := []string{configuredModel}
@@ -219,7 +218,6 @@ REGOLE DI VALUTAZIONE:
 Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categoryPrompt)
 
 	modelsToTry := []string{
-		"models/gemma-4-31b-a4b-it",
 		"models/gemma-4-26b-a4b-it",
 		"models/gemini-3.6-flash",
 		"models/gemini-3.5-flash",

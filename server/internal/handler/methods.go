@@ -10,7 +10,6 @@ import (
 	"image/jpeg"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -409,113 +408,81 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 		var logMu sync.Mutex
 
 		var mainMu sync.Mutex
-		var outerWg sync.WaitGroup
 		sem := make(chan struct{}, 2)
 
 		for imgIdx, fileHeader := range imageFiles {
-			outerWg.Add(1)
-			go func(imgIdx int, fileHeader *multipart.FileHeader) {
-				defer outerWg.Done()
+			log.Printf("Processing image %d/%d: %s", imgIdx+1, len(imageFiles), fileHeader.Filename)
+			file, err := fileHeader.Open()
+			if err != nil {
+				log.Printf("Error opening image %d: %v", imgIdx, err)
+				continue
+			}
+			imgData, _ := io.ReadAll(file)
+			file.Close()
 
-				log.Printf("Processing image %d/%d: %s", imgIdx+1, len(imageFiles), fileHeader.Filename)
-				file, err := fileHeader.Open()
-				if err != nil {
-					log.Printf("Error opening image %d: %v", imgIdx, err)
-					return
+			// Auto-rotate uploaded image bytes if EXIF orientation is present
+			imgData = autoRotateBytes(imgData)
+
+			// Save original (now guaranteed upright) image to log directory
+			originalFilename := fmt.Sprintf("original_%d.jpg", imgIdx)
+			_ = os.WriteFile(filepath.Join(reqDir, originalFilename), imgData, 0644)
+
+			logMu.Lock()
+			imageLogs[imgIdx] = ImageLog{
+				ImageIdx:          imgIdx,
+				Filename:          fileHeader.Filename,
+				SavedOriginalFile: originalFilename,
+			}
+			logMu.Unlock()
+
+			img, _, err := image.Decode(bytes.NewReader(imgData))
+			if err != nil {
+				log.Printf("Error decoding image %d: %v", imgIdx, err)
+				continue
+			}
+
+			bounds := img.Bounds()
+			width, height := bounds.Dx(), bounds.Dy()
+
+			var geminiImgData []byte
+			if width > 1200 || height > 1200 {
+				resized := imaging.Fit(img, 1200, 1200, imaging.Linear)
+				buf := new(bytes.Buffer)
+				jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
+				geminiImgData = buf.Bytes()
+			} else {
+				buf := new(bytes.Buffer)
+				jpeg.Encode(buf, img, &jpeg.Options{Quality: 85})
+				geminiImgData = buf.Bytes()
+			}
+
+			ctx := context.Background()
+
+			resp, modelUsed, err := h.geminiClient.GenerateContentWithFallback(ctx, h.geminiClient.Prompt, geminiImgData)
+			if err != nil {
+				log.Printf("AI error for image %d (tried all models): %v", imgIdx, err)
+				continue
+			}
+			log.Printf("Gemini Finish Reason for image %d (model: %s): %v", imgIdx, modelUsed, resp.Candidates[0].FinishReason)
+
+			var responseText string
+			for _, part := range resp.Candidates[0].Content.Parts {
+				if text, ok := part.(genai.Text); ok {
+					responseText += string(text)
 				}
-				imgData, _ := io.ReadAll(file)
-				file.Close()
+			}
 
-				// Auto-rotate uploaded image bytes if EXIF orientation is present
-				imgData = autoRotateBytes(imgData)
+			log.Printf("Gemini Response: %s", responseText)
 
-				// Save original (now guaranteed upright) image to log directory
-				originalFilename := fmt.Sprintf("original_%d.jpg", imgIdx)
-				_ = os.WriteFile(filepath.Join(reqDir, originalFilename), imgData, 0644)
+			detections := parseDetections(responseText)
 
-				logMu.Lock()
-				imageLogs[imgIdx] = ImageLog{
-					ImageIdx:          imgIdx,
-					Filename:          fileHeader.Filename,
-					SavedOriginalFile: originalFilename,
-				}
-				logMu.Unlock()
+			logMu.Lock()
+			imageLogs[imgIdx].GeminiModel = modelUsed
+			imageLogs[imgIdx].GeminiRawResponse = responseText
+			imageLogs[imgIdx].Detections = make([]DetectionLog, len(detections))
+			logMu.Unlock()
 
-				img, _, err := image.Decode(bytes.NewReader(imgData))
-				if err != nil {
-					log.Printf("Error decoding image %d: %v", imgIdx, err)
-					return
-				}
-
-				bounds := img.Bounds()
-				width, height := bounds.Dx(), bounds.Dy()
-
-				var geminiImgData []byte
-				if width > 1200 || height > 1200 {
-					resized := imaging.Fit(img, 1200, 1200, imaging.Linear)
-					buf := new(bytes.Buffer)
-					jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
-					geminiImgData = buf.Bytes()
-				} else {
-					buf := new(bytes.Buffer)
-					jpeg.Encode(buf, img, &jpeg.Options{Quality: 85})
-					geminiImgData = buf.Bytes()
-				}
-
-				ctx := context.Background()
-
-				resp, modelUsed, err := h.geminiClient.GenerateContentWithFallback(ctx, h.geminiClient.Prompt, geminiImgData)
-				if err != nil {
-					log.Printf("AI error for image %d (tried all models): %v", imgIdx, err)
-					return
-				}
-				log.Printf("Gemini Finish Reason for image %d (model: %s): %v", imgIdx, modelUsed, resp.Candidates[0].FinishReason)
-
-				var responseText string
-				for _, part := range resp.Candidates[0].Content.Parts {
-					if text, ok := part.(genai.Text); ok {
-						responseText += string(text)
-					}
-				}
-
-				var extracted string
-				if start := strings.LastIndex(responseText, "```"); start != -1 {
-					temp := responseText[:start]
-					if blockStart := strings.LastIndex(temp, "```"); blockStart != -1 {
-						inner := responseText[blockStart+3 : start]
-						inner = strings.TrimPrefix(inner, "json")
-						extracted = strings.TrimSpace(inner)
-					}
-				}
-				if extracted == "" {
-					lastOpen := strings.LastIndex(responseText, "[")
-					lastClose := strings.LastIndex(responseText, "]")
-					if lastOpen != -1 && lastClose != -1 && lastClose > lastOpen {
-						candidate := responseText[lastOpen : lastClose+1]
-						if strings.Contains(candidate, "\"desc\"") && (strings.Contains(candidate, "\"box\"") || strings.Contains(candidate, "\"box_2d\"")) {
-							extracted = candidate
-						}
-					}
-				}
-				if extracted != "" {
-					responseText = extracted
-				}
-
-				log.Printf("Gemini Response: %s", responseText)
-
-				detections := parseDetections(responseText)
-
-				logMu.Lock()
-				imageLogs[imgIdx].GeminiModel = modelUsed
-				imageLogs[imgIdx].GeminiRawResponse = responseText
-				imageLogs[imgIdx].Detections = make([]DetectionLog, len(detections))
-				logMu.Unlock()
-
-				var wg sync.WaitGroup
-				for detIdx, det := range detections {
-					wg.Add(1)
-					go func(detIdx int, det domain.Detection) {
-						defer wg.Done()
+			for detIdx, det := range detections {
 
 						box := det.Box
 						if len(box) != 4 {
@@ -771,13 +738,9 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						} else {
 							log.Printf("No candidate accepted by Gemini verification for detection %d (%s)", detIdx, det.Desc)
 						}
-					}(detIdx, det)
-				}
-				wg.Wait()
-				allImageResults[imgIdx] = domain.ImageResult{Detections: detections}
-			}(imgIdx, fileHeader)
+			}
+			allImageResults[imgIdx] = domain.ImageResult{Detections: detections}
 		}
-		outerWg.Wait()
 
 		inventory, _ := h.qdrantClient.ListInventory()
 		foundResults := []domain.ProductResult{}
