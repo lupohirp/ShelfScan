@@ -403,15 +403,41 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		var acceptedMatches []AcceptedMatch
 		allImageResults := make([]domain.ImageResult, len(imageFiles))
-
 		imageLogs := make([]ImageLog, len(imageFiles))
 		var logMu sync.Mutex
-
 		var mainMu sync.Mutex
 		sem := make(chan struct{}, 2)
 
+		isStreaming := strings.Contains(r.Header.Get("Accept"), "application/x-ndjson") || r.URL.Query().Get("stream") == "true"
+		var flusher http.Flusher
+		if isStreaming {
+			w.Header().Set("Content-Type", "application/x-ndjson")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("Connection", "keep-alive")
+			if f, ok := w.(http.Flusher); ok {
+				flusher = f
+			}
+		}
+
+		sendChunk := func(data any) {
+			if isStreaming {
+				_ = json.NewEncoder(w).Encode(data)
+				if flusher != nil {
+					flusher.Flush()
+				}
+			}
+		}
+
+		sendChunk(map[string]any{"type": "status", "message": fmt.Sprintf("Inizio analisi di %d foto con IA...", len(imageFiles))})
+
 		for imgIdx, fileHeader := range imageFiles {
 			log.Printf("Processing image %d/%d: %s", imgIdx+1, len(imageFiles), fileHeader.Filename)
+			sendChunk(map[string]any{
+				"type":     "image_start",
+				"image":    imgIdx + 1,
+				"total":    len(imageFiles),
+				"filename": fileHeader.Filename,
+			})
 			file, err := fileHeader.Open()
 			if err != nil {
 				log.Printf("Error opening image %d: %v", imgIdx, err)
@@ -741,6 +767,15 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							log.Printf("Match accepted from img %d: %s (%s, %f)", imgIdx, verifiedCandidate.Name, verifiedCandidate.Sku, verifiedCandidate.FinalScore)
 							mainMu.Unlock()
 							detections[detIdx].SKU = verifiedCandidate.Sku
+
+							sendChunk(map[string]any{
+								"type":     "item_matched",
+								"sku":      verifiedCandidate.Sku,
+								"name":     verifiedCandidate.Name,
+								"imageUrl": fixURL(verifiedCandidate.ImgURL, r.Host),
+								"cropUrl":  fixURL(cropURL, r.Host),
+								"score":    verifiedCandidate.FinalScore,
+							})
 						} else {
 							log.Printf("No candidate accepted by Gemini verification for detection %d (%s)", detIdx, det.Desc)
 						}
@@ -859,12 +894,22 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("Analysis complete across %d images, found %d products", len(imageFiles), len(foundResults))
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(domain.AnalysisResponse{
+
+		finalResponse := domain.AnalysisResponse{
 			Found:        foundResults,
 			Missing:      missingItems,
 			ImageResults: allImageResults,
-		})
+		}
+
+		if isStreaming {
+			sendChunk(map[string]any{
+				"type": "complete",
+				"data": finalResponse,
+			})
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(finalResponse)
+		}
 	})
 
 	if h.corsMiddleware != nil {

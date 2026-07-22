@@ -27,6 +27,11 @@ export default function Camera() {
   const [torchSupported, setTorchSupported] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
 
+  // Streaming progress states
+  const [streamProgressMessage, setStreamProgressMessage] = useState<string>('Avvio analisi AI...')
+  const [streamCurrentStep, setStreamCurrentStep] = useState<{ current: number; total: number }>({ current: 0, total: 1 })
+  const [streamMatchedItems, setStreamMatchedItems] = useState<{ sku: string; name: string; imageUrl: string; cropUrl: string; score: number }[]>([])
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -233,7 +238,10 @@ export default function Camera() {
   const handleAnalysis = async () => {
     if (analyzing || capturedImages.length === 0) return
     setAnalyzing(true)
-    
+    setStreamMatchedItems([])
+    setStreamCurrentStep({ current: 0, total: capturedImages.length })
+    setStreamProgressMessage(`Invio di ${capturedImages.length} foto all'IA...`)
+
     try {
       const formData = new FormData()
       
@@ -259,8 +267,11 @@ export default function Camera() {
         return `http://${hostname}:8080`;
       };
       const apiBase = getApiUrl();
-      const analysisResponse = await fetch(`${apiBase}/analyze`, {
+      const analysisResponse = await fetch(`${apiBase}/analyze?stream=true`, {
         method: 'POST',
+        headers: {
+          'Accept': 'application/x-ndjson'
+        },
         body: formData
       })
       
@@ -268,15 +279,69 @@ export default function Camera() {
         const errText = await analysisResponse.text()
         throw new Error(`Analyze API failed: ${errText}`)
       }
-      
-      const analysisData = await analysisResponse.json() as {
+
+      if (!analysisResponse.body) {
+        throw new Error('ReadableStream non supportato nella risposta del browser.')
+      }
+
+      const reader = analysisResponse.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let analysisData: {
         found: {name: string, sku: string, imageUrl: string, cropUrl?: string, score: number, count?: number}[],
         missing: {name: string, sku: string, imageUrl: string}[],
         imageResults: { detections: { desc: string, box?: number[], box_2d?: number[], crop_url?: string, sku?: string }[] }[]
+      } | null = null
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          try {
+            const event = JSON.parse(trimmed)
+            if (event.type === 'status') {
+              setStreamProgressMessage(event.message)
+            } else if (event.type === 'image_start') {
+              setStreamCurrentStep({ current: event.image, total: event.total })
+              setStreamProgressMessage(`Elaborazione foto ${event.image} di ${event.total}...`)
+            } else if (event.type === 'item_matched') {
+              setStreamMatchedItems(prev => [
+                ...prev,
+                { sku: event.sku, name: event.name, imageUrl: event.imageUrl, cropUrl: event.cropUrl, score: event.score }
+              ])
+              setStreamProgressMessage(`Trovato articolo: ${event.name}`)
+            } else if (event.type === 'complete') {
+              analysisData = event.data
+            }
+          } catch (e) {
+            console.warn('NDJSON line parse error:', line, e)
+          }
+        }
       }
-      console.log('AI Analysis data:', analysisData)
+
+      if (buffer.trim()) {
+        try {
+          const event = JSON.parse(buffer.trim())
+          if (event.type === 'complete') analysisData = event.data
+        } catch (e) {
+          console.warn('NDJSON trailing line parse error:', e)
+        }
+      }
+
+      if (!analysisData) {
+        throw new Error('Nessun risultato ricevuto dallo stream dell\'IA.')
+      }
+
+      console.log('AI Analysis streaming complete:', analysisData)
       
-      const foundProducts: any[] = analysisData.found.map(r => ({
+      const foundProducts: any[] = (analysisData.found || []).map(r => ({
         id: 'found-' + r.name,
         sku: r.sku || '',
         confidence: Math.round(r.score * 100),
@@ -288,7 +353,7 @@ export default function Camera() {
         count: r.count || 1
       }))
 
-      const missingProducts: any[] = analysisData.missing.map(m => ({
+      const missingProducts: any[] = (analysisData.missing || []).map(m => ({
         id: 'missing-' + m.name,
         sku: m.sku || '',
         name: m.name,
@@ -297,8 +362,8 @@ export default function Camera() {
         status: 'active'
       }))
 
-      const analyzedImages = analysisData.imageResults.map((ir, idx) => ({
-        capturedImage: capturedImages[idx],
+      const analyzedImages = (analysisData.imageResults || []).map((ir, idx) => ({
+        capturedImage: capturedImages[idx] || capturedImages[0],
         detections: (ir.detections || []).map(d => ({
           desc: d.desc,
           box: d.box || d.box_2d || [],
@@ -603,6 +668,77 @@ export default function Camera() {
             >
               Ignora avvisi e mantieni comunque
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Streaming Analysis Modal */}
+      {analyzing && (
+        <div className="fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center space-y-6">
+            
+            {/* Animated Glowing AI Ring */}
+            <div className="relative w-20 h-20 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping" />
+              <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 border-r-purple-500 border-b-emerald-500 border-l-cyan-500 animate-spin" />
+              <ScanLine className="w-9 h-9 text-indigo-400 animate-pulse" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent">
+                Analisi Scaffale AI
+              </h3>
+              <p className="text-xs text-slate-300 font-medium">
+                {streamProgressMessage}
+              </p>
+            </div>
+
+            {/* Progress Bar */}
+            {streamCurrentStep.total > 0 && (
+              <div className="w-full space-y-1.5">
+                <div className="flex justify-between text-xs text-slate-400 font-semibold px-1">
+                  <span>Avanzamento foto ({streamCurrentStep.current}/{streamCurrentStep.total})</span>
+                  <span>{Math.round((streamCurrentStep.current / streamCurrentStep.total) * 100)}%</span>
+                </div>
+                <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700/50">
+                  <div 
+                    className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${Math.max(5, Math.round((streamCurrentStep.current / streamCurrentStep.total) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Live Streaming Item Matches */}
+            {streamMatchedItems.length > 0 && (
+              <div className="w-full text-left space-y-2 pt-3 border-t border-slate-800">
+                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Articoli Riconosciuti ({streamMatchedItems.length}):
+                </span>
+                <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {streamMatchedItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3 bg-slate-800/90 p-2.5 rounded-xl border border-slate-700/60 text-xs animate-in slide-in-from-bottom-2">
+                      {item.cropUrl || item.imageUrl ? (
+                        <img src={item.cropUrl || item.imageUrl} alt={item.name} className="w-10 h-10 object-cover rounded-lg bg-slate-900 border border-slate-700" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-indigo-900/50 flex items-center justify-center font-bold text-indigo-300">
+                          💎
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-200 truncate">{item.name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">SKU: {item.sku}</p>
+                      </div>
+                      <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        {Math.round(item.score * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
