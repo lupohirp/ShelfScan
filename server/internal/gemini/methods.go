@@ -137,7 +137,7 @@ func (g *GeminiClient) DescribeImageWithModel(ctx context.Context, modelName str
 
 	model := g.client.GenerativeModel(modelName)
 	model.SetTemperature(0.2)
-	
+
 	resp, err := model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
 	if err != nil {
 		return "", err
@@ -215,10 +215,7 @@ REGOLE DI VALUTAZIONE:
 Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categoryPrompt)
 
 	modelsToTry := []string{
-		"models/gemini-3.6-flash",
-		"models/gemini-3.1-flash-lite",
-		"models/gemini-3.5-flash-lite",
-		"models/gemini-3-flash",
+		"models/gemma-4-31b-a4b-it",
 	}
 
 	var lastErr error
@@ -280,5 +277,3 @@ Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categ
 
 	return false, "", fmt.Errorf("all verification models failed. Last error: %w", lastErr)
 }
-
-

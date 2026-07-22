@@ -332,24 +332,26 @@ export default function Camera() {
   }
 
   const handleFileCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          const imageData = ev.target.result as string
-          validateCapturedImage(imageData, (result) => {
-            if (result.isValid) {
-              setCapturedImages(prev => [...prev, imageData])
-            } else {
-              setPendingImage(imageData)
-              setValidationErrors(result.errors)
-              setShowWarning(true)
-            }
-          })
+    const files = e.target.files
+    if (files && files.length > 0) {
+      Array.from(files).forEach(file => {
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          if (ev.target?.result) {
+            const imageData = ev.target.result as string
+            validateCapturedImage(imageData, (result) => {
+              if (result.isValid) {
+                setCapturedImages(prev => [...prev, imageData])
+              } else {
+                setPendingImage(imageData)
+                setValidationErrors(result.errors)
+                setShowWarning(true)
+              }
+            })
+          }
         }
-      }
-      reader.readAsDataURL(file)
+        reader.readAsDataURL(file)
+      })
     }
   }
 
@@ -497,7 +499,7 @@ export default function Camera() {
         >
           <ImageIcon size={28} />
         </button>
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileCapture} />
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileCapture} />
 
         <button
           onClick={captureImage}

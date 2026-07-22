@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"shelfscan-api/internal/domain"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -593,10 +594,13 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							return
 						}
 
-						var bestMatchName string
-						var bestMatchImgUrl string
-						var bestMatchSku string
-						var bestMatchScore float32 = -1.0
+						type ViableCandidate struct {
+							Name       string
+							Sku        string
+							ImgURL     string
+							FinalScore float32
+						}
+						var viableCandidates []ViableCandidate
 
 						for _, hit := range hits {
 							name, okName := hit["name"].(string)
@@ -647,7 +651,6 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 												})
 												if len(w) > 2 && findSynonymIndex(descLower, w) != -1 {
 													boost += weight / 2
-													break
 												}
 											}
 										}
@@ -662,26 +665,12 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 									if part != "" {
 										if findSynonymIndex(descLower, part) != -1 {
 											boost += 0.10
-										} else {
-											words := strings.Fields(part)
-											for _, w := range words {
-												w = strings.TrimFunc(w, func(r rune) bool {
-													return r == ':' || r == '(' || r == ')' || r == '[' || r == ']' || r == ',' || r == '/'
-												})
-												if len(w) > 2 && findSynonymIndex(descLower, w) != -1 {
-													boost += 0.05
-													break
-												}
-											}
 										}
 									}
 								}
 							}
 
 							finalScore := score + boost
-
-							log.Printf("[Search Debug] Crop %q -> Candidate: %s, Raw Score: %f, Category Match: %t, Color Conflict: %t, Boost: %f, Final Score: %f",
-								det.Desc, name, score, catMatch, colConflict, boost, finalScore)
 
 							candLog := CandidateLog{
 								Name:          name,
@@ -697,81 +686,83 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							imageLogs[imgIdx].Detections[detIdx].Candidates = append(imageLogs[imgIdx].Detections[detIdx].Candidates, candLog)
 							logMu.Unlock()
 
-							if !catMatch {
+							if catMatch && !colConflict && score >= 0.70 && finalScore >= 0.75 {
+								viableCandidates = append(viableCandidates, ViableCandidate{
+									Name:       name,
+									Sku:        sku,
+									ImgURL:     imgUrl,
+									FinalScore: finalScore,
+								})
+							}
+						}
+
+						sort.Slice(viableCandidates, func(i, j int) bool {
+							return viableCandidates[i].FinalScore > viableCandidates[j].FinalScore
+						})
+
+						accepted := false
+						var verifiedCandidate ViableCandidate
+						var verificationReason string
+
+						for _, candidate := range viableCandidates {
+							if candidate.ImgURL == "" {
+								continue
+							}
+							dbImgFilename := filepath.Base(candidate.ImgURL)
+							dbImgPath := filepath.Join("uploads", dbImgFilename)
+
+							dbImgData, err := os.ReadFile(dbImgPath)
+							if err != nil {
+								log.Printf("[Verification Warning] Could not read database image file %s: %v", dbImgPath, err)
 								continue
 							}
 
-							if colConflict {
-								continue
-							}
-
-							// Require a minimum raw visual similarity prima di applicare il boost
-							if score < 0.72 {
-								continue
-							}
-
-							if finalScore > bestMatchScore {
-								bestMatchScore = finalScore
-								bestMatchName = name
-								bestMatchImgUrl = imgUrl
-								bestMatchSku = sku
+							log.Printf("[Verification] Calling Gemini to verify candidate %s (%s, score: %f)", candidate.Name, candidate.Sku, candidate.FinalScore)
+							category := getProductCategory(candidate.Name)
+							match, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), dbImgData, category)
+							if err == nil {
+								log.Printf("[Verification Result] %s (%s): %t, Reason: %s", candidate.Name, candidate.Sku, match, reason)
+								if match {
+									accepted = true
+									verifiedCandidate = candidate
+									verificationReason = reason
+									break
+								}
+							} else {
+								log.Printf("[Verification Warning] Gemini verification failed for %s: %v", candidate.Name, err)
 							}
 						}
 
 						logMu.Lock()
-						imageLogs[imgIdx].Detections[detIdx].BestMatch = bestMatchName
-						imageLogs[imgIdx].Detections[detIdx].BestMatchScore = bestMatchScore
-						imageLogs[imgIdx].Detections[detIdx].Accepted = (bestMatchScore >= 0.82)
+						if accepted {
+							imageLogs[imgIdx].Detections[detIdx].BestMatch = verifiedCandidate.Name
+							imageLogs[imgIdx].Detections[detIdx].BestMatchScore = verifiedCandidate.FinalScore
+							imageLogs[imgIdx].Detections[detIdx].Accepted = true
+							imageLogs[imgIdx].Detections[detIdx].Verified = true
+							imageLogs[imgIdx].Detections[detIdx].VerificationNotes = verificationReason
+						} else if len(viableCandidates) > 0 {
+							imageLogs[imgIdx].Detections[detIdx].BestMatch = viableCandidates[0].Name
+							imageLogs[imgIdx].Detections[detIdx].BestMatchScore = viableCandidates[0].FinalScore
+							imageLogs[imgIdx].Detections[detIdx].Accepted = false
+							imageLogs[imgIdx].Detections[detIdx].Verified = false
+							imageLogs[imgIdx].Detections[detIdx].VerificationNotes = "All candidates rejected by Gemini side-by-side verification"
+						}
 						logMu.Unlock()
 
-						// Require a final confidence score of at least 0.82
-						if bestMatchScore >= 0.82 {
-							verified := true
-							var verificationReason string
-							if bestMatchImgUrl != "" {
-								dbImgFilename := filepath.Base(bestMatchImgUrl)
-								dbImgPath := filepath.Join("uploads", dbImgFilename)
-
-								dbImgData, err := os.ReadFile(dbImgPath)
-								if err == nil {
-									log.Printf("[Verification] Calling Gemini to verify match for %s (%s)", bestMatchName, bestMatchSku)
-									category := getProductCategory(bestMatchName)
-									match, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), dbImgData, category)
-									if err == nil {
-										verified = match
-										verificationReason = reason
-										log.Printf("[Verification] Gemini Match Result for %s (%s): %t, Reason: %s", bestMatchName, bestMatchSku, match, reason)
-									} else {
-										log.Printf("[Verification Warning] Gemini match verification failed: %v", err)
-									}
-								} else {
-									log.Printf("[Verification Warning] Could not read database image file %s: %v", dbImgPath, err)
-								}
-							}
-
-							logMu.Lock()
-							imageLogs[imgIdx].Detections[detIdx].Verified = verified
-							imageLogs[imgIdx].Detections[detIdx].VerificationNotes = verificationReason
-							if !verified {
-								imageLogs[imgIdx].Detections[detIdx].Accepted = false
-							}
-							logMu.Unlock()
-
-							if verified {
-								mainMu.Lock()
-								acceptedMatches = append(acceptedMatches, AcceptedMatch{
-									Name:     bestMatchName,
-									Sku:      bestMatchSku,
-									ImageURL: bestMatchImgUrl,
-									CropURL:  cropURL,
-									Score:    bestMatchScore,
-								})
-								log.Printf("Match accepted from img %d: %s (%s, %f)", imgIdx, bestMatchName, bestMatchSku, bestMatchScore)
-								mainMu.Unlock()
-								detections[detIdx].SKU = bestMatchSku
-							} else {
-								log.Printf("Match rejected by Gemini verification for %s (%s)", bestMatchName, bestMatchSku)
-							}
+						if accepted {
+							mainMu.Lock()
+							acceptedMatches = append(acceptedMatches, AcceptedMatch{
+								Name:     verifiedCandidate.Name,
+								Sku:      verifiedCandidate.Sku,
+								ImageURL: verifiedCandidate.ImgURL,
+								CropURL:  cropURL,
+								Score:    verifiedCandidate.FinalScore,
+							})
+							log.Printf("Match accepted from img %d: %s (%s, %f)", imgIdx, verifiedCandidate.Name, verifiedCandidate.Sku, verifiedCandidate.FinalScore)
+							mainMu.Unlock()
+							detections[detIdx].SKU = verifiedCandidate.Sku
+						} else {
+							log.Printf("No candidate accepted by Gemini verification for detection %d (%s)", detIdx, det.Desc)
 						}
 					}(detIdx, det)
 				}
