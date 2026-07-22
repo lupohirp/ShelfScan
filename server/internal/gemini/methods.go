@@ -101,18 +101,18 @@ func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt s
 		log.Printf("Chinese Vision API failed: %v, falling back to Gemini models...", err)
 	}
 
-	// Priority list of fallback Flash models
+	// Priority list of fallback Flash models (Flash-Lite prioritized for high RPM free tier limits)
 	baseModels := []string{
-		"models/gemini-3.6-flash",
-		"models/gemini-3.5-flash",
 		"models/gemini-3.5-flash-lite",
 		"models/gemini-3.1-flash-lite",
+		"models/gemini-3.6-flash",
+		"models/gemini-3.5-flash",
 		"models/gemini-3-flash",
 	}
 
 	configuredModel := g.GenerativeModel
 	if configuredModel == "" || strings.Contains(configuredModel, "gemma") {
-		configuredModel = "models/gemini-3.6-flash"
+		configuredModel = "models/gemini-3.5-flash-lite"
 	}
 
 	modelsToTry := []string{configuredModel}
@@ -249,10 +249,10 @@ REGOLE DI VALUTAZIONE:
 	}
 
 	modelsToTry := []string{
-		"models/gemini-3.6-flash",
-		"models/gemini-3.5-flash",
 		"models/gemini-3.5-flash-lite",
 		"models/gemini-3.1-flash-lite",
+		"models/gemini-3.6-flash",
+		"models/gemini-3.5-flash",
 		"models/gemini-3-flash",
 	}
 
