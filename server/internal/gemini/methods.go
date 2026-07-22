@@ -79,6 +79,28 @@ func (g *GeminiClient) GetClientForModel(ctx context.Context, modelName string) 
 }
 
 func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt string, imgData []byte) (*genai.GenerateContentResponse, string, error) {
+	if g.ChineseVision != nil && g.ChineseVision.APIKey != "" {
+		log.Printf("Attempting content generation using Chinese Vision API (%s)", g.ChineseVision.Model)
+		resText, err := g.ChineseVision.GenerateContent(ctx, prompt, imgData)
+		if err == nil {
+			log.Printf("Success! Generated content using Chinese Vision API (%s)", g.ChineseVision.Model)
+			resp := &genai.GenerateContentResponse{
+				Candidates: []*genai.Candidate{
+					{
+						FinishReason: genai.FinishReasonStop,
+						Content: &genai.Content{
+							Parts: []genai.Part{
+								genai.Text(resText),
+							},
+						},
+					},
+				},
+			}
+			return resp, g.ChineseVision.Model, nil
+		}
+		log.Printf("Chinese Vision API failed: %v, falling back to Gemini models...", err)
+	}
+
 	// Priority list of models (Gemma 4 models prioritized for Free Tier + Gemini 3 series)
 	baseModels := []string{
 		"models/gemma-4-26b-a4b-it",
@@ -215,7 +237,17 @@ REGOLE DI VALUTAZIONE:
 
 %s
 
-Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categoryPrompt)
+	Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categoryPrompt)
+
+	if g.ChineseVision != nil && g.ChineseVision.APIKey != "" {
+		log.Printf("Attempting match verification using Chinese Vision API (%s)", g.ChineseVision.Model)
+		match, reason, err := g.ChineseVision.VerifyMatch(ctx, cropImg, dbImg, category)
+		if err == nil {
+			log.Printf("Success! Match verification using Chinese Vision API (%s): %t, Reason: %s", g.ChineseVision.Model, match, reason)
+			return match, reason, nil
+		}
+		log.Printf("Chinese Vision API verification failed: %v, falling back to Gemini models...", err)
+	}
 
 	modelsToTry := []string{
 		"models/gemma-4-26b-a4b-it",
