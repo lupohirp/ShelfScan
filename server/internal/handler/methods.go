@@ -673,12 +673,21 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 						for candIdx, candidate := range viableCandidates {
 							if candIdx >= 2 {
-								// Limit verification to top 2 candidates to avoid 429 rate limits
 								break
 							}
 							if candidate.ImgURL == "" {
 								continue
 							}
+
+							// Fast path: High-confidence matches (final score >= 0.88) are auto-accepted instantly without slow LLM calls
+							if candidate.FinalScore >= 0.88 {
+								log.Printf("[Verification Fast-Path] Auto-accepting high-confidence match: %s (%s, score: %f)", candidate.Name, candidate.Sku, candidate.FinalScore)
+								accepted = true
+								verifiedCandidate = candidate
+								verificationReason = fmt.Sprintf("Auto-accepted via high confidence vector score (%.3f)", candidate.FinalScore)
+								break
+							}
+
 							dbImgFilename := filepath.Base(candidate.ImgURL)
 							dbImgPath := filepath.Join("uploads", dbImgFilename)
 
@@ -687,9 +696,6 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								log.Printf("[Verification Warning] Could not read database image file %s: %v", dbImgPath, err)
 								continue
 							}
-
-							// Throttle verification requests to respect API rate limits (30 RPM)
-							time.Sleep(350 * time.Millisecond)
 
 							log.Printf("[Verification] Calling Gemini to verify candidate %s (%s, score: %f)", candidate.Name, candidate.Sku, candidate.FinalScore)
 							category := getProductCategory(candidate.Name)
