@@ -425,7 +425,10 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				imgData, _ := io.ReadAll(file)
 				file.Close()
 
-				// Save original image to log directory
+				// Auto-rotate uploaded image bytes if EXIF orientation is present
+				imgData = autoRotateBytes(imgData)
+
+				// Save original (now guaranteed upright) image to log directory
 				originalFilename := fmt.Sprintf("original_%d.jpg", imgIdx)
 				_ = os.WriteFile(filepath.Join(reqDir, originalFilename), imgData, 0644)
 
@@ -441,28 +444,6 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					log.Printf("Error decoding image %d: %v", imgIdx, err)
 					return
-				}
-
-				// Apply EXIF auto-orientation
-				orientation := getOrientation(imgData)
-				if orientation > 1 {
-					log.Printf("Applying auto-orientation: %d for image %d", orientation, imgIdx)
-					switch orientation {
-					case 2:
-						img = imaging.FlipH(img)
-					case 3:
-						img = imaging.Rotate180(img)
-					case 4:
-						img = imaging.FlipV(img)
-					case 5:
-						img = imaging.Rotate90(imaging.FlipH(img))
-					case 6:
-						img = imaging.Rotate270(img) // imaging rotates counter-clockwise, so Rotate270 is 90 degrees CW
-					case 7:
-						img = imaging.Rotate90(imaging.FlipV(img))
-					case 8:
-						img = imaging.Rotate90(img) // imaging rotates counter-clockwise, so Rotate90 is 90 degrees CCW (270 CW)
-					}
 				}
 
 				bounds := img.Bounds()
@@ -1331,5 +1312,41 @@ func getProductCategory(productName string) string {
 		return "anello"
 	}
 	return "altro"
+}
+
+func autoRotateBytes(imgData []byte) []byte {
+	orientation := getOrientation(imgData)
+	if orientation <= 1 {
+		return imgData
+	}
+
+	img, _, err := image.Decode(bytes.NewReader(imgData))
+	if err != nil {
+		return imgData
+	}
+
+	log.Printf("Applying auto-orientation rotation: %d", orientation)
+	switch orientation {
+	case 2:
+		img = imaging.FlipH(img)
+	case 3:
+		img = imaging.Rotate180(img)
+	case 4:
+		img = imaging.FlipV(img)
+	case 5:
+		img = imaging.Rotate90(imaging.FlipH(img))
+	case 6:
+		img = imaging.Rotate270(img) // imaging rotates counter-clockwise, so Rotate270 is 90 degrees CW
+	case 7:
+		img = imaging.Rotate90(imaging.FlipV(img))
+	case 8:
+		img = imaging.Rotate90(img) // imaging rotates counter-clockwise, so Rotate90 is 90 degrees CCW (270 CW)
+	}
+
+	buf := new(bytes.Buffer)
+	if err := jpeg.Encode(buf, img, &jpeg.Options{Quality: 90}); err == nil {
+		return buf.Bytes()
+	}
+	return imgData
 }
 

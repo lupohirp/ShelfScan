@@ -200,15 +200,19 @@ func (g *GeminiClient) VerifyMatch(ctx context.Context, cropImg []byte, dbImg []
 		categoryPrompt = `Presta attenzione a dettagli come la forma complessiva del gioiello, il tipo di metallo (oro, argento, ecc.), la presenza e disposizione di pietre preziose, perle o cristalli, e il design specifico del pezzo.`
 	}
 
-	prompt := fmt.Sprintf(`Compara queste due immagini. 
-L'Immagine 1 è il ritaglio di un articolo reale prelevato da uno scaffale/espositore (può presentare riflessi, angolazioni diverse o qualità inferiore).
-L'Immagine 2 è la foto ufficiale del prodotto presente nel catalogo/inventario.
+	prompt := fmt.Sprintf(`Compara queste due immagini per determinare se raffigurano lo STESSO MODELLO di prodotto.
 
-Devi determinare con assoluta precisione se mostrano lo STESSO IDENTICO modello oppure se sono due modelli differenti (anche se simili).
+L'Immagine 1 è un ritaglio (crop) scattato dal vivo in negozio. Può presentare riflessi di luce, ombre, angolazioni diverse o leggera distorsione prospettica.
+L'Immagine 2 è la foto promozionale di catalogo su sfondo bianco.
+
+REGOLE DI VALUTAZIONE:
+1. NON confondere differenze di illuminazione, riflessi sul vetro, ombre o angolazione con differenze di prodotto!
+2. Rispondi match: true se l'articolo nella foto dal vivo (Immagine 1) è LO STESSO MODELLO rappresentato nel catalogo (Immagine 2), anche se fotografato in condizioni di luce o angolazioni diverse.
+3. Rispondi match: false SOLO se noti chiare differenze strutturali di design (es. un modello diverso di gioiello, forma della cassa diversa, quadrante con cronografi vs quadrante semplice, pietre mancanti o posizionate in modo nettamente diverso).
 
 %s
 
-Se le immagini mostrano due articoli diversi o se hai dei dubbi significativi, rispondi con match: false.`, categoryPrompt)
+Se si tratta dello stesso modello di prodotto, rispondi con match: true.`, categoryPrompt)
 
 	modelsToTry := []string{
 		"models/gemini-3.6-flash",

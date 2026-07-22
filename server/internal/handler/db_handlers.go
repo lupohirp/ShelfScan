@@ -549,6 +549,9 @@ func (h *Handler) VisitsHandler(w http.ResponseWriter, r *http.Request) {
 					b64Data := img.CapturedImage[commaIdx+1:]
 					dec, err := base64.StdEncoding.DecodeString(b64Data)
 					if err == nil {
+						// Auto-rotate decoded image bytes if EXIF orientation is present
+						dec = autoRotateBytes(dec)
+
 						safeID := strings.NewReplacer("..", "", "/", "", "\\", "").Replace(payload.ID)
 						filename := fmt.Sprintf("visit_%s_%d.jpg", safeID, idx)
 						filepath := "uploads/" + filename
