@@ -542,18 +542,28 @@ export default function Camera() {
       </div>
 
       {capturedImages.length > 0 && (
-        <div className="absolute bottom-40 left-0 right-0 px-6 z-50 flex gap-3 overflow-x-auto pb-4 no-scrollbar">
-          {capturedImages.map((img, idx) => (
-            <div key={idx} className="relative w-20 h-24 shrink-0 rounded-lg border-2 border-white/20 overflow-hidden bg-black shadow-xl animate-in fade-in slide-in-from-bottom-2">
-              <img src={img} className="w-full h-full object-cover" />
-              <button 
-                onClick={() => setCapturedImages(prev => prev.filter((_, i) => i !== idx))}
-                className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center pointer-events-auto active:scale-90"
-              >
-                <X size={12} className="text-white" />
-              </button>
-            </div>
-          ))}
+        <div className="absolute bottom-36 left-0 right-0 px-6 z-50 flex flex-col gap-3 pointer-events-auto">
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {capturedImages.map((img, idx) => (
+              <div key={idx} className="relative w-20 h-24 shrink-0 rounded-xl border-2 border-white/30 overflow-hidden bg-black shadow-xl animate-in fade-in slide-in-from-bottom-2">
+                <img src={img} className="w-full h-full object-cover" />
+                <button 
+                  onClick={() => setCapturedImages(prev => prev.filter((_, i) => i !== idx))}
+                  className="absolute top-1 right-1 w-5 h-5 bg-black/70 text-white rounded-full flex items-center justify-center active:scale-90"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={handleAnalysis}
+            className="w-full py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_4px_25px_rgba(99,102,241,0.4)]"
+          >
+            <Send size={18} />
+            <span>Avvia Analisi IA ({capturedImages.length} {capturedImages.length === 1 ? 'Foto' : 'Foto'})</span>
+          </button>
         </div>
       )}
 
@@ -674,7 +684,7 @@ export default function Camera() {
 
       {/* Real-time Streaming Analysis Modal */}
       {analyzing && (
-        <div className="fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[99999] bg-slate-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-300">
           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center space-y-6">
             
             {/* Animated Glowing AI Ring */}
