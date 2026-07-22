@@ -6,11 +6,13 @@ WORKDIR /app
 RUN apk add --no-cache gcc musl-dev
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 go build -v -ldflags='-s -w' -trimpath -o main ./cmd/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 go build -ldflags='-s -w' -trimpath -o main ./cmd/main.go
 
 FROM alpine:latest
 
