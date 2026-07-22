@@ -551,11 +551,35 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						logMu.Unlock()
 
 						ymin, xmin, ymax, xmax := box[0]*height/1000, box[1]*width/1000, box[2]*height/1000, box[3]*width/1000
-						if xmin >= xmax || ymin >= ymax || xmin < 0 || ymin < 0 || xmax > width || ymax > height {
+
+						// Add 10% bounding box padding so straps/edges/pendants are never cut off
+						boxH := ymax - ymin
+						boxW := xmax - xmin
+						padH := boxH / 10
+						padW := boxW / 10
+
+						cropYmin := ymin - padH
+						if cropYmin < 0 {
+							cropYmin = 0
+						}
+						cropYmax := ymax + padH
+						if cropYmax > height {
+							cropYmax = height
+						}
+						cropXmin := xmin - padW
+						if cropXmin < 0 {
+							cropXmin = 0
+						}
+						cropXmax := xmax + padW
+						if cropXmax > width {
+							cropXmax = width
+						}
+
+						if cropXmin >= cropXmax || cropYmin >= cropYmax {
 							return
 						}
 
-						cropped := imaging.Crop(img, image.Rect(xmin, ymin, xmax, ymax))
+						cropped := imaging.Crop(img, image.Rect(cropXmin, cropYmin, cropXmax, cropYmax))
 						cropBuf := new(bytes.Buffer)
 						jpeg.Encode(cropBuf, cropped, nil)
 

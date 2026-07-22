@@ -80,15 +80,15 @@ func (g *GeminiClient) GetClientForModel(ctx context.Context, modelName string) 
 func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt string, imgData []byte) (*genai.GenerateContentResponse, string, error) {
 	// Priority list of models to rotate/fall back to
 	baseModels := []string{
+		"models/gemini-3.6-flash",
 		"models/gemini-3.1-flash-lite",
+		"models/gemini-3.5-flash-lite",
 		"models/gemini-3-flash",
-		"models/gemini-2.5-flash",
-		"models/gemini-2.5-flash-lite",
 	}
 
 	configuredModel := g.GenerativeModel
 	if configuredModel == "" {
-		configuredModel = "models/gemini-2.5-flash"
+		configuredModel = "models/gemini-3.6-flash"
 	}
 
 	modelsToTry := []string{configuredModel}
@@ -211,10 +211,10 @@ Devi determinare con assoluta precisione se mostrano lo STESSO IDENTICO modello 
 Se le immagini mostrano due articoli diversi o se hai dei dubbi significativi, rispondi con match: false.`, categoryPrompt)
 
 	modelsToTry := []string{
+		"models/gemini-3.6-flash",
 		"models/gemini-3.1-flash-lite",
+		"models/gemini-3.5-flash-lite",
 		"models/gemini-3-flash",
-		"models/gemini-2.5-flash",
-		"models/gemini-2.5-flash-lite",
 	}
 
 	var lastErr error
