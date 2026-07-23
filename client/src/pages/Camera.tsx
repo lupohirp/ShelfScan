@@ -659,37 +659,37 @@ export default function Camera() {
         </div>
       )}
 
-      {/* Real-time Streaming Analysis Modal */}
+      {/* Real-time Streaming Analysis Modal - Official Liu Jo Minimalist Palette */}
       {analyzing && (
-        <div className="fixed inset-0 z-[99999] bg-slate-950/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-300">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col items-center text-center space-y-6">
+        <div className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-300">
+          <div className="w-full max-w-sm bg-black border border-white/20 rounded-2xl p-6 shadow-2xl flex flex-col items-center text-center space-y-6">
             
-            {/* Animated Glowing AI Ring */}
-            <div className="relative w-20 h-20 flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping" />
-              <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 border-r-purple-500 border-b-emerald-500 border-l-cyan-500 animate-spin" />
-              <ScanLine className="w-9 h-9 text-indigo-400 animate-pulse" />
+            {/* Minimalist Monochrome Spinner */}
+            <div className="relative w-16 h-16 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-2 border-white/10" />
+              <div className="absolute inset-0 rounded-full border-2 border-t-white border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+              <ScanLine className="w-7 h-7 text-white animate-pulse" strokeWidth={1.5} />
             </div>
 
-            <div className="space-y-1.5">
-              <h3 className="text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent">
-                Analisi Scaffale AI
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold tracking-[0.2em] uppercase text-white">
+                ANALISI SCAFFALE AI
               </h3>
-              <p className="text-xs text-slate-300 font-medium">
+              <p className="text-xs text-white/60 font-normal leading-relaxed">
                 {streamProgressMessage}
               </p>
             </div>
 
             {/* Progress Bar */}
             {streamCurrentStep.total > 0 && (
-              <div className="w-full space-y-1.5">
-                <div className="flex justify-between text-xs text-slate-400 font-semibold px-1">
-                  <span>Avanzamento foto ({streamCurrentStep.current}/{streamCurrentStep.total})</span>
+              <div className="w-full space-y-2">
+                <div className="flex justify-between text-[11px] font-bold tracking-wider text-white/70 uppercase px-0.5">
+                  <span>Foto {streamCurrentStep.current} / {streamCurrentStep.total}</span>
                   <span>{Math.round((streamCurrentStep.current / streamCurrentStep.total) * 100)}%</span>
                 </div>
-                <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700/50">
+                <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden border border-white/10">
                   <div 
-                    className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-full transition-all duration-300 rounded-full"
+                    className="bg-white h-full transition-all duration-300 rounded-full"
                     style={{ width: `${Math.max(5, Math.round((streamCurrentStep.current / streamCurrentStep.total) * 100))}%` }}
                   />
                 </div>
@@ -698,26 +698,29 @@ export default function Camera() {
 
             {/* Live Streaming Item Matches */}
             {streamMatchedItems.length > 0 && (
-              <div className="w-full text-left space-y-2 pt-3 border-t border-slate-800">
-                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Articoli Riconosciuti ({streamMatchedItems.length}):
-                </span>
-                <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+              <div className="w-full text-left space-y-2.5 pt-4 border-t border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/60 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    ARTICOLI RICONOSCIUTI ({streamMatchedItems.length})
+                  </span>
+                </div>
+
+                <div className="max-h-44 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                   {streamMatchedItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3 bg-slate-800/90 p-2.5 rounded-xl border border-slate-700/60 text-xs animate-in slide-in-from-bottom-2">
+                    <div key={idx} className="flex items-center gap-3 bg-white/5 p-2.5 rounded-xl border border-white/10 text-xs animate-in slide-in-from-bottom-2">
                       {item.cropUrl || item.imageUrl ? (
-                        <img src={item.cropUrl || item.imageUrl} alt={item.name} className="w-10 h-10 object-cover rounded-lg bg-slate-900 border border-slate-700" />
+                        <img src={item.cropUrl || item.imageUrl} alt={item.name} className="w-10 h-10 object-cover rounded-lg bg-black border border-white/10" />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-indigo-900/50 flex items-center justify-center font-bold text-indigo-300">
-                          💎
+                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center font-bold text-white text-xs">
+                          LJ
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-200 truncate">{item.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono">SKU: {item.sku}</p>
+                        <p className="font-semibold text-white truncate text-xs">{item.name}</p>
+                        <p className="text-[10px] text-white/50 font-mono mt-0.5">SKU: {item.sku}</p>
                       </div>
-                      <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-0.5 rounded border border-white/20">
                         {Math.round(item.score * 100)}%
                       </span>
                     </div>
