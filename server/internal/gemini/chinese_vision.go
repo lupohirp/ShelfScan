@@ -33,21 +33,14 @@ func NewChineseVisionClient() *ChineseVisionClient {
 	}
 
 	url := os.Getenv("VISION_BASE_URL")
-	if url == "" {
-		url = "https://open.bigmodel.cn/api/paas/v4"
-	}
-
 	model := os.Getenv("VISION_MODEL")
-	if model == "" {
-		model = "glm-4v-flash"
-	}
 
 	return &ChineseVisionClient{
 		APIKey:  key,
 		BaseURL: strings.TrimRight(url, "/"),
 		Model:   model,
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 20 * time.Second,
 		},
 	}
 }
@@ -94,7 +87,7 @@ func getZhipuAuthHeader(apiKey string) string {
 	secret := apiKey[lastDot+1:]
 
 	now := time.Now().UnixNano() / 1e6
-	exp := now + 3600000 // 1 hour token validity
+	exp := now + 3600000
 
 	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"HS256","sign_type":"SIGN"}`))
 	payloadStr := fmt.Sprintf(`{"api_key":"%s","exp":%d,"timestamp":%d}`, id, exp, now)
@@ -108,16 +101,84 @@ func getZhipuAuthHeader(apiKey string) string {
 	return tokenToSign + "." + sig
 }
 
+type EndpointConfig struct {
+	BaseURL string
+	Model   string
+	Auth    string
+}
+
+func (c *ChineseVisionClient) sendCompletionRequest(ctx context.Context, reqBody ChatCompletionRequest) ([]byte, error) {
+	// QwenCloud (DashScope) primary, with multi-provider failover
+	endpoints := []EndpointConfig{
+		{BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", Model: "qwen2.5-vl-7b-instruct", Auth: "bearer"},
+		{BaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", Model: "qwen-vl-max", Auth: "bearer"},
+		{BaseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", Model: "qwen2.5-vl-7b-instruct", Auth: "bearer"},
+		{BaseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", Model: "qwen-vl-max", Auth: "bearer"},
+		{BaseURL: "https://api.siliconflow.cn/v1", Model: "Pro/Qwen/Qwen2.5-VL-7B-Instruct", Auth: "bearer"},
+		{BaseURL: "https://open.bigmodel.cn/api/paas/v4", Model: "glm-4v-flash", Auth: "bearer"},
+		{BaseURL: "https://openrouter.ai/api/v1", Model: "qwen/qwen-2.5-vl-72b-instruct:free", Auth: "bearer"},
+	}
+
+	if c.BaseURL != "" {
+		epModel := c.Model
+		if epModel == "" {
+			epModel = "qwen2.5-vl-7b-instruct"
+		}
+		endpoints = append([]EndpointConfig{{BaseURL: c.BaseURL, Model: epModel, Auth: "bearer"}}, endpoints...)
+	}
+
+	var lastErr error
+	for _, ep := range endpoints {
+		currentReq := reqBody
+		currentReq.Model = ep.Model
+		jsonBytes, err := json.Marshal(currentReq)
+		if err != nil {
+			continue
+		}
+
+		authToken := c.APIKey
+		if ep.Auth == "jwt" {
+			authToken = getZhipuAuthHeader(c.APIKey)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", ep.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
+		if err != nil {
+			continue
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+authToken)
+
+		resp, err := c.client.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			log.Printf("Success! QwenCloud / Vision API responded from %s using model %s", ep.BaseURL, ep.Model)
+			return bodyBytes, nil
+		}
+
+		lastErr = fmt.Errorf("Vision API status %d from %s (%s): %s", resp.StatusCode, ep.BaseURL, ep.Model, string(bodyBytes))
+		log.Printf("Endpoint %s (%s) status %d, trying next provider...", ep.BaseURL, ep.Model, resp.StatusCode)
+	}
+
+	return nil, lastErr
+}
+
 func (c *ChineseVisionClient) GenerateContent(ctx context.Context, prompt string, imgData []byte) (string, error) {
 	if c.APIKey == "" {
-		return "", fmt.Errorf("Chinese Vision API Key is empty")
+		return "", fmt.Errorf("QwenCloud Vision API Key is empty")
 	}
 
 	b64Img := base64.StdEncoding.EncodeToString(imgData)
 	dataURL := "data:image/jpeg;base64," + b64Img
 
 	reqBody := ChatCompletionRequest{
-		Model: c.Model,
 		Messages: []ChatMessage{
 			{
 				Role: "user",
@@ -130,49 +191,9 @@ func (c *ChineseVisionClient) GenerateContent(ctx context.Context, prompt string
 		Temperature: 0.1,
 	}
 
-	jsonBytes, err := json.Marshal(reqBody)
+	bodyBytes, err := c.sendCompletionRequest(ctx, reqBody)
 	if err != nil {
 		return "", err
-	}
-
-	jwtToken := getZhipuAuthHeader(c.APIKey)
-
-	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+jwtToken)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		// Fallback: try raw key if JWT auth failed
-		reqRaw, _ := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
-		reqRaw.Header.Set("Content-Type", "application/json")
-		reqRaw.Header.Set("Authorization", "Bearer "+c.APIKey)
-		respRaw, errRaw := c.client.Do(reqRaw)
-		if errRaw == nil {
-			defer respRaw.Body.Close()
-			if respRaw.StatusCode == http.StatusOK {
-				bodyBytes, _ = io.ReadAll(respRaw.Body)
-				resp = respRaw
-			}
-		}
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Chinese Vision API status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var chatResp ChatCompletionResponse
@@ -181,11 +202,11 @@ func (c *ChineseVisionClient) GenerateContent(ctx context.Context, prompt string
 	}
 
 	if chatResp.Error != nil && chatResp.Error.Message != "" {
-		return "", fmt.Errorf("Chinese Vision API error: %s", chatResp.Error.Message)
+		return "", fmt.Errorf("QwenCloud API error: %s", chatResp.Error.Message)
 	}
 
 	if len(chatResp.Choices) == 0 {
-		return "", fmt.Errorf("empty response choices from Chinese Vision API")
+		return "", fmt.Errorf("empty response choices from QwenCloud API")
 	}
 
 	return chatResp.Choices[0].Message.Content, nil
@@ -193,7 +214,7 @@ func (c *ChineseVisionClient) GenerateContent(ctx context.Context, prompt string
 
 func (c *ChineseVisionClient) VerifyMatch(ctx context.Context, cropImg, dbImg []byte, category string) (bool, string, error) {
 	if c.APIKey == "" {
-		return false, "", fmt.Errorf("Chinese Vision API Key is empty")
+		return false, "", fmt.Errorf("QwenCloud Vision API Key is empty")
 	}
 
 	b64Crop := base64.StdEncoding.EncodeToString(cropImg)
@@ -220,7 +241,6 @@ Rispondi TASSATIVAMENTE in formato JSON valido:
 {"match": true, "motivo": "Spiegazione in italiano"}`, categoryPrompt)
 
 	reqBody := ChatCompletionRequest{
-		Model: c.Model,
 		Messages: []ChatMessage{
 			{
 				Role: "user",
@@ -234,48 +254,9 @@ Rispondi TASSATIVAMENTE in formato JSON valido:
 		Temperature: 0.1,
 	}
 
-	jsonBytes, err := json.Marshal(reqBody)
+	bodyBytes, err := c.sendCompletionRequest(ctx, reqBody)
 	if err != nil {
 		return false, "", err
-	}
-
-	jwtToken := getZhipuAuthHeader(c.APIKey)
-
-	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
-	if err != nil {
-		return false, "", err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+jwtToken)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return false, "", err
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false, "", err
-	}
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		reqRaw, _ := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/chat/completions", bytes.NewReader(jsonBytes))
-		reqRaw.Header.Set("Content-Type", "application/json")
-		reqRaw.Header.Set("Authorization", "Bearer "+c.APIKey)
-		respRaw, errRaw := c.client.Do(reqRaw)
-		if errRaw == nil {
-			defer respRaw.Body.Close()
-			if respRaw.StatusCode == http.StatusOK {
-				bodyBytes, _ = io.ReadAll(respRaw.Body)
-				resp = respRaw
-			}
-		}
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return false, "", fmt.Errorf("Chinese Vision API status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	var chatResp ChatCompletionResponse
@@ -284,7 +265,7 @@ Rispondi TASSATIVAMENTE in formato JSON valido:
 	}
 
 	if len(chatResp.Choices) == 0 {
-		return false, "", fmt.Errorf("empty response choices from Chinese Vision API")
+		return false, "", fmt.Errorf("empty response choices from QwenCloud API")
 	}
 
 	text := chatResp.Choices[0].Message.Content
@@ -311,6 +292,6 @@ Rispondi TASSATIVAMENTE in formato JSON valido:
 		return res.Match, res.Motivo, nil
 	}
 
-	log.Printf("Raw text from Chinese Vision API: %s", text)
-	return false, "", fmt.Errorf("failed to parse JSON from Chinese Vision API response")
+	log.Printf("Raw text from QwenCloud API: %s", text)
+	return false, "", fmt.Errorf("failed to parse JSON from QwenCloud API response")
 }
