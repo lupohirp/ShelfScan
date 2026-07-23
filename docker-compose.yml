@@ -21,6 +21,10 @@ services:
       - QDRANT_HOST=http://qdrant
       - QDRANT_PORT=6333
       - MCP_URL=ws://mcp:8081/ws
+      - ZHIPU_API_KEY=sk-ws-H.XLLLDL.cgeQ.MEUCICid6D1La3nwxvachHZGdlu3N4qu61WUU6tqUkEygwb0AiEA1M_AMef-n4bTfmaYUu9s_9UIy6woh2mqPhZxK7XRoeE
+      - VISION_API_KEY=sk-ws-H.XLLLDL.cgeQ.MEUCICid6D1La3nwxvachHZGdlu3N4qu61WUU6tqUkEygwb0AiEA1M_AMef-n4bTfmaYUu9s_9UIy6woh2mqPhZxK7XRoeE
+      - VISION_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+      - VISION_MODEL=qwen2.5-vl-7b-instruct
     volumes:
       - ./server/uploads:/app/uploads
       - ./server/db:/app/db
