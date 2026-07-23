@@ -286,16 +286,8 @@ REGOLE DI VALUTAZIONE ESTREMAMENTE SEVERE:
 				lastErr = fmt.Errorf("empty response from model %s", modelName)
 			}
 		} else {
-			log.Printf("Verification model %s failed: %v", modelName, err)
+			log.Printf("Verification model %s failed: %v, falling back immediately to next model...", modelName, err)
 			lastErr = err
-			errStr := err.Error()
-			if strings.Contains(errStr, "free_tier_requests") || strings.Contains(errStr, "limit: 500") {
-				return false, "", fmt.Errorf("quota giornaliera gratuita Gemini superata (limite 500 richieste/giorno): riprova domani o inserisci un'API key con fatturazione abilitata")
-			}
-			if strings.Contains(errStr, "429") || strings.Contains(strings.ToLower(errStr), "quota") {
-				log.Printf("Quota limit exceeded for model %s. Pausing 2 seconds before fallback retry...", modelName)
-				time.Sleep(2 * time.Second)
-			}
 		}
 	}
 
