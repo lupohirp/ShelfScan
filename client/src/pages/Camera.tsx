@@ -198,21 +198,37 @@ export default function Camera() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    let srcW = video.videoWidth
+    let srcH = video.videoHeight
     if (needsRotation) {
-      canvas.width = video.videoHeight
-      canvas.height = video.videoWidth
+      srcW = video.videoHeight
+      srcH = video.videoWidth
+    }
+
+    const maxW = 1920
+    const maxH = 1080
+    let targetW = srcW
+    let targetH = srcH
+    if (targetW > maxW || targetH > maxH) {
+      const ratio = Math.min(maxW / targetW, maxH / targetH)
+      targetW = Math.round(targetW * ratio)
+      targetH = Math.round(targetH * ratio)
+    }
+
+    canvas.width = targetW
+    canvas.height = targetH
+
+    if (needsRotation) {
       ctx.save()
       ctx.translate(canvas.width / 2, canvas.height / 2)
       ctx.rotate(90 * Math.PI / 180)
-      ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
+      ctx.drawImage(video, -targetH / 2, -targetW / 2, targetH, targetW)
       ctx.restore()
     } else {
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      ctx.drawImage(video, 0, 0)
+      ctx.drawImage(video, 0, 0, targetW, targetH)
     }
     
-    const imageData = canvas.toDataURL('image/jpeg', 0.8)
+    const imageData = canvas.toDataURL('image/jpeg', 0.85)
     
     // Validate image quality
     validateCapturedImage(imageData, (result) => {
@@ -429,12 +445,23 @@ export default function Camera() {
           if ('createImageBitmap' in window) {
             const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
             const canvas = document.createElement('canvas')
-            canvas.width = bitmap.width
-            canvas.height = bitmap.height
+            
+            let w = bitmap.width
+            let h = bitmap.height
+            const maxW = 1920
+            const maxH = 1080
+            if (w > maxW || h > maxH) {
+              const ratio = Math.min(maxW / w, maxH / h)
+              w = Math.round(w * ratio)
+              h = Math.round(h * ratio)
+            }
+
+            canvas.width = w
+            canvas.height = h
             const ctx = canvas.getContext('2d')
             if (ctx) {
-              ctx.drawImage(bitmap, 0, 0)
-              imageData = canvas.toDataURL('image/jpeg', 0.9)
+              ctx.drawImage(bitmap, 0, 0, w, h)
+              imageData = canvas.toDataURL('image/jpeg', 0.85)
             } else {
               imageData = await readFileAsDataUrl(file)
             }

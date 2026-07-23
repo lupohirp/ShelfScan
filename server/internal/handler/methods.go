@@ -473,10 +473,10 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			width, height := bounds.Dx(), bounds.Dy()
 
 			var geminiImgData []byte
-			if width > 1200 || height > 1200 {
-				resized := imaging.Fit(img, 1200, 1200, imaging.Linear)
+			if width > 1920 || height > 1080 {
+				resized := imaging.Fit(img, 1920, 1080, imaging.Lanczos)
 				buf := new(bytes.Buffer)
-				jpeg.Encode(buf, resized, &jpeg.Options{Quality: 80})
+				jpeg.Encode(buf, resized, &jpeg.Options{Quality: 85})
 				geminiImgData = buf.Bytes()
 			} else {
 				buf := new(bytes.Buffer)

@@ -119,6 +119,9 @@ func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt s
 
 		log.Printf("Model %s failed with error: %v", modelName, err)
 		lastErr = err
+		if strings.Contains(err.Error(), "free_tier_requests") || strings.Contains(err.Error(), "limit: 500") {
+			return nil, "", fmt.Errorf("quota giornaliera gratuita Gemini superata (limite 500 richieste/giorno): riprova domani o inserisci un'API key con fatturazione abilitata")
+		}
 	}
 
 	return nil, "", lastErr
@@ -286,6 +289,9 @@ REGOLE DI VALUTAZIONE ESTREMAMENTE SEVERE:
 			log.Printf("Verification model %s failed: %v", modelName, err)
 			lastErr = err
 			errStr := err.Error()
+			if strings.Contains(errStr, "free_tier_requests") || strings.Contains(errStr, "limit: 500") {
+				return false, "", fmt.Errorf("quota giornaliera gratuita Gemini superata (limite 500 richieste/giorno): riprova domani o inserisci un'API key con fatturazione abilitata")
+			}
 			if strings.Contains(errStr, "429") || strings.Contains(strings.ToLower(errStr), "quota") {
 				log.Printf("Quota limit exceeded for model %s. Pausing 2 seconds before fallback retry...", modelName)
 				time.Sleep(2 * time.Second)
