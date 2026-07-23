@@ -162,7 +162,7 @@ func (q *QdrantClient) CountPointsBySKU(sku string) (int, error) {
 }
 
 func (q *QdrantClient) PerformVectorSearch(vector []float32) ([]map[string]any, error) {
-	return q.performVectorSearchWithLimit(vector, 10)
+	return q.performVectorSearchWithLimit(vector, 50)
 }
 
 func (q *QdrantClient) performVectorSearchWithLimit(vector []float32, limit uint64) ([]map[string]any, error) {

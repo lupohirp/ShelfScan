@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"shelfscan-api/internal/domain"
+	"shelfscan-api/internal/gemini"
 	"sort"
 	"strings"
 	"sync"
@@ -419,16 +420,17 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		var chunkMu sync.Mutex
 		sendChunk := func(data any) {
 			if isStreaming {
+				chunkMu.Lock()
+				defer chunkMu.Unlock()
 				_ = json.NewEncoder(w).Encode(data)
 				if flusher != nil {
 					flusher.Flush()
 				}
 			}
 		}
-
-		sendChunk(map[string]any{"type": "status", "message": fmt.Sprintf("Inizio analisi di %d foto con IA...", len(imageFiles))})
 
 		for imgIdx, fileHeader := range imageFiles {
 			log.Printf("Processing image %d/%d: %s", imgIdx+1, len(imageFiles), fileHeader.Filename)
@@ -508,9 +510,17 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			imageLogs[imgIdx].Detections = make([]DetectionLog, len(detections))
 			logMu.Unlock()
 
-			for detIdx, det := range detections {
+			var detWg sync.WaitGroup
+			detSem := make(chan struct{}, 2)
 
-						box := det.Box
+			for detIdx, det := range detections {
+				detWg.Add(1)
+				go func(detIdx int, det domain.Detection) {
+					defer detWg.Done()
+					detSem <- struct{}{}
+					defer func() { <-detSem }()
+
+					box := det.Box
 						if len(box) != 4 {
 							box = det.Box2D
 						}
@@ -609,7 +619,6 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							}
 
 							hitColor, _ := hit["color"].(string)
-							hitMaterial, _ := hit["material"].(string)
 							sku, _ := hit["sku"].(string)
 
 							var score float32
@@ -622,48 +631,9 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 							catMatch := isCategoryMatch(det.Desc, name, aiDesc)
 							colConflict := hasColorConflict(det.Desc, name, hitColor)
 
-							descLower := strings.ToLower(det.Desc)
+							// Disable artificial keyword boost (which distorts visual vector ranking)
 							var boost float32 = 0
-
-							if hitColor != "" {
-								parts := strings.Split(hitColor, ",")
-								for i, part := range parts {
-									part = strings.TrimSpace(strings.ToLower(part))
-									if part != "" {
-										weight := float32(0.10)
-										if i == 0 {
-											weight = float32(0.20)
-										}
-										if findSynonymIndex(descLower, part) != -1 {
-											boost += weight
-										} else {
-											words := strings.Fields(part)
-											for _, w := range words {
-												w = strings.TrimFunc(w, func(r rune) bool {
-													return r == ':' || r == '(' || r == ')' || r == '[' || r == ']' || r == ',' || r == '/'
-												})
-												if len(w) > 2 && findSynonymIndex(descLower, w) != -1 {
-													boost += weight / 2
-												}
-											}
-										}
-									}
-								}
-							}
-
-							if hitMaterial != "" {
-								parts := strings.Split(hitMaterial, ",")
-								for _, part := range parts {
-									part = strings.TrimSpace(strings.ToLower(part))
-									if part != "" {
-										if findSynonymIndex(descLower, part) != -1 {
-											boost += 0.10
-										}
-									}
-								}
-							}
-
-							finalScore := score + boost
+							finalScore := score
 
 							candLog := CandidateLog{
 								Name:          name,
@@ -697,22 +667,18 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						var verifiedCandidate ViableCandidate
 						var verificationReason string
 
-						for candIdx, candidate := range viableCandidates {
-							if candIdx >= 2 {
+						var checkCandidates []gemini.VerificationCandidate
+						var candidateMap []ViableCandidate
+						seenSkus := make(map[string]bool)
+
+						for _, candidate := range viableCandidates {
+							if len(checkCandidates) >= 5 { // Prepare top 5 UNIQUE SKUs for batch verification
 								break
 							}
-							if candidate.ImgURL == "" {
+							if candidate.ImgURL == "" || seenSkus[candidate.Sku] {
 								continue
 							}
-
-							// Fast path: High-confidence matches (final score >= 0.88) are auto-accepted instantly without slow LLM calls
-							if candidate.FinalScore >= 0.88 {
-								log.Printf("[Verification Fast-Path] Auto-accepting high-confidence match: %s (%s, score: %f)", candidate.Name, candidate.Sku, candidate.FinalScore)
-								accepted = true
-								verifiedCandidate = candidate
-								verificationReason = fmt.Sprintf("Auto-accepted via high confidence vector score (%.3f)", candidate.FinalScore)
-								break
-							}
+							seenSkus[candidate.Sku] = true
 
 							dbImgFilename := filepath.Base(candidate.ImgURL)
 							dbImgPath := filepath.Join("uploads", dbImgFilename)
@@ -723,19 +689,31 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								continue
 							}
 
-							log.Printf("[Verification] Calling Gemini to verify candidate %s (%s, score: %f)", candidate.Name, candidate.Sku, candidate.FinalScore)
-							category := getProductCategory(candidate.Name)
-							match, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), dbImgData, category)
-							if err == nil {
-								log.Printf("[Verification Result] %s (%s): %t, Reason: %s", candidate.Name, candidate.Sku, match, reason)
-								if match {
-									accepted = true
-									verifiedCandidate = candidate
-									verificationReason = reason
-									break
+							checkCandidates = append(checkCandidates, gemini.VerificationCandidate{
+								Sku:     candidate.Sku,
+								Name:    candidate.Name,
+								ImgData: dbImgData,
+							})
+							candidateMap = append(candidateMap, candidate)
+						}
+
+						if len(checkCandidates) > 0 {
+							category := getProductCategory(candidateMap[0].Name)
+							log.Printf("[1-on-1 Verification] Testing %d candidate SKUs for det %d (%s)", len(checkCandidates), detIdx, det.Desc)
+
+							for candIdx, cand := range checkCandidates {
+								matched, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), cand.ImgData, category)
+								if err == nil {
+									log.Printf("[1-on-1 Result] det %d, candidate %d (%s): match=%v, Reason: %s", detIdx, candIdx+1, cand.Sku, matched, reason)
+									if matched {
+										accepted = true
+										verifiedCandidate = candidateMap[candIdx]
+										verificationReason = reason
+										break // 100% Match confirmed! Stop testing remaining candidates.
+									}
+								} else {
+									log.Printf("[1-on-1 Warning] Gemini verification failed for SKU %s: %v", cand.Sku, err)
 								}
-							} else {
-								log.Printf("[Verification Warning] Gemini verification failed for %s: %v", candidate.Name, err)
 							}
 						}
 
@@ -779,7 +757,9 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 						} else {
 							log.Printf("No candidate accepted by Gemini verification for detection %d (%s)", detIdx, det.Desc)
 						}
+				}(detIdx, det)
 			}
+			detWg.Wait()
 			allImageResults[imgIdx] = domain.ImageResult{Detections: detections}
 		}
 
@@ -1074,77 +1054,9 @@ func findSynonymIndex(text, synonym string) int {
 }
 
 func hasColorConflict(detDesc string, productName string, hitColor string) bool {
-	detDesc = strings.ToLower(detDesc)
-	hitColor = strings.ToLower(hitColor)
-	productName = strings.ToLower(productName)
-
-	if hitColor == "" && productName == "" {
-		return false
-	}
-
-	colors := []struct {
-		name     string
-		synonyms []string
-	}{
-		{name: "gold", synonyms: []string{"gold", "oro", "dorat"}},
-		{name: "silver", synonyms: []string{"silver", "argent"}},
-		{name: "black", synonyms: []string{"black", "nero", "scur"}},
-		{name: "white", synonyms: []string{"white", "bianc", "chiar"}},
-		{name: "pink", synonyms: []string{"pink", "rosa", "rosat"}},
-		{name: "brown", synonyms: []string{"brown", "marrone", "beige", "tan"}},
-	}
-
-	var hitColorCat = ""
-	for _, c := range colors {
-		for _, syn := range c.synonyms {
-			if findSynonymIndex(hitColor, syn) != -1 {
-				hitColorCat = c.name
-				break
-			}
-		}
-		if hitColorCat != "" {
-			break
-		}
-	}
-
-	if hitColorCat == "" {
-		for _, c := range colors {
-			for _, syn := range c.synonyms {
-				if findSynonymIndex(productName, syn) != -1 {
-					hitColorCat = c.name
-					break
-				}
-			}
-			if hitColorCat != "" {
-				break
-			}
-		}
-	}
-
-	if hitColorCat == "" {
-		return false
-	}
-
-	// Find the FIRST color category mentioned in the detection description
-	var firstColorCat = ""
-	var firstColorIndex = -1
-	for _, c := range colors {
-		for _, syn := range c.synonyms {
-			idx := findSynonymIndex(detDesc, syn)
-			if idx != -1 {
-				if firstColorIndex == -1 || idx < firstColorIndex {
-					firstColorIndex = idx
-					firstColorCat = c.name
-				}
-			}
-		}
-	}
-
-	// If the description mentions a primary color, it must match the product's color
-	if firstColorCat != "" && firstColorCat != hitColorCat {
-		return true // Conflict!
-	}
-
+	// Disabled brittle heuristic color conflict check.
+	// Watches often have multiple colors (e.g. silver strap, white dial).
+	// The VerifyMatch LLM will reliably catch any real color mismatches.
 	return false
 }
 

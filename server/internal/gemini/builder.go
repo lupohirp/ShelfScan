@@ -14,16 +14,12 @@ type GeminiClient struct {
 	Temperature     float64
 	MaxOutputTokens int
 
-	ChineseVision *ChineseVisionClient
-
 	mu     sync.Mutex
 	client *genai.Client
 }
 
 func NewGeminiClient() *GeminiClient {
-	return &GeminiClient{
-		ChineseVision: NewChineseVisionClient(),
-	}
+	return &GeminiClient{}
 }
 
 func (g *GeminiClient) WithGenerativeModel(model string) *GeminiClient {

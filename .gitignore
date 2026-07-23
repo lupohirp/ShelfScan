@@ -44,3 +44,4 @@ backups/
 
 # Environment files
 .env
+server/shelfscan.db

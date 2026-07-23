@@ -191,12 +191,27 @@ export default function Camera() {
     const video = videoRef.current
     const canvas = canvasRef.current
     
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
+    const isPortraitScreen = window.innerHeight > window.innerWidth
+    const isLandscapeVideo = video.videoWidth > video.videoHeight
+    const needsRotation = isPortraitScreen && isLandscapeVideo
+
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    if (needsRotation) {
+      canvas.width = video.videoHeight
+      canvas.height = video.videoWidth
+      ctx.save()
+      ctx.translate(canvas.width / 2, canvas.height / 2)
+      ctx.rotate(90 * Math.PI / 180)
+      ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
+      ctx.restore()
+    } else {
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      ctx.drawImage(video, 0, 0)
+    }
     
-    ctx.drawImage(video, 0, 0)
     const imageData = canvas.toDataURL('image/jpeg', 0.8)
     
     // Validate image quality
@@ -396,27 +411,56 @@ export default function Camera() {
     }
   }
 
-  const handleFileCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (ev) => resolve(ev.target?.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleFileCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files && files.length > 0) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader()
-        reader.onload = (ev) => {
-          if (ev.target?.result) {
-            const imageData = ev.target.result as string
-            validateCapturedImage(imageData, (result) => {
-              if (result.isValid) {
-                setCapturedImages(prev => [...prev, imageData])
-              } else {
-                setPendingImage(imageData)
-                setValidationErrors(result.errors)
-                setShowWarning(true)
-              }
-            })
+      for (const file of Array.from(files)) {
+        try {
+          let imageData: string
+          if ('createImageBitmap' in window) {
+            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+            const canvas = document.createElement('canvas')
+            canvas.width = bitmap.width
+            canvas.height = bitmap.height
+            const ctx = canvas.getContext('2d')
+            if (ctx) {
+              ctx.drawImage(bitmap, 0, 0)
+              imageData = canvas.toDataURL('image/jpeg', 0.9)
+            } else {
+              imageData = await readFileAsDataUrl(file)
+            }
+          } else {
+            imageData = await readFileAsDataUrl(file)
+          }
+
+          validateCapturedImage(imageData, (result) => {
+            if (result.isValid) {
+              setCapturedImages(prev => [...prev, imageData])
+            } else {
+              setPendingImage(imageData)
+              setValidationErrors(result.errors)
+              setShowWarning(true)
+            }
+          })
+        } catch (err) {
+          console.error('Error processing gallery image:', err)
+          try {
+            const fallbackData = await readFileAsDataUrl(file)
+            setCapturedImages(prev => [...prev, fallbackData])
+          } catch (e) {
+            // ignore fallback error
           }
         }
-        reader.readAsDataURL(file)
-      })
+      }
     }
   }
 
