@@ -78,6 +78,14 @@ func (g *GeminiClient) GetClientForModel(ctx context.Context, modelName string) 
 	return model
 }
 
+func isRateLimitErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "429") || strings.Contains(errStr, "quota") || strings.Contains(errStr, "rate limit") || strings.Contains(errStr, "resource_exhausted")
+}
+
 func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt string, imgData []byte) (*genai.GenerateContentResponse, string, error) {
 
 	// Priority list of fallback Flash models (Flash-Lite prioritized for high RPM free tier limits)
@@ -103,22 +111,36 @@ func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt s
 	}
 
 	var lastErr error
-	for _, modelName := range modelsToTry {
-		log.Printf("Attempting content generation using model: %s", modelName)
-		model := g.GetClientForModel(ctx, modelName)
-		if model == nil {
-			log.Printf("Failed to initialize model %s, skipping...", modelName)
-			continue
-		}
+	for outerAttempt := 0; outerAttempt < 3; outerAttempt++ {
+		for _, modelName := range modelsToTry {
+			log.Printf("Attempting content generation using model: %s (attempt %d)", modelName, outerAttempt+1)
+			model := g.GetClientForModel(ctx, modelName)
+			if model == nil {
+				log.Printf("Failed to initialize model %s, skipping...", modelName)
+				continue
+			}
 
-		resp, err := model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
-		if err == nil {
-			log.Printf("Success! Generated content using model: %s", modelName)
-			return resp, modelName, nil
-		}
+			for retry := 0; retry < 3; retry++ {
+				resp, err := model.GenerateContent(ctx, genai.Text(prompt), genai.ImageData("jpeg", imgData))
+				if err == nil {
+					log.Printf("Success! Generated content using model: %s", modelName)
+					return resp, modelName, nil
+				}
 
-		log.Printf("Model %s failed with error: %v, trying next fallback model...", modelName, err)
-		lastErr = err
+				lastErr = err
+				if isRateLimitErr(err) {
+					log.Printf("Model %s hit rate limit (429). Retrying in %d seconds... (attempt %d/3)", modelName, (retry+1)*3, retry+1)
+					time.Sleep(time.Duration((retry+1)*3) * time.Second)
+					continue
+				}
+				log.Printf("Model %s failed with error: %v, trying next model...", modelName, err)
+				break
+			}
+		}
+		if isRateLimitErr(lastErr) && outerAttempt < 2 {
+			log.Printf("All models rate-limited during content generation. Waiting 5 seconds before retry pass %d...", outerAttempt+2)
+			time.Sleep(5 * time.Second)
+		}
 	}
 
 	return nil, "", lastErr
@@ -239,77 +261,93 @@ REGOLE DI VALUTAZIONE ESTREMAMENTE SEVERE:
 	}
 
 	var lastErr error
-	for _, modelName := range modelsToTry {
-		log.Printf("Attempting verification using model: %s", modelName)
-		model := g.client.GenerativeModel(modelName)
-		model.SetTemperature(0.0)
-		model.SystemInstruction = &genai.Content{
-			Parts: []genai.Part{
-				genai.Text(`Sei un esperto perito di orologeria e gioielleria. Il tuo compito è verificare se la foto dal vivo (Immagine 1) e la foto promozionale di catalogo (Immagine 2) raffigurano LO STESSO ED UNICO MODELLO DI PRODOTTO (stessa referenza/SKU).
+	for outerAttempt := 0; outerAttempt < 3; outerAttempt++ {
+		for _, modelName := range modelsToTry {
+			log.Printf("Attempting verification using model: %s (attempt %d)", modelName, outerAttempt+1)
+			model := g.client.GenerativeModel(modelName)
+			model.SetTemperature(0.0)
+			model.SystemInstruction = &genai.Content{
+				Parts: []genai.Part{
+					genai.Text(`Sei un esperto perito di orologeria e gioielleria. Il tuo compito è verificare se la foto dal vivo (Immagine 1) e la foto promozionale di catalogo (Immagine 2) raffigurano LO STESSO ED UNICO MODELLO DI PRODOTTO (stessa referenza/SKU).
 
 Regole di confronto:
 1. Tenere conto che l'Immagine 1 è scattata dal vivo con un telefono in negozio (può avere riflessi di luce, angolazione prospettica o ombra), mentre l'Immagine 2 è una foto di studio professionale su sfondo bianco.
 2. Basati sugli elementi strutturali reali: forma della cassa, colore e trama del quadrante, tipo di cinturino (maglia, catena, pelle), disposizione degli indici e presenza/assenza di strass sulla lunetta.
 3. Se gli elementi strutturali e di design coincidono (anche con diversa angolazione o riflessi di luce), rispondi match: true.
 4. Rispondi match: false SOLO se noti differenze strutturali reali incompatibili (es. cinturino diverso, colore del quadrante diverso, presenza/assenza di cronografi o strass diversi).`),
-			},
-		}
-
-		model.ResponseMIMEType = "application/json"
-		model.ResponseSchema = &genai.Schema{
-			Type: genai.TypeObject,
-			Properties: map[string]*genai.Schema{
-				"analisi": {
-					Type:        genai.TypeString,
-					Description: "Fai un'analisi dettagliata passo-passo dei due articoli. Confronta la forma della cassa, il quadrante, la presenza/assenza di cronografi, numeri, indici, brillanti e cinturino. Identifica esplicitamente eventuali differenze minime.",
 				},
-				"match": {
-					Type:        genai.TypeBoolean,
-					Description: "Imposta su true SOLO SE l'analisi conferma che sono ESATTAMENTE lo stesso modello. Altrimenti false.",
-				},
-			},
-			Required: []string{"analisi", "match"},
-		}
-
-		resp, err := model.GenerateContent(ctx,
-			genai.Text(prompt),
-			genai.ImageData("jpeg", cropImg),
-			genai.ImageData("jpeg", dbImg),
-		)
-		if err == nil {
-			if len(resp.Candidates) > 0 && resp.Candidates[0].Content != nil && len(resp.Candidates[0].Content.Parts) > 0 {
-				var responseText string
-				for _, part := range resp.Candidates[0].Content.Parts {
-					if text, ok := part.(genai.Text); ok {
-						responseText += string(text)
-					}
-				}
-
-				cleanJSON := strings.TrimSpace(responseText)
-				startIdx := strings.Index(cleanJSON, "{")
-				endIdx := strings.LastIndex(cleanJSON, "}")
-				if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
-					cleanJSON = cleanJSON[startIdx : endIdx+1]
-				}
-
-				type VerificationResult struct {
-					Match   bool   `json:"match"`
-					Analisi string `json:"analisi"`
-				}
-
-				var res VerificationResult
-				if err := json.Unmarshal([]byte(cleanJSON), &res); err == nil {
-					return res.Match, res.Analisi, nil
-				} else {
-					log.Printf("Failed to parse verification json from model %s: %v. Cleaned text was: %s", modelName, err, cleanJSON)
-					lastErr = err
-				}
-			} else {
-				lastErr = fmt.Errorf("empty response from model %s", modelName)
 			}
-		} else {
-			log.Printf("Verification model %s failed: %v, falling back immediately to next model...", modelName, err)
-			lastErr = err
+
+			model.ResponseMIMEType = "application/json"
+			model.ResponseSchema = &genai.Schema{
+				Type: genai.TypeObject,
+				Properties: map[string]*genai.Schema{
+					"analisi": {
+						Type:        genai.TypeString,
+						Description: "Fai un'analisi dettagliata passo-passo dei due articoli. Confronta la forma della cassa, il quadrante, la presenza/assenza di cronografi, numeri, indici, brillanti e cinturino. Identifica esplicitamente eventuali differenze minime.",
+					},
+					"match": {
+						Type:        genai.TypeBoolean,
+						Description: "Imposta su true SOLO SE l'analisi conferma che sono ESATTAMENTE lo stesso modello. Altrimenti false.",
+					},
+				},
+				Required: []string{"analisi", "match"},
+			}
+
+			for retry := 0; retry < 3; retry++ {
+				resp, err := model.GenerateContent(ctx,
+					genai.Text(prompt),
+					genai.ImageData("jpeg", cropImg),
+					genai.ImageData("jpeg", dbImg),
+				)
+				if err == nil {
+					if len(resp.Candidates) > 0 && resp.Candidates[0].Content != nil && len(resp.Candidates[0].Content.Parts) > 0 {
+						var responseText string
+						for _, part := range resp.Candidates[0].Content.Parts {
+							if text, ok := part.(genai.Text); ok {
+								responseText += string(text)
+							}
+						}
+
+						cleanJSON := strings.TrimSpace(responseText)
+						startIdx := strings.Index(cleanJSON, "{")
+						endIdx := strings.LastIndex(cleanJSON, "}")
+						if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
+							cleanJSON = cleanJSON[startIdx : endIdx+1]
+						}
+
+						type VerificationResult struct {
+							Match   bool   `json:"match"`
+							Analisi string `json:"analisi"`
+						}
+
+						var res VerificationResult
+						if err := json.Unmarshal([]byte(cleanJSON), &res); err == nil {
+							return res.Match, res.Analisi, nil
+						} else {
+							log.Printf("Failed to parse verification json from model %s: %v. Cleaned text was: %s", modelName, err, cleanJSON)
+							lastErr = err
+							break
+						}
+					} else {
+						lastErr = fmt.Errorf("empty response from model %s", modelName)
+						break
+					}
+				} else {
+					lastErr = err
+					if isRateLimitErr(err) {
+						log.Printf("Verification model %s hit rate limit (429). Retrying in %d seconds... (attempt %d/3)", modelName, (retry+1)*3, retry+1)
+						time.Sleep(time.Duration((retry+1)*3) * time.Second)
+						continue
+					}
+					log.Printf("Verification model %s failed: %v, trying next model...", modelName, err)
+					break
+				}
+			}
+		}
+		if isRateLimitErr(lastErr) && outerAttempt < 2 {
+			log.Printf("All models rate-limited during verification. Waiting 4 seconds before outer retry pass %d...", outerAttempt+2)
+			time.Sleep(4 * time.Second)
 		}
 	}
 
