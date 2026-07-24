@@ -45,3 +45,4 @@ backups/
 # Environment files
 .env
 server/shelfscan.db
+/admin-client/dist

@@ -2551,19 +2551,74 @@ class Component extends DCLogic {
   }
 
 
+  getSelVisitData() {
+    const s = this.state;
+    const j = this.jewelers.find(x => x.id === s.selectedId);
+    if (!j) return null;
+
+    const vSel = s.selectedVisit;
+    if (vSel == null || !j.visits || !j.visits[vSel]) return null;
+
+    const v = j.visits[vSel];
+    const groupProducts = (products) => {
+      const grouped = {};
+      (products || []).forEach(p => {
+        const key = p.sku || p.name;
+        if (!grouped[key]) {
+          grouped[key] = {
+            name: p.name,
+            cat: p.cat,
+            sku: p.sku,
+            tone: p.tone,
+            imageUrl: p.imageUrl || p.image_url || '',
+            cropUrl: p.cropUrl || p.crop_url || '',
+            count: 0
+          };
+        }
+        grouped[key].count += 1;
+      });
+      return Object.values(grouped).map(g => ({
+        name: g.name,
+        cat: g.cat,
+        sku: g.sku,
+        tone: g.tone,
+        imageUrl: this.cleanImgUrl(g.imageUrl),
+        cropUrl: this.cleanImgUrl(g.cropUrl),
+        countLabel: g.count > 1 ? `x${g.count}` : ''
+      }));
+    };
+
+    return {
+      jeweler: j,
+      vDateLabel: this.fmtDate(v.date),
+      vAgent: v.agent,
+      vCoverageLabel: v.coverage + '%',
+      vCoverageColor: this.covColor(v.coverage),
+      vMissingLabel: String(v.missingCount),
+      photos: (v.photos || []).map((p, i) => ({
+        tone: p.tone || 'neutral',
+        url: this.cleanImgUrl(p.url) || '',
+        label: (s.lang === 'en' ? 'Photo ' : 'Foto ') + (i + 1)
+      })),
+      exposed: groupProducts(v.exposed),
+      missing: groupProducts(v.missing)
+    };
+  }
+
   async exportVisitPDF() {
     if (this.state.isExportingPDF) return;
     this.setState({ isExportingPDF: true });
 
     try {
-      const sel = this.selVisitData();
-      const jeweler = this.jewelers.find(j => j.id === this.state.selectedJewelerId);
-      if (!sel || !jeweler) {
+      const data = this.getSelVisitData();
+      if (!data || !data.jeweler) {
         this.setState({ isExportingPDF: false });
         return;
       }
 
-      const exposedHTML = (sel.exposed || []).map(p => `
+      const jeweler = data.jeweler;
+
+      const exposedHTML = (data.exposed || []).map(p => `
         <tr style="border-bottom:1px solid #eee;">
           <td style="padding:8px 10px;font-family:monospace;font-weight:bold;">${p.sku || 'N/A'}</td>
           <td style="padding:8px 10px;">${p.name || 'Prodotto'}</td>
@@ -2571,7 +2626,7 @@ class Component extends DCLogic {
         </tr>
       `).join('');
 
-      const missingHTML = (sel.missing || []).map(p => `
+      const missingHTML = (data.missing || []).map(p => `
         <tr style="border-bottom:1px solid #eee;">
           <td style="padding:8px 10px;font-family:monospace;font-weight:bold;color:#c62828;">${p.sku || 'N/A'}</td>
           <td style="padding:8px 10px;">${p.name || 'Prodotto'}</td>
@@ -2579,10 +2634,10 @@ class Component extends DCLogic {
         </tr>
       `).join('');
 
-      const photosHTML = (sel.photos || []).filter(p => p.url).map(p => `
+      const photosHTML = (data.photos || []).filter(p => p.url).map(p => `
         <div style="text-align:center;border:1px solid #ddd;padding:6px;border-radius:4px;background:#fafafa;">
           <img src="${p.url}" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:2px;" />
-          <div style="font-size:10px;font-weight:bold;margin-top:4px;color:#555;">${p.label || p.tag || 'Foto Vetrina'}</div>
+          <div style="font-size:10px;font-weight:bold;margin-top:4px;color:#555;">${p.label}</div>
         </div>
       `).join('');
 
@@ -2590,7 +2645,7 @@ class Component extends DCLogic {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Report Visita - ${jeweler.name} (${sel.vDateLabel})</title>
+          <title>Report Visita - ${jeweler.name} (${data.vDateLabel})</title>
           <style>
             @page { size: A4; margin: 15mm; }
             body { font-family: system-ui, -apple-system, sans-serif; color: #141414; margin: 0; padding: 20px; background: #fff; }
@@ -2619,15 +2674,15 @@ class Component extends DCLogic {
           </div>
 
           <div class="meta-grid">
-            <div><div class="meta-label">Data Visita</div><div class="meta-val">${sel.vDateLabel}</div></div>
-            <div><div class="meta-label">Agente</div><div class="meta-val">${sel.vAgent}</div></div>
-            <div><div class="meta-label">Indice Copertura</div><div class="meta-val" style="color:${sel.vCoverageColor};">${sel.vCoverageLabel}</div></div>
-            <div><div class="meta-label">Prodotti Mancanti</div><div class="meta-val" style="color:#c62828;">${sel.vMissingLabel}</div></div>
+            <div><div class="meta-label">Data Visita</div><div class="meta-val">${data.vDateLabel}</div></div>
+            <div><div class="meta-label">Agente</div><div class="meta-val">${data.vAgent}</div></div>
+            <div><div class="meta-label">Indice Copertura</div><div class="meta-val" style="color:${data.vCoverageColor};">${data.vCoverageLabel}</div></div>
+            <div><div class="meta-label">Prodotti Mancanti</div><div class="meta-val" style="color:#c62828;">${data.vMissingLabel}</div></div>
           </div>
 
           ${photosHTML ? `<div class="section-title">Foto Scattate in Vetrina</div><div class="photo-grid">${photosHTML}</div>` : ''}
 
-          <div class="section-title">Referenze Esposte (${(sel.exposed || []).length})</div>
+          <div class="section-title">Referenze Esposte (${(data.exposed || []).length})</div>
           <table>
             <thead>
               <tr>
@@ -2641,7 +2696,7 @@ class Component extends DCLogic {
             </tbody>
           </table>
 
-          <div class="section-title" style="color:#c62828;">Prodotti Mancanti (${(sel.missing || []).length})</div>
+          <div class="section-title" style="color:#c62828;">Prodotti Mancanti (${(data.missing || []).length})</div>
           <table>
             <thead>
               <tr>
@@ -3542,6 +3597,8 @@ class Component extends DCLogic {
       drawerOpen: !!sel, sel: sel||{},
       closeDrawer:()=> this.setState({selectedId:null, selectedVisit:null}),
       deselectVisit:()=> this.setState({selectedVisit:null}),
+      isExportingPDF: !!s.isExportingPDF,
+      exportVisitPDF: () => this.exportVisitPDF(),
       tabPhotosClick:()=> this.setState({tab:'photos'}),
       tabMissingClick:()=> this.setState({tab:'missing'}),
       tabExposedClick:()=> this.setState({tab:'exposed'}),
