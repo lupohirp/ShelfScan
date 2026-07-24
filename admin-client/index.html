@@ -2619,18 +2619,27 @@ class Component extends DCLogic {
       const jeweler = data.jeweler;
 
       const exposedHTML = (data.exposed || []).map(p => `
-        <tr style="border-bottom:1px solid #eee;">
-          <td style="padding:8px 10px;font-family:monospace;font-weight:bold;">${p.sku || 'N/A'}</td>
-          <td style="padding:8px 10px;">${p.name || 'Prodotto'}</td>
-          <td style="padding:8px 10px;color:#2e7d32;font-weight:bold;">ESPOSTO (OK)</td>
+        <tr style="border-bottom:1px solid #eee;vertical-align:middle;">
+          <td style="padding:8px;width:70px;text-align:center;">
+            ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #ddd;" />` : `<div style="width:50px;height:50px;background:#eee;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;">NO IMG</div>`}
+          </td>
+          <td style="padding:8px;width:70px;text-align:center;">
+            ${p.cropUrl ? `<img src="${p.cropUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #2e7d32;background:#f0f8f0;" />` : `<div style="width:50px;height:50px;background:#fafafa;border-radius:3px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:8px;color:#aaa;text-align:center;">NO CROP</div>`}
+          </td>
+          <td style="padding:8px 10px;font-family:monospace;font-weight:bold;font-size:12px;">${p.sku || 'N/A'}</td>
+          <td style="padding:8px 10px;font-size:12px;">${p.name || 'Prodotto'}</td>
+          <td style="padding:8px 10px;color:#2e7d32;font-weight:bold;font-size:11px;text-transform:uppercase;">ESPOSTO (OK)</td>
         </tr>
       `).join('');
 
       const missingHTML = (data.missing || []).map(p => `
-        <tr style="border-bottom:1px solid #eee;">
-          <td style="padding:8px 10px;font-family:monospace;font-weight:bold;color:#c62828;">${p.sku || 'N/A'}</td>
-          <td style="padding:8px 10px;">${p.name || 'Prodotto'}</td>
-          <td style="padding:8px 10px;color:#c62828;font-weight:bold;">MANCANTE</td>
+        <tr style="border-bottom:1px solid #eee;vertical-align:middle;">
+          <td style="padding:8px;width:70px;text-align:center;">
+            ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #ddd;" />` : `<div style="width:50px;height:50px;background:#eee;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;">NO IMG</div>`}
+          </td>
+          <td style="padding:8px 10px;font-family:monospace;font-weight:bold;color:#c62828;font-size:12px;">${p.sku || 'N/A'}</td>
+          <td style="padding:8px 10px;font-size:12px;">${p.name || 'Prodotto'}</td>
+          <td style="padding:8px 10px;color:#c62828;font-weight:bold;font-size:11px;text-transform:uppercase;">MANCANTE</td>
         </tr>
       `).join('');
 
@@ -2686,13 +2695,15 @@ class Component extends DCLogic {
           <table>
             <thead>
               <tr>
+                <th style="width:70px;text-align:center;">Catalogo</th>
+                <th style="width:70px;text-align:center;">Ritaglio IA</th>
                 <th>Codice SKU</th>
                 <th>Nome Prodotto</th>
                 <th>Stato</th>
               </tr>
             </thead>
             <tbody>
-              ${exposedHTML || '<tr><td colspan="3" style="padding:10px;color:#888;">Nessun prodotto esposto rilevato</td></tr>'}
+              ${exposedHTML || '<tr><td colspan="5" style="padding:10px;color:#888;">Nessun prodotto esposto rilevato</td></tr>'}
             </tbody>
           </table>
 
@@ -2700,13 +2711,14 @@ class Component extends DCLogic {
           <table>
             <thead>
               <tr>
+                <th style="width:70px;text-align:center;">Catalogo</th>
                 <th>Codice SKU</th>
                 <th>Nome Prodotto</th>
                 <th>Stato</th>
               </tr>
             </thead>
             <tbody>
-              ${missingHTML || '<tr><td colspan="3" style="padding:10px;color:#888;">Nessun prodotto mancante</td></tr>'}
+              ${missingHTML || '<tr><td colspan="4" style="padding:10px;color:#888;">Nessun prodotto mancante</td></tr>'}
             </tbody>
           </table>
         </body>
