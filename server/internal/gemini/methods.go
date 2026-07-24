@@ -285,16 +285,23 @@ Regole di confronto:
 					}
 				}
 
+				cleanJSON := strings.TrimSpace(responseText)
+				startIdx := strings.Index(cleanJSON, "{")
+				endIdx := strings.LastIndex(cleanJSON, "}")
+				if startIdx != -1 && endIdx != -1 && endIdx > startIdx {
+					cleanJSON = cleanJSON[startIdx : endIdx+1]
+				}
+
 				type VerificationResult struct {
 					Match   bool   `json:"match"`
 					Analisi string `json:"analisi"`
 				}
 
 				var res VerificationResult
-				if err := json.Unmarshal([]byte(responseText), &res); err == nil {
+				if err := json.Unmarshal([]byte(cleanJSON), &res); err == nil {
 					return res.Match, res.Analisi, nil
 				} else {
-					log.Printf("Failed to parse verification json from model %s: %v", modelName, err)
+					log.Printf("Failed to parse verification json from model %s: %v. Cleaned text was: %s", modelName, err, cleanJSON)
 					lastErr = err
 				}
 			} else {
