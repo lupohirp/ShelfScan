@@ -269,6 +269,17 @@ export default function Camera() {
   const handleAnalysis = async () => {
     if (analyzing || capturedImages.length === 0) return
     setAnalyzing(true)
+
+    // Stop camera stream and turn off hardware sensor/torch during AI analysis
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop())
+      setStream(null)
+      if (videoRef.current) {
+        videoRef.current.srcObject = null
+      }
+      console.log('Camera tracks stopped for AI analysis phase')
+    }
+
     setStreamMatchedItems([])
     setStreamCurrentStep({ current: 0, total: capturedImages.length })
     setStreamProgressMessage(`Invio di ${capturedImages.length} foto all'IA...`)
@@ -424,6 +435,7 @@ export default function Camera() {
       const errorMsg = err instanceof Error ? err.message : String(err)
       alert('Errore durante l\'analisi della vetrina: ' + errorMsg)
       setAnalyzing(false)
+      setupCamera()
     }
   }
 
