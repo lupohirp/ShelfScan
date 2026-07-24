@@ -90,7 +90,7 @@ func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt s
 	}
 
 	configuredModel := g.GenerativeModel
-	if configuredModel == "" || strings.Contains(configuredModel, "gemma") {
+	if configuredModel == "" || strings.Contains(configuredModel, "gemma") || strings.Contains(configuredModel, "3.1-pro") {
 		configuredModel = "models/gemini-3.5-flash-lite"
 	}
 
@@ -117,11 +117,8 @@ func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt s
 			return resp, modelName, nil
 		}
 
-		log.Printf("Model %s failed with error: %v", modelName, err)
+		log.Printf("Model %s failed with error: %v, trying next fallback model...", modelName, err)
 		lastErr = err
-		if strings.Contains(err.Error(), "free_tier_requests") || strings.Contains(err.Error(), "limit: 500") {
-			return nil, "", fmt.Errorf("quota giornaliera gratuita Gemini superata (limite 500 richieste/giorno): riprova domani o inserisci un'API key con fatturazione abilitata")
-		}
 	}
 
 	return nil, "", lastErr

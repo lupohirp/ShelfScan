@@ -413,8 +413,9 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 		var flusher http.Flusher
 		if isStreaming {
 			w.Header().Set("Content-Type", "application/x-ndjson")
-			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("Cache-Control", "no-cache, no-transform")
 			w.Header().Set("Connection", "keep-alive")
+			w.Header().Set("X-Accel-Buffering", "no")
 			if f, ok := w.(http.Flusher); ok {
 				flusher = f
 			}
@@ -511,7 +512,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			logMu.Unlock()
 
 			var detWg sync.WaitGroup
-			detSem := make(chan struct{}, 2)
+			detSem := make(chan struct{}, 5)
 
 			for detIdx, det := range detections {
 				detWg.Add(1)
@@ -699,20 +700,40 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 
 						if len(checkCandidates) > 0 {
 							category := getProductCategory(candidateMap[0].Name)
-							log.Printf("[1-on-1 Verification] Testing %d candidate SKUs for det %d (%s)", len(checkCandidates), detIdx, det.Desc)
+							log.Printf("[1-on-1 Parallel Verification] Testing %d candidate SKUs concurrently for det %d (%s)", len(checkCandidates), detIdx, det.Desc)
+
+							type candRes struct {
+								matched bool
+								reason  string
+								cand    ViableCandidate
+							}
+							resChan := make(chan candRes, len(checkCandidates))
+							var cWg sync.WaitGroup
 
 							for candIdx, cand := range checkCandidates {
-								matched, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), cand.ImgData, category)
-								if err == nil {
-									log.Printf("[1-on-1 Result] det %d, candidate %d (%s): match=%v, Reason: %s", detIdx, candIdx+1, cand.Sku, matched, reason)
-									if matched {
-										accepted = true
-										verifiedCandidate = candidateMap[candIdx]
-										verificationReason = reason
-										break // 100% Match confirmed! Stop testing remaining candidates.
+								cWg.Add(1)
+								go func(c gemini.VerificationCandidate, vCand ViableCandidate) {
+									defer cWg.Done()
+									matched, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), c.ImgData, category)
+									if err == nil {
+										resChan <- candRes{matched: matched, reason: reason, cand: vCand}
+									} else {
+										log.Printf("[1-on-1 Warning] Gemini verification failed for SKU %s: %v", c.Sku, err)
+										resChan <- candRes{matched: false, reason: err.Error(), cand: vCand}
 									}
-								} else {
-									log.Printf("[1-on-1 Warning] Gemini verification failed for SKU %s: %v", cand.Sku, err)
+								}(cand, candidateMap[candIdx])
+							}
+							cWg.Wait()
+							close(resChan)
+
+							for r := range resChan {
+								log.Printf("[1-on-1 Result] det %d (%s): match=%v, Reason: %s", detIdx, r.cand.Sku, r.matched, r.reason)
+								if r.matched {
+									if !accepted || r.cand.FinalScore > verifiedCandidate.FinalScore {
+										accepted = true
+										verifiedCandidate = r.cand
+										verificationReason = r.reason
+									}
 								}
 							}
 						}
