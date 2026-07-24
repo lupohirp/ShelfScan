@@ -26,6 +26,11 @@
     to { transform: translateX(0); }
   }
 
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -891,8 +896,14 @@
             <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dMissing }}</div><div style="font-size:13.5px;margin-top:4px;color:#b25540;">{{ sel.vMissingLabel }}</div></div>
           </div>
           <button onClick="{{ exportVisitPDF }}" style="background:#141414;color:#fff;border:none;border-radius:2px;padding:8px 16px;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:8px;" style-hover="background:#333;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Esporta PDF
+            <sc-if value="{{ isExportingPDF }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-dasharray="32" stroke-dashoffset="10" fill="none"/></svg>
+              <span>Generazione PDF...</span>
+            </sc-if>
+            <sc-if value="{{ !isExportingPDF }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Esporta PDF</span>
+            </sc-if>
           </button>
         </div>
 
@@ -2540,122 +2551,149 @@ class Component extends DCLogic {
   }
 
 
-  exportVisitPDF() {
-    const sel = this.selVisitData();
-    const jeweler = this.jewelers.find(j => j.id === this.state.selectedJewelerId);
-    if (!sel || !jeweler) return;
+  async exportVisitPDF() {
+    if (this.state.isExportingPDF) return;
+    this.setState({ isExportingPDF: true });
 
-    const printWin = window.open('', '_blank');
-    if (!printWin) return;
+    try {
+      const sel = this.selVisitData();
+      const jeweler = this.jewelers.find(j => j.id === this.state.selectedJewelerId);
+      if (!sel || !jeweler) {
+        this.setState({ isExportingPDF: false });
+        return;
+      }
 
-    const exposedHTML = (sel.exposed || []).map(p => `
-      <tr style="border-bottom:1px solid #eee;">
-        <td style="padding:10px;font-family:monospace;font-weight:bold;">${p.sku || 'N/A'}</td>
-        <td style="padding:10px;">${p.name || 'Prodotto'}</td>
-        <td style="padding:10px;color:#2e7d32;font-weight:bold;">ESPOSTO (OK)</td>
-      </tr>
-    `).join('');
+      const exposedHTML = (sel.exposed || []).map(p => `
+        <tr style="border-bottom:1px solid #eee;">
+          <td style="padding:8px 10px;font-family:monospace;font-weight:bold;">${p.sku || 'N/A'}</td>
+          <td style="padding:8px 10px;">${p.name || 'Prodotto'}</td>
+          <td style="padding:8px 10px;color:#2e7d32;font-weight:bold;">ESPOSTO (OK)</td>
+        </tr>
+      `).join('');
 
-    const missingHTML = (sel.missing || []).map(p => `
-      <tr style="border-bottom:1px solid #eee;">
-        <td style="padding:10px;font-family:monospace;font-weight:bold;color:#c62828;">${p.sku || 'N/A'}</td>
-        <td style="padding:10px;">${p.name || 'Prodotto'}</td>
-        <td style="padding:10px;color:#c62828;font-weight:bold;">MANCANTE</td>
-      </tr>
-    `).join('');
+      const missingHTML = (sel.missing || []).map(p => `
+        <tr style="border-bottom:1px solid #eee;">
+          <td style="padding:8px 10px;font-family:monospace;font-weight:bold;color:#c62828;">${p.sku || 'N/A'}</td>
+          <td style="padding:8px 10px;">${p.name || 'Prodotto'}</td>
+          <td style="padding:8px 10px;color:#c62828;font-weight:bold;">MANCANTE</td>
+        </tr>
+      `).join('');
 
-    const photosHTML = (sel.photos || []).filter(p => p.url).map(p => `
-      <div style="text-align:center;border:1px solid #ddd;padding:8px;border-radius:4px;background:#fafafa;">
-        <img src="${p.url}" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:2px;" />
-        <div style="font-size:11px;font-weight:bold;margin-top:6px;color:#555;">${p.label || p.tag || 'Foto Vetrina'}</div>
-      </div>
-    `).join('');
+      const photosHTML = (sel.photos || []).filter(p => p.url).map(p => `
+        <div style="text-align:center;border:1px solid #ddd;padding:6px;border-radius:4px;background:#fafafa;">
+          <img src="${p.url}" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:2px;" />
+          <div style="font-size:10px;font-weight:bold;margin-top:4px;color:#555;">${p.label || p.tag || 'Foto Vetrina'}</div>
+        </div>
+      `).join('');
 
-    const docHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Report Visita - ${jeweler.name} (${sel.vDateLabel})</title>
-        <style>
-          body { font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #141414; margin: 0; padding: 40px; background: #fff; }
-          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #141414; padding-bottom: 20px; margin-bottom: 30px; }
-          .logo { font-family: 'Jost', sans-serif; font-size: 28px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; }
-          .sub { font-size: 12px; color: #666; letter-spacing: 0.1em; text-transform: uppercase; }
-          .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; background: #f8f8f7; padding: 20px; border-radius: 4px; margin-bottom: 30px; }
-          .meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 4px; }
-          .meta-val { font-size: 15px; font-weight: bold; color: #141414; }
-          .section-title { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-top: 30px; margin-bottom: 15px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; padding: 8px 10px; border-bottom: 2px solid #ddd; background: #f4f4f2; }
-          .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; }
-          @media print {
-            body { padding: 0; }
-            button { display: none; }
+      const docHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Report Visita - ${jeweler.name} (${sel.vDateLabel})</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: system-ui, -apple-system, sans-serif; color: #141414; margin: 0; padding: 20px; background: #fff; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #141414; padding-bottom: 15px; margin-bottom: 20px; }
+            .logo { font-size: 24px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; }
+            .sub { font-size: 11px; color: #666; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; }
+            .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; background: #f8f8f7; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+            .meta-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 3px; }
+            .meta-val { font-size: 14px; font-weight: bold; color: #141414; }
+            .section-title { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid #ddd; padding-bottom: 6px; margin-top: 25px; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 12px; }
+            th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; padding: 8px 10px; border-bottom: 2px solid #ddd; background: #f4f4f2; }
+            .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="logo">LIU JO</div>
+              <div class="sub">REPORT AUDIT VETRINA &amp; ESPOSIZIONE</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:15px;font-weight:bold;">${jeweler.name}</div>
+              <div style="font-size:11px;color:#666;">${jeweler.city} (${jeweler.region || ''})</div>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div><div class="meta-label">Data Visita</div><div class="meta-val">${sel.vDateLabel}</div></div>
+            <div><div class="meta-label">Agente</div><div class="meta-val">${sel.vAgent}</div></div>
+            <div><div class="meta-label">Indice Copertura</div><div class="meta-val" style="color:${sel.vCoverageColor};">${sel.vCoverageLabel}</div></div>
+            <div><div class="meta-label">Prodotti Mancanti</div><div class="meta-val" style="color:#c62828;">${sel.vMissingLabel}</div></div>
+          </div>
+
+          ${photosHTML ? `<div class="section-title">Foto Scattate in Vetrina</div><div class="photo-grid">${photosHTML}</div>` : ''}
+
+          <div class="section-title">Referenze Esposte (${(sel.exposed || []).length})</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Codice SKU</th>
+                <th>Nome Prodotto</th>
+                <th>Stato</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${exposedHTML || '<tr><td colspan="3" style="padding:10px;color:#888;">Nessun prodotto esposto rilevato</td></tr>'}
+            </tbody>
+          </table>
+
+          <div class="section-title" style="color:#c62828;">Prodotti Mancanti (${(sel.missing || []).length})</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Codice SKU</th>
+                <th>Nome Prodotto</th>
+                <th>Stato</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${missingHTML || '<tr><td colspan="3" style="padding:10px;color:#888;">Nessun prodotto mancante</td></tr>'}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow?.document || iframe.contentDocument;
+      if (doc) {
+        doc.open();
+        doc.write(docHTML);
+        doc.close();
+
+        setTimeout(() => {
+          try {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+          } catch(e) {
+            console.error('Print trigger error:', e);
           }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <div class="logo">LIU JO</div>
-            <div class="sub">REPORT AUDIT VETRINA &amp; ESPOSIZIONE</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:16px;font-weight:bold;">${jeweler.name}</div>
-            <div style="font-size:12px;color:#666;">${jeweler.city} (${jeweler.region || ''})</div>
-          </div>
-        </div>
-
-        <div class="meta-grid">
-          <div><div class="meta-label">Data Visita</div><div class="meta-val">${sel.vDateLabel}</div></div>
-          <div><div class="meta-label">Agente</div><div class="meta-val">${sel.vAgent}</div></div>
-          <div><div class="meta-label">Indice Copertura</div><div class="meta-val" style="color:${sel.vCoverageColor};">${sel.vCoverageLabel}</div></div>
-          <div><div class="meta-label">Prodotti Mancanti</div><div class="meta-val" style="color:#c62828;">${sel.vMissingLabel}</div></div>
-        </div>
-
-        ${photosHTML ? `<div class="section-title">Foto Scattate in Vetrina</div><div class="photo-grid">${photosHTML}</div>` : ''}
-
-        <div class="section-title">Referenze Esposte (${(sel.exposed || []).length})</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Codice SKU</th>
-              <th>Nome Prodotto</th>
-              <th>Stato</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${exposedHTML || '<tr><td colspan="3" style="padding:10px;color:#888;">Nessun prodotto esposto rilevato</td></tr>'}
-          </tbody>
-        </table>
-
-        <div class="section-title" style="color:#c62828;">Prodotti Mancanti (${(sel.missing || []).length})</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Codice SKU</th>
-              <th>Nome Prodotto</th>
-              <th>Stato</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${missingHTML || '<tr><td colspan="3" style="padding:10px;color:#888;">Nessun prodotto mancante</td></tr>'}
-          </tbody>
-        </table>
-
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 500);
-          };
-        <\/script>
-      </body>
-      </html>
-    `;
-
-    printWin.document.write(docHTML);
-    printWin.document.close();
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+            this.setState({ isExportingPDF: false });
+          }, 1000);
+        }, 500);
+      } else {
+        this.setState({ isExportingPDF: false });
+      }
+    } catch (e) {
+      console.error('Error generating PDF:', e);
+      this.setState({ isExportingPDF: false });
+    }
   }
 
   async handlePhotoUpload(e, jewelerId, visitIdx, photoIdx) {
