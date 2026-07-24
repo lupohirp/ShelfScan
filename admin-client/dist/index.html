@@ -576,7 +576,7 @@
                 *
               </sc-if>
             </label>
-            <div onClick="document.getElementById('inventory-file-input').click()" style="border:2px dashed #e2e1dc;border-radius:2px;padding:24px 14px;text-align:center;cursor:pointer;background:#fafaf9;transition:all .15s;" style-hover="border-color:#141414;background:#f5f4f2;">
+            <div style="position:relative;border:2px dashed #e2e1dc;border-radius:2px;padding:24px 14px;text-align:center;cursor:pointer;background:#fafaf9;transition:all .15s;" style-hover="border-color:#141414;background:#f5f4f2;">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8c8a85" stroke-width="1.6" style="margin:0 auto 8px;display:block;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <div style="font-size:13px;font-weight:500;color:#141414;">{{ filesLabel }}</div>
               <div style="font-size:11px;color:#8c8a85;margin-top:4px;">
@@ -587,7 +587,7 @@
                   {{ t.addFilesSubtitle }}
                 </sc-if>
               </div>
-              <input id="inventory-file-input" type="file" multiple accept="image/*" onChange="{{ onInvFilesChange }}" style="display:none;" />
+              <input type="file" multiple accept="image/*" onChange="{{ onInvFilesChange }}" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:20;" />
             </div>
           </div>
 
@@ -883,11 +883,17 @@
         </div>
 
         <!-- meta row for selected visit -->
-        <div style="display:flex;gap:26px;padding:16px 28px;border-bottom:1px solid #e7e6e2;flex-shrink:0;">
-          <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dVisit }}</div><div style="font-size:13.5px;margin-top:4px;color:#141414;font-weight:600;">{{ sel.vDateLabel }}</div></div>
-          <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dAgent }}</div><div style="font-size:13.5px;margin-top:4px;color:#4a4843;">{{ sel.vAgent }}</div></div>
-          <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dCoverage }}</div><div style="font-size:13.5px;margin-top:4px;display:flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;border-radius:50%;background:{{ sel.vCoverageColor }};display:inline-block;"></span>{{ sel.vCoverageLabel }}</div></div>
-          <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dMissing }}</div><div style="font-size:13.5px;margin-top:4px;color:#b25540;">{{ sel.vMissingLabel }}</div></div>
+        <div style="display:flex;gap:26px;padding:16px 28px;border-bottom:1px solid #e7e6e2;flex-shrink:0;align-items:center;justify-space-between;">
+          <div style="display:flex;gap:26px;">
+            <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dVisit }}</div><div style="font-size:13.5px;margin-top:4px;color:#141414;font-weight:600;">{{ sel.vDateLabel }}</div></div>
+            <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dAgent }}</div><div style="font-size:13.5px;margin-top:4px;color:#4a4843;">{{ sel.vAgent }}</div></div>
+            <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dCoverage }}</div><div style="font-size:13.5px;margin-top:4px;display:flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;border-radius:50%;background:{{ sel.vCoverageColor }};display:inline-block;"></span>{{ sel.vCoverageLabel }}</div></div>
+            <div><div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#b4b2ab;">{{ t.dMissing }}</div><div style="font-size:13.5px;margin-top:4px;color:#b25540;">{{ sel.vMissingLabel }}</div></div>
+          </div>
+          <button onClick="{{ exportVisitPDF }}" style="background:#141414;color:#fff;border:none;border-radius:2px;padding:8px 16px;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;gap:8px;" style-hover="background:#333;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Esporta PDF
+          </button>
         </div>
 
         <!-- tabs -->
@@ -2533,6 +2539,124 @@ class Component extends DCLogic {
     });
   }
 
+
+  exportVisitPDF() {
+    const sel = this.selVisitData();
+    const jeweler = this.jewelers.find(j => j.id === this.state.selectedJewelerId);
+    if (!sel || !jeweler) return;
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) return;
+
+    const exposedHTML = (sel.exposed || []).map(p => `
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:10px;font-family:monospace;font-weight:bold;">${p.sku || 'N/A'}</td>
+        <td style="padding:10px;">${p.name || 'Prodotto'}</td>
+        <td style="padding:10px;color:#2e7d32;font-weight:bold;">ESPOSTO (OK)</td>
+      </tr>
+    `).join('');
+
+    const missingHTML = (sel.missing || []).map(p => `
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:10px;font-family:monospace;font-weight:bold;color:#c62828;">${p.sku || 'N/A'}</td>
+        <td style="padding:10px;">${p.name || 'Prodotto'}</td>
+        <td style="padding:10px;color:#c62828;font-weight:bold;">MANCANTE</td>
+      </tr>
+    `).join('');
+
+    const photosHTML = (sel.photos || []).filter(p => p.url).map(p => `
+      <div style="text-align:center;border:1px solid #ddd;padding:8px;border-radius:4px;background:#fafafa;">
+        <img src="${p.url}" style="max-width:100%;max-height:180px;object-fit:contain;border-radius:2px;" />
+        <div style="font-size:11px;font-weight:bold;margin-top:6px;color:#555;">${p.label || p.tag || 'Foto Vetrina'}</div>
+      </div>
+    `).join('');
+
+    const docHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Report Visita - ${jeweler.name} (${sel.vDateLabel})</title>
+        <style>
+          body { font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #141414; margin: 0; padding: 40px; background: #fff; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #141414; padding-bottom: 20px; margin-bottom: 30px; }
+          .logo { font-family: 'Jost', sans-serif; font-size: 28px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; }
+          .sub { font-size: 12px; color: #666; letter-spacing: 0.1em; text-transform: uppercase; }
+          .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; background: #f8f8f7; padding: 20px; border-radius: 4px; margin-bottom: 30px; }
+          .meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 4px; }
+          .meta-val { font-size: 15px; font-weight: bold; color: #141414; }
+          .section-title { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-top: 30px; margin-bottom: 15px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; padding: 8px 10px; border-bottom: 2px solid #ddd; background: #f4f4f2; }
+          .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; }
+          @media print {
+            body { padding: 0; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="logo">LIU JO</div>
+            <div class="sub">REPORT AUDIT VETRINA &amp; ESPOSIZIONE</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:16px;font-weight:bold;">${jeweler.name}</div>
+            <div style="font-size:12px;color:#666;">${jeweler.city} (${jeweler.region || ''})</div>
+          </div>
+        </div>
+
+        <div class="meta-grid">
+          <div><div class="meta-label">Data Visita</div><div class="meta-val">${sel.vDateLabel}</div></div>
+          <div><div class="meta-label">Agente</div><div class="meta-val">${sel.vAgent}</div></div>
+          <div><div class="meta-label">Indice Copertura</div><div class="meta-val" style="color:${sel.vCoverageColor};">${sel.vCoverageLabel}</div></div>
+          <div><div class="meta-label">Prodotti Mancanti</div><div class="meta-val" style="color:#c62828;">${sel.vMissingLabel}</div></div>
+        </div>
+
+        ${photosHTML ? `<div class="section-title">Foto Scattate in Vetrina</div><div class="photo-grid">${photosHTML}</div>` : ''}
+
+        <div class="section-title">Referenze Esposte (${(sel.exposed || []).length})</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Codice SKU</th>
+              <th>Nome Prodotto</th>
+              <th>Stato</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${exposedHTML || '<tr><td colspan="3" style="padding:10px;color:#888;">Nessun prodotto esposto rilevato</td></tr>'}
+          </tbody>
+        </table>
+
+        <div class="section-title" style="color:#c62828;">Prodotti Mancanti (${(sel.missing || []).length})</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Codice SKU</th>
+              <th>Nome Prodotto</th>
+              <th>Stato</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${missingHTML || '<tr><td colspan="3" style="padding:10px;color:#888;">Nessun prodotto mancante</td></tr>'}
+          </tbody>
+        </table>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 500);
+          };
+        <\/script>
+      </body>
+      </html>
+    `;
+
+    printWin.document.write(docHTML);
+    printWin.document.close();
+  }
 
   async handlePhotoUpload(e, jewelerId, visitIdx, photoIdx) {
     const file = e.target.files?.[0];
