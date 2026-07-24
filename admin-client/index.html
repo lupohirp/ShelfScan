@@ -2605,6 +2605,34 @@ class Component extends DCLogic {
     };
   }
 
+  compressImg(srcUrl, maxWidth, quality = 0.75) {
+    return new Promise((resolve) => {
+      if (!srcUrl || typeof srcUrl !== 'string') return resolve('');
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch(e) {
+          resolve(srcUrl);
+        }
+      };
+      img.onerror = () => resolve(srcUrl);
+      img.src = srcUrl;
+    });
+  }
+
   async exportVisitPDF() {
     if (this.state.isExportingPDF) return;
     this.setState({ isExportingPDF: true });
@@ -2618,13 +2646,30 @@ class Component extends DCLogic {
 
       const jeweler = data.jeweler;
 
-      const exposedHTML = (data.exposed || []).map(p => `
+      // Compress images in parallel for ultra-lightweight PDF (~1 MB instead of 27 MB)
+      const compressedPhotos = await Promise.all((data.photos || []).map(async p => ({
+        ...p,
+        compressedUrl: p.url ? await this.compressImg(p.url, 600, 0.75) : ''
+      })));
+
+      const compressedExposed = await Promise.all((data.exposed || []).map(async p => ({
+        ...p,
+        compressedImageUrl: p.imageUrl ? await this.compressImg(p.imageUrl, 150, 0.75) : '',
+        compressedCropUrl: p.cropUrl ? await this.compressImg(p.cropUrl, 150, 0.75) : ''
+      })));
+
+      const compressedMissing = await Promise.all((data.missing || []).map(async p => ({
+        ...p,
+        compressedImageUrl: p.imageUrl ? await this.compressImg(p.imageUrl, 150, 0.75) : ''
+      })));
+
+      const exposedHTML = (compressedExposed || []).map(p => `
         <tr style="border-bottom:1px solid #eee;vertical-align:middle;">
           <td style="padding:8px;width:70px;text-align:center;">
-            ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #ddd;" />` : `<div style="width:50px;height:50px;background:#eee;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;">NO IMG</div>`}
+            ${p.compressedImageUrl ? `<img src="${p.compressedImageUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #ddd;" />` : `<div style="width:50px;height:50px;background:#eee;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;">NO IMG</div>`}
           </td>
           <td style="padding:8px;width:70px;text-align:center;">
-            ${p.cropUrl ? `<img src="${p.cropUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #2e7d32;background:#f0f8f0;" />` : `<div style="width:50px;height:50px;background:#fafafa;border-radius:3px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:8px;color:#aaa;text-align:center;">NO CROP</div>`}
+            ${p.compressedCropUrl ? `<img src="${p.compressedCropUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #2e7d32;background:#f0f8f0;" />` : `<div style="width:50px;height:50px;background:#fafafa;border-radius:3px;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;font-size:8px;color:#aaa;text-align:center;">NO CROP</div>`}
           </td>
           <td style="padding:8px 10px;font-family:monospace;font-weight:bold;font-size:12px;">${p.sku || 'N/A'}</td>
           <td style="padding:8px 10px;font-size:12px;">${p.name || 'Prodotto'}</td>
@@ -2632,10 +2677,10 @@ class Component extends DCLogic {
         </tr>
       `).join('');
 
-      const missingHTML = (data.missing || []).map(p => `
+      const missingHTML = (compressedMissing || []).map(p => `
         <tr style="border-bottom:1px solid #eee;vertical-align:middle;">
           <td style="padding:8px;width:70px;text-align:center;">
-            ${p.imageUrl ? `<img src="${p.imageUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #ddd;" />` : `<div style="width:50px;height:50px;background:#eee;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;">NO IMG</div>`}
+            ${p.compressedImageUrl ? `<img src="${p.compressedImageUrl}" style="width:50px;height:50px;object-fit:contain;border-radius:3px;border:1px solid #ddd;" />` : `<div style="width:50px;height:50px;background:#eee;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa;">NO IMG</div>`}
           </td>
           <td style="padding:8px 10px;font-family:monospace;font-weight:bold;color:#c62828;font-size:12px;">${p.sku || 'N/A'}</td>
           <td style="padding:8px 10px;font-size:12px;">${p.name || 'Prodotto'}</td>
@@ -2643,9 +2688,9 @@ class Component extends DCLogic {
         </tr>
       `).join('');
 
-      const photosHTML = (data.photos || []).filter(p => p.url).map(p => `
+      const photosHTML = (compressedPhotos || []).filter(p => p.compressedUrl).map(p => `
         <div style="text-align:center;border:1px solid #ddd;padding:6px;border-radius:4px;background:#fafafa;">
-          <img src="${p.url}" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:2px;" />
+          <img src="${p.compressedUrl}" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:2px;" />
           <div style="font-size:10px;font-weight:bold;margin-top:4px;color:#555;">${p.label}</div>
         </div>
       `).join('');
