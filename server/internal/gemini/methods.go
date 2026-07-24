@@ -90,7 +90,7 @@ func (g *GeminiClient) GenerateContentWithFallback(ctx context.Context, prompt s
 	}
 
 	configuredModel := g.GenerativeModel
-	if configuredModel == "" || strings.Contains(configuredModel, "gemma") || strings.Contains(configuredModel, "3.1-pro") {
+	if configuredModel == "" || strings.Contains(configuredModel, "3.1-pro") {
 		configuredModel = "models/gemini-3.5-flash-lite"
 	}
 
@@ -219,11 +219,23 @@ REGOLE DI VALUTAZIONE ESTREMAMENTE SEVERE:
 
 %s`, categoryPrompt)
 
-	modelsToTry := []string{
+	configuredModel := g.GenerativeModel
+	if configuredModel == "" || strings.Contains(configuredModel, "3.1-pro") {
+		configuredModel = "models/gemini-3.5-flash-lite"
+	}
+
+	baseModels := []string{
 		"models/gemini-3.5-flash-lite",
 		"models/gemini-3.1-flash-lite",
 		"models/gemini-3.6-flash",
 		"models/gemini-2.5-flash",
+	}
+
+	modelsToTry := []string{configuredModel}
+	for _, m := range baseModels {
+		if m != configuredModel {
+			modelsToTry = append(modelsToTry, m)
+		}
 	}
 
 	var lastErr error
