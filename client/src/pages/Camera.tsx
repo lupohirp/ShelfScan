@@ -38,48 +38,48 @@ export default function Camera() {
   const stabilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Request 4K Camera & Lifecycle Management
-  useEffect(() => {
-    let currentStream: MediaStream | null = null
-    async function setupCamera() {
-      try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error("navigator.mediaDevices is undefined. Secure context (HTTPS) or localhost is required.")
-        }
-        currentStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 3840 },
-            height: { ideal: 2160 },
-          },
-          audio: false,
-        })
-        setStream(currentStream)
-        if (videoRef.current) {
-          videoRef.current.srcObject = currentStream
-        }
-        const track = currentStream.getVideoTracks()[0]
-        // getCapabilities().torch is Android-only (Chromium). Safari has no torch API.
-        const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean }
-        setTorchSupported(Boolean(caps.torch))
-      } catch (err) {
-        console.error('Error accessing camera:', err)
-        const msg = err instanceof Error ? err.message : String(err)
-        if (msg.toLowerCase().includes("secure context") || msg.toLowerCase().includes("undefined")) {
-          setCameraError("L'accesso alla fotocamera richiede una connessione sicura (HTTPS) o localhost. Apri l'app tramite localhost o una connessione HTTPS.")
-        } else {
-          setCameraError("Accesso alla fotocamera negato o non disponibile. Verifica i permessi del browser.")
-        }
+  const setupCamera = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("navigator.mediaDevices is undefined. Secure context (HTTPS) or localhost is required.")
       }
-    }
-    setupCamera()
-    
-    return () => {
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop())
-        console.log('Camera stopped')
+      const currentStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 3840 },
+          height: { ideal: 2160 },
+        },
+        audio: false,
+      })
+      setStream(currentStream)
+      if (videoRef.current) {
+        videoRef.current.srcObject = currentStream
+      }
+      const track = currentStream.getVideoTracks()[0]
+      // getCapabilities().torch is Android-only (Chromium). Safari has no torch API.
+      const caps = (track?.getCapabilities?.() ?? {}) as MediaTrackCapabilities & { torch?: boolean }
+      setTorchSupported(Boolean(caps.torch))
+    } catch (err) {
+      console.error('Error accessing camera:', err)
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.toLowerCase().includes("secure context") || msg.toLowerCase().includes("undefined")) {
+        setCameraError("L'accesso alla fotocamera richiede una connessione sicura (HTTPS) o localhost. Apri l'app tramite localhost o una connessione HTTPS.")
+      } else {
+        setCameraError("Accesso alla fotocamera negato o non disponibile. Verifica i permessi del browser.")
       }
     }
   }, [])
+
+  useEffect(() => {
+    setupCamera()
+    
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop())
+        console.log('Camera stopped')
+      }
+    }
+  }, [setupCamera])
 
   const handleBack = () => {
     if (stream) {
