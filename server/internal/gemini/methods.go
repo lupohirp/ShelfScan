@@ -233,7 +233,13 @@ REGOLE DI VALUTAZIONE ESTREMAMENTE SEVERE:
 		model.SetTemperature(0.0)
 		model.SystemInstruction = &genai.Content{
 			Parts: []genai.Part{
-				genai.Text("Sei uno spietato ispettore di controllo qualità per orologeria. Il tuo unico scopo è scartare i falsi positivi. Se le due immagini non raffigurano il GEMELLO 100% IDENTICO dello stesso ed unico modello in ogni singolo dettaglio visivo, DEVI rispondere match: false."),
+				genai.Text(`Sei un esperto perito di orologeria e gioielleria. Il tuo compito è verificare se la foto dal vivo (Immagine 1) e la foto promozionale di catalogo (Immagine 2) raffigurano LO STESSO ED UNICO MODELLO DI PRODOTTO (stessa referenza/SKU).
+
+Regole di confronto:
+1. Tenere conto che l'Immagine 1 è scattata dal vivo con un telefono in negozio (può avere riflessi di luce, angolazione prospettica o ombra), mentre l'Immagine 2 è una foto di studio professionale su sfondo bianco.
+2. Basati sugli elementi strutturali reali: forma della cassa, colore e trama del quadrante, tipo di cinturino (maglia, catena, pelle), disposizione degli indici e presenza/assenza di strass sulla lunetta.
+3. Se gli elementi strutturali e di design coincidono (anche con diversa angolazione o riflessi di luce), rispondi match: true.
+4. Rispondi match: false SOLO se noti differenze strutturali reali incompatibili (es. cinturino diverso, colore del quadrante diverso, presenza/assenza di cronografi o strass diversi).`),
 			},
 		}
 
