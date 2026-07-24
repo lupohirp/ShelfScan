@@ -433,6 +433,26 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		// Background heartbeat to prevent Nginx / Proxy socket timeouts during 429 rate-limit backoffs
+		stopHeartbeat := make(chan struct{})
+		if isStreaming {
+			go func() {
+				ticker := time.NewTicker(4 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						sendChunk(map[string]string{"type": "ping"})
+					case <-stopHeartbeat:
+						return
+					case <-r.Context().Done():
+						return
+					}
+				}
+			}()
+		}
+		defer close(stopHeartbeat)
+
 		for imgIdx, fileHeader := range imageFiles {
 			log.Printf("Processing image %d/%d: %s", imgIdx+1, len(imageFiles), fileHeader.Filename)
 			sendChunk(map[string]any{
@@ -714,7 +734,7 @@ func (h *Handler) AnalyzeHandler(w http.ResponseWriter, r *http.Request) {
 								cWg.Add(1)
 								go func(c gemini.VerificationCandidate, vCand ViableCandidate) {
 									defer cWg.Done()
-									matched, reason, err := h.geminiClient.VerifyMatch(context.Background(), cropBuf.Bytes(), c.ImgData, category)
+									matched, reason, err := h.geminiClient.VerifyMatch(r.Context(), cropBuf.Bytes(), c.ImgData, category)
 									if err == nil {
 										resChan <- candRes{matched: matched, reason: reason, cand: vCand}
 									} else {

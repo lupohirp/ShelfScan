@@ -348,6 +348,9 @@ export default function Camera() {
           if (!trimmed) continue
           try {
             const event = JSON.parse(trimmed)
+            if (event.type === 'ping') {
+              continue
+            }
             if (event.type === 'status') {
               setStreamProgressMessage(event.message)
             } else if (event.type === 'image_start') {
